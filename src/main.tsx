@@ -2,6 +2,12 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { syncVisualViewport } from './data/viewport.ts'
+
+syncVisualViewport()
+window.visualViewport?.addEventListener('resize', syncVisualViewport)
+window.visualViewport?.addEventListener('scroll', syncVisualViewport)
+window.addEventListener('orientationchange', syncVisualViewport)
 
 if (import.meta.hot) {
   import.meta.hot.on('vite:beforeUpdate', (payload) => {

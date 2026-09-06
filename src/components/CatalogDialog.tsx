@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react'
+import { canAutofocus } from '../data/viewport'
 import { CategoryMark } from './CategoryMark'
 import { NewCategoryDialog } from './NewCategoryDialog'
 import type { CatalogEntry, Category, Store } from '../types'
@@ -75,7 +76,7 @@ export function CatalogDialog({
           }}
           onKeyDown={onKeyDown}
           placeholder="Например, Молоко 3,2%"
-          autoFocus
+          autoFocus={canAutofocus()}
         />
         {error ? <p className="hint">{error}</p> : null}
         <p className="field-label">Категория</p>

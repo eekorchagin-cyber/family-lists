@@ -3,6 +3,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
 import { NameDialog } from '../components/NameDialog'
 import { SettingsIcon } from '../components/SettingsIcon'
+import { canAutofocus } from '../data/viewport'
 import type { Store } from '../types'
 
 type HomeScreenProps = {
@@ -226,7 +227,7 @@ export function HomeScreen({
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Например, Пятёрочка"
-              autoFocus
+              autoFocus={canAutofocus()}
             />
             <div className="dialog-actions">
               <button type="button" className="button-secondary" onClick={closeDialog}>

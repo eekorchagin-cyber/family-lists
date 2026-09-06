@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent } from 'react'
 import { CATEGORY_COLORS, iconIdFromName } from '../data/categories'
+import { canAutofocus } from '../data/viewport'
 import { CategoryMarkPicker } from './CategoryMarkPicker'
 
 type NewCategoryDialogProps = {
@@ -47,7 +48,7 @@ export function NewCategoryDialog({ onClose, onAdd, showScopeToggle }: NewCatego
           }}
           onKeyDown={onKeyDown}
           placeholder="Например, Заморозка"
-          autoFocus
+          autoFocus={canAutofocus()}
         />
         {showScopeToggle && (
           <div className="scope-toggle">

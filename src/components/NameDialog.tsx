@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react'
+import { canAutofocus } from '../data/viewport'
 
 type NameDialogProps = {
   title: string
@@ -48,7 +49,7 @@ export function NameDialog({
           onChange={(event) => setName(event.target.value)}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
-          autoFocus
+          autoFocus={canAutofocus()}
         />
         <div className="dialog-actions">
           <button type="button" className="button-secondary" onClick={onClose}>
