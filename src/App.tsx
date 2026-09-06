@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { categoriesForStore, sortCategories } from './data/categories'
 import { useAppState } from './hooks/useAppState'
 import { HomeScreen } from './screens/HomeScreen'
+import { NewStoreScreen } from './screens/NewStoreScreen'
 import { StoreScreen } from './screens/StoreScreen'
 import { AddItemScreen } from './screens/AddItemScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
@@ -79,7 +80,7 @@ function App() {
           stores={data.stores}
           onOpenSettings={() => setScreen({ name: 'settings' })}
           onOpenStore={(storeId) => setScreen({ name: 'store', storeId })}
-          onAddStore={addStore}
+          onStartAddStore={() => setScreen({ name: 'newStore' })}
           onRenameStore={renameStore}
           onDeleteStore={(storeId) => {
             deleteStore(storeId)
@@ -171,12 +172,24 @@ function App() {
     )
   }
 
+  if (screen.name === 'newStore') {
+    return (
+      <NewStoreScreen
+        onBack={() => setScreen({ name: 'home' })}
+        onAdd={(name) => {
+          addStore(name)
+          setScreen({ name: 'home' })
+        }}
+      />
+    )
+  }
+
   return (
     <HomeScreen
       stores={data.stores}
       onOpenSettings={() => setScreen({ name: 'settings' })}
       onOpenStore={(storeId) => setScreen({ name: 'store', storeId })}
-      onAddStore={addStore}
+      onStartAddStore={() => setScreen({ name: 'newStore' })}
       onRenameStore={renameStore}
       onDeleteStore={deleteStore}
       onReorderStores={reorderStores}

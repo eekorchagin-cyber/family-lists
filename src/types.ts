@@ -75,3 +75,4 @@ export type Screen =
   | { name: 'store'; storeId: string }
   | { name: 'storeSettings'; storeId: string }
   | { name: 'add'; storeId: string; draft: ParsedItem }
+  | { name: 'newStore' }

@@ -1,16 +1,15 @@
-import { useRef, useState, type FormEvent, type PointerEvent } from 'react'
+import { useRef, useState, type PointerEvent } from 'react'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
 import { NameDialog } from '../components/NameDialog'
 import { SettingsIcon } from '../components/SettingsIcon'
-import { canAutofocus } from '../data/viewport'
 import type { Store } from '../types'
 
 type HomeScreenProps = {
   stores: Store[]
   onOpenSettings: () => void
   onOpenStore: (storeId: string) => void
-  onAddStore: (name: string) => void
+  onStartAddStore: () => void
   onRenameStore: (storeId: string, name: string) => void
   onDeleteStore: (storeId: string) => void
   onReorderStores: (orderedIds: string[]) => void
@@ -30,13 +29,11 @@ export function HomeScreen({
   stores,
   onOpenSettings,
   onOpenStore,
-  onAddStore,
+  onStartAddStore,
   onRenameStore,
   onDeleteStore,
   onReorderStores,
 }: HomeScreenProps) {
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [name, setName] = useState('')
   const [managing, setManaging] = useState<Store | null>(null)
   const [renaming, setRenaming] = useState<Store | null>(null)
   const [deleting, setDeleting] = useState<Store | null>(null)
@@ -47,19 +44,6 @@ export function HomeScreen({
   const skipClick = useRef(false)
   const draftRef = useRef<Store[] | null>(null)
   const displayed = draftStores ?? stores
-
-  function closeDialog() {
-    setDialogOpen(false)
-    setName('')
-  }
-
-  function submitStore(event: FormEvent) {
-    event.preventDefault()
-    const trimmed = name.trim()
-    if (!trimmed) return
-    onAddStore(trimmed)
-    closeDialog()
-  }
 
   function onPointerDown(
     event: PointerEvent<HTMLButtonElement>,
@@ -202,44 +186,9 @@ export function HomeScreen({
         )}
       </main>
 
-      <button
-        type="button"
-        className="fab"
-        onClick={() => setDialogOpen(true)}
-      >
+      <button type="button" className="fab" onClick={onStartAddStore}>
         Добавить список
       </button>
-
-      {dialogOpen && (
-        <div className="overlay" role="presentation" onClick={closeDialog}>
-          <form
-            className="dialog"
-            onClick={(event) => event.stopPropagation()}
-            onSubmit={submitStore}
-          >
-            <h2>Новый список</h2>
-            <label className="field-label" htmlFor="store-name">
-              Название магазина
-            </label>
-            <input
-              id="store-name"
-              className="input"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Например, Пятёрочка"
-              autoFocus={canAutofocus()}
-            />
-            <div className="dialog-actions">
-              <button type="button" className="button-secondary" onClick={closeDialog}>
-                Отмена
-              </button>
-              <button type="submit" className="button-primary" disabled={!name.trim()}>
-                Добавить
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {managing && (
         <div className="overlay" role="presentation" onClick={() => setManaging(null)}>
