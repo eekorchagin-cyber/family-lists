@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { DoneButton } from '../components/DoneButton'
 import { Header } from '../components/Header'
 
 type NewStoreScreenProps = {
@@ -25,6 +26,7 @@ export function NewStoreScreen({ onBack, onAdd }: NewStoreScreenProps) {
             ←
           </button>
         }
+        right={<DoneButton type="submit" disabled={!name.trim()} />}
       />
       <div className="add-scroll">
         <label className="field-label" htmlFor="store-name">
@@ -40,11 +42,6 @@ export function NewStoreScreen({ onBack, onAdd }: NewStoreScreenProps) {
           autoComplete="off"
           autoCorrect="off"
         />
-      </div>
-      <div className="add-footer">
-        <button type="submit" className="button-primary add-submit" disabled={!name.trim()}>
-          Добавить
-        </button>
       </div>
     </form>
   )

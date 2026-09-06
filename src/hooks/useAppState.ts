@@ -4,6 +4,8 @@ import {
   categoriesForStore,
   ensureCategoryOrder,
   iconIdFromName,
+  withCategoriesEnabled,
+  withCategoryEnabled,
 } from '../data/categories'
 import { mergeCatalogFromItems, upsertCatalog } from '../data/catalog'
 import { emptyStoreFields } from '../data/defaults'
@@ -112,12 +114,9 @@ export function useAppState() {
         id = existing.id
         const store = current.stores.find((item) => item.id === storeId)
         if (!store) return current
-        const cats = categoriesForStore(current.categories, storeId)
-        const order = ensureCategoryOrder(store, cats)
-        if (order.includes(existing.id)) return current
-        return persist(
-          patchStore(current, storeId, { categoryOrder: [...order, existing.id] }),
-        )
+        const next = withCategoryEnabled(store, existing.id, current.categories)
+        if (next === store) return current
+        return persist(patchStore(current, storeId, { categoryOrder: next.categoryOrder }))
       }
       id = newId()
       const categories = [
@@ -133,7 +132,12 @@ export function useAppState() {
     return id
   }, [])
 
-  const addGlobalCategory = useCallback((name: string, color: string, icon?: string) => {
+  const addGlobalCategory = useCallback((
+    name: string,
+    color: string,
+    icon?: string,
+    storeId?: string,
+  ) => {
     const trimmed = name.trim()
     if (!trimmed) return ''
     const id = newId()
@@ -142,10 +146,17 @@ export function useAppState() {
         ...current.categories,
         { id, name: trimmed, color, icon: icon || iconIdFromName(trimmed) },
       ]
+      const stores = storeId
+        ? current.stores.map((store) =>
+            store.id === storeId
+              ? withCategoryEnabled(store, id, categories)
+              : store,
+          )
+        : appendCategoryToStores(current.stores, categories)
       return persist({
         ...current,
         categories,
-        stores: appendCategoryToStores(current.stores, categories),
+        stores,
       })
     })
     return id
@@ -223,11 +234,75 @@ export function useAppState() {
     })
   }, [])
 
+  const setCategoryScope = useCallback((
+    storeId: string,
+    categoryId: string,
+    name: string,
+    global: boolean,
+  ) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setData((current) => {
+      const category = current.categories.find((item) => item.id === categoryId)
+      if (!category) return current
+      if (!global && category.storeId && category.storeId !== storeId) return current
+
+      const categories = current.categories.map((item) => {
+        if (item.id !== categoryId) return item
+        if (global) {
+          return {
+            id: item.id,
+            name: trimmed,
+            color: item.color,
+            ...(item.icon ? { icon: item.icon } : {}),
+          }
+        }
+        return { ...item, name: trimmed, storeId }
+      })
+
+      const stores = current.stores.map((store) => {
+        const categoryNames = { ...store.categoryNames }
+        delete categoryNames[categoryId]
+        if (global) {
+          const next = {
+            ...store,
+            categoryNames,
+            categoryOrder:
+              store.id === storeId && !(store.categoryOrder ?? []).includes(categoryId)
+                ? [...(store.categoryOrder ?? []), categoryId]
+                : store.categoryOrder,
+          }
+          return {
+            ...next,
+            categoryOrder: ensureCategoryOrder(
+              next,
+              categoriesForStore(categories, next),
+            ),
+          }
+        }
+        return {
+          ...store,
+          categoryNames,
+          categoryOrder:
+            store.id === storeId
+              ? ensureCategoryOrder(store, categoriesForStore(categories, store))
+              : (store.categoryOrder ?? []).filter((id) => id !== categoryId),
+        }
+      })
+
+      return persist({
+        ...current,
+        categories,
+        stores,
+      })
+    })
+  }, [])
+
   const setCategorySort = useCallback((storeId: string, categorySort: CategorySort) => {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       if (!store) return current
-      const cats = categoriesForStore(current.categories, storeId)
+      const cats = categoriesForStore(current.categories, store)
       return persist(
         patchStore(current, storeId, {
           categorySort,
@@ -241,7 +316,7 @@ export function useAppState() {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       if (!store) return current
-      const cats = categoriesForStore(current.categories, storeId)
+      const cats = categoriesForStore(current.categories, store)
       const order = ensureCategoryOrder(store, cats)
       const index = order.indexOf(categoryId)
       const next = index + direction
@@ -254,6 +329,51 @@ export function useAppState() {
       swapped[next] = currentId
       return persist(
         patchStore(current, storeId, { categorySort: 'custom', categoryOrder: swapped }),
+      )
+    })
+  }, [])
+
+  const enableCategoryInStore = useCallback((storeId: string, categoryId: string) => {
+    setData((current) => {
+      const store = current.stores.find((item) => item.id === storeId)
+      if (!store) return current
+      const next = withCategoryEnabled(store, categoryId, current.categories)
+      if (next === store) return current
+      return persist(patchStore(current, storeId, { categoryOrder: next.categoryOrder }))
+    })
+  }, [])
+
+  const removeCategoryFromStore = useCallback((storeId: string, categoryId: string) => {
+    setData((current) => {
+      const store = current.stores.find((item) => item.id === storeId)
+      const category = current.categories.find((item) => item.id === categoryId)
+      if (!store || !category) return current
+      if (category.storeId && category.storeId !== storeId) return current
+
+      if (category.storeId === storeId) {
+        return persist({
+          ...current,
+          categories: current.categories.filter((item) => item.id !== categoryId),
+          catalog: (current.catalog ?? []).filter((entry) => entry.categoryId !== categoryId),
+          stores: current.stores.map((item) => {
+            const categoryNames = { ...item.categoryNames }
+            delete categoryNames[categoryId]
+            return {
+              ...item,
+              categoryNames,
+              categoryOrder: (item.categoryOrder ?? []).filter((id) => id !== categoryId),
+            }
+          }),
+        })
+      }
+
+      const categoryNames = { ...store.categoryNames }
+      delete categoryNames[categoryId]
+      return persist(
+        patchStore(current, storeId, {
+          categoryNames,
+          categoryOrder: (store.categoryOrder ?? []).filter((id) => id !== categoryId),
+        }),
       )
     })
   }, [])
@@ -288,6 +408,11 @@ export function useAppState() {
           trimmedName,
           categoryId,
         )
+        const stores = current.stores.map((store) =>
+          store.id === storeId
+            ? withCategoryEnabled(store, categoryId, current.categories)
+            : store,
+        )
 
         if (existing) {
           return persist({
@@ -298,6 +423,7 @@ export function useAppState() {
                 : item,
             ),
             catalog,
+            stores,
           })
         }
 
@@ -315,6 +441,7 @@ export function useAppState() {
           ...current,
           items: [...current.items, item],
           catalog,
+          stores,
         })
       })
     },
@@ -334,7 +461,14 @@ export function useAppState() {
           categoryId && current.categories.some((category) => category.id === categoryId)
             ? rememberCatalog(current.catalog ?? [], prev.name, categoryId)
             : current.catalog
-        return persist({ ...current, items, catalog })
+        const stores = categoryId
+          ? current.stores.map((store) =>
+              store.id === prev.storeId
+                ? withCategoryEnabled(store, categoryId, current.categories)
+                : store,
+            )
+          : current.stores
+        return persist({ ...current, items, catalog, stores })
       })
     },
     [],
@@ -420,6 +554,15 @@ export function useAppState() {
         ...current,
         items,
         catalog: mergeCatalogFromItems(current.catalog ?? [], items),
+        stores: current.stores.map((item) =>
+          item.id === storeId
+            ? withCategoriesEnabled(
+                item,
+                template.items.map((entry) => entry.categoryId),
+                current.categories,
+              )
+            : item,
+        ),
       })
     })
   }, [])
@@ -541,6 +684,15 @@ export function useAppState() {
           ...current,
           items,
           catalog: mergeCatalogFromItems(current.catalog ?? [], items),
+          stores: current.stores.map((store) =>
+            store.id === toStoreId
+              ? withCategoriesEnabled(
+                  store,
+                  sourceActive.map((entry) => entry.categoryId),
+                  current.categories,
+                )
+              : store,
+          ),
         })
       })
     },
@@ -590,12 +742,15 @@ export function useAppState() {
     addItem,
     addCategory,
     addGlobalCategory,
+    enableCategoryInStore,
+    removeCategoryFromStore,
     renameGlobalCategory,
     setCategoryStyle,
     deleteGlobalCategory,
     saveCatalogEntry,
     deleteCatalogEntry,
     renameCategory,
+    setCategoryScope,
     setCategorySort,
     moveCategory,
     updateItem,

@@ -78,9 +78,54 @@ export function categoryGlyph(category: Pick<Category, 'name' | 'icon'>): string
 
 export function categoriesForStore(
   categories: Category[],
-  storeId: string,
+  store: Pick<Store, 'id' | 'categoryOrder'>,
 ): Category[] {
-  return categories.filter((category) => !category.storeId || category.storeId === storeId)
+  const enabled = new Set(store.categoryOrder ?? [])
+  return categories.filter((category) => {
+    if (category.storeId) return category.storeId === store.id
+    return enabled.has(category.id)
+  })
+}
+
+export function unusedGlobalCategories(
+  categories: Category[],
+  store: Pick<Store, 'id' | 'categoryOrder'>,
+): Category[] {
+  const enabled = new Set(store.categoryOrder ?? [])
+  return categories
+    .filter((category) => !category.storeId && !enabled.has(category.id))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+}
+
+export function storeHasLocalCategories(categories: Category[], storeId: string): boolean {
+  return categories.some((category) => category.storeId === storeId)
+}
+
+export function withCategoryEnabled(
+  store: Store,
+  categoryId: string,
+  categories: Category[],
+): Store {
+  const category = categories.find((item) => item.id === categoryId)
+  if (!category) return store
+  if (category.storeId && category.storeId !== store.id) return store
+  if ((store.categoryOrder ?? []).includes(categoryId)) return store
+  return {
+    ...store,
+    categoryOrder: [...(store.categoryOrder ?? []), categoryId],
+  }
+}
+
+export function withCategoriesEnabled(
+  store: Store,
+  categoryIds: Iterable<string>,
+  categories: Category[],
+): Store {
+  let next = store
+  for (const categoryId of categoryIds) {
+    next = withCategoryEnabled(next, categoryId, categories)
+  }
+  return next
 }
 
 export function restoreLocalCategoryStoreIds(
@@ -103,13 +148,17 @@ export function appendCategoryToStores(
     ...store,
     categoryOrder: ensureCategoryOrder(
       store,
-      categoriesForStore(categories, store.id),
+      categoriesForStore(categories, store),
     ),
   }))
 }
 
 export function categoryName(category: Category, store: Store): string {
   return store.categoryNames?.[category.id] ?? category.name
+}
+
+export function isLocalToStore(category: Category, store: Store): boolean {
+  return category.storeId === store.id || Boolean(store.categoryNames?.[category.id])
 }
 
 export function ensureCategoryOrder(store: Store, categories: Category[]): string[] {

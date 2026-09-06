@@ -1,14 +1,16 @@
 import type { ReactNode } from 'react'
+import { HelpButton } from './HelpButton'
 import { LongPressButton } from './LongPressButton'
 
 type HeaderProps = {
   title: string
   left?: ReactNode
   right?: ReactNode
+  help?: ReactNode
   onTitleLongPress?: () => void
 }
 
-export function Header({ title, left, right, onTitleLongPress }: HeaderProps) {
+export function Header({ title, left, right, help, onTitleLongPress }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-side">{left}</div>
@@ -26,7 +28,10 @@ export function Header({ title, left, right, onTitleLongPress }: HeaderProps) {
           title
         )}
       </h1>
-      <div className="header-side header-side-right">{right}</div>
+      <div className="header-side header-side-right">
+        {help ? <HelpButton text={help} /> : null}
+        {right}
+      </div>
     </header>
   )
 }

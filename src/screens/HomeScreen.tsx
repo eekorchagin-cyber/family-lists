@@ -1,12 +1,15 @@
 import { useRef, useState, type PointerEvent } from 'react'
+import { AddIconButton } from '../components/AddIconButton'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
 import { NameDialog } from '../components/NameDialog'
 import { SettingsIcon } from '../components/SettingsIcon'
-import type { Store } from '../types'
+import { storeHasLocalCategories } from '../data/categories'
+import type { Category, Store } from '../types'
 
 type HomeScreenProps = {
   stores: Store[]
+  categories: Category[]
   onOpenSettings: () => void
   onOpenStore: (storeId: string) => void
   onStartAddStore: () => void
@@ -27,6 +30,7 @@ type DragState = {
 
 export function HomeScreen({
   stores,
+  categories,
   onOpenSettings,
   onOpenStore,
   onStartAddStore,
@@ -129,7 +133,14 @@ export function HomeScreen({
     <div className="screen">
       <Header
         title="Списки"
-        right={
+        help={
+          stores.length > 1
+            ? 'Потяните список за полоски слева, чтобы изменить порядок. Заштрихованные списки содержат свои категории.'
+            : categories.some((category) => category.storeId)
+              ? 'Заштрихованные списки содержат свои категории.'
+              : undefined
+        }
+        left={
           <button
             type="button"
             className="icon-button"
@@ -139,11 +150,12 @@ export function HomeScreen({
             <SettingsIcon />
           </button>
         }
+        right={<AddIconButton ariaLabel="Добавить список" onClick={onStartAddStore} />}
       />
 
       <main className="content">
         {stores.length === 0 ? (
-          <p className="empty">Нет магазинов. Нажмите «Добавить список».</p>
+          <p className="empty">Нет магазинов. Нажмите «+» справа вверху.</p>
         ) : (
           <>
             <ul className="store-list" ref={listRef}>
@@ -151,9 +163,12 @@ export function HomeScreen({
                 <li key={store.id} data-store-id={store.id} className="store-row-wrap">
                   <button
                     type="button"
-                    className={
-                      draggingId === store.id ? 'store-row dragging' : 'store-row'
-                    }
+                    className={[
+                      draggingId === store.id ? 'store-row dragging' : 'store-row',
+                      storeHasLocalCategories(categories, store.id) ? 'store-row--local' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                     onPointerDown={(event) => onPointerDown(event, store.id)}
                     onPointerMove={onPointerMove}
                     onPointerUp={finishDrag}
@@ -166,7 +181,12 @@ export function HomeScreen({
                       <span />
                       <span />
                     </span>
-                    <span className="store-name">{store.name}</span>
+                    <span className="store-name">
+                      <span className="store-name-text">{store.name}</span>
+                      {storeHasLocalCategories(categories, store.id) ? (
+                        <span className="store-local-mark">свои</span>
+                      ) : null}
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -179,16 +199,9 @@ export function HomeScreen({
                 </li>
               ))}
             </ul>
-            {stores.length > 1 && (
-              <p className="hint">Потяните список, чтобы изменить порядок.</p>
-            )}
           </>
         )}
       </main>
-
-      <button type="button" className="fab" onClick={onStartAddStore}>
-        Добавить список
-      </button>
 
       {managing && (
         <div className="overlay" role="presentation" onClick={() => setManaging(null)}>

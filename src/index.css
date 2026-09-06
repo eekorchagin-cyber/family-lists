@@ -103,7 +103,7 @@ ul {
 .header {
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: 56px 1fr 56px;
+  grid-template-columns: 56px 1fr auto;
   align-items: center;
   min-height: 64px;
   padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
@@ -142,6 +142,48 @@ ul {
 
 .header-side-right {
   justify-content: flex-end;
+  min-width: 56px;
+  gap: 2px;
+}
+
+.help-button {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 1.05em;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  margin: 6px;
+}
+
+.help-text {
+  color: var(--muted);
+  font-size: 0.95em;
+  line-height: 1.45;
+}
+
+.help-text p + p {
+  margin-top: 12px;
+}
+
+.dialog-actions-single {
+  grid-template-columns: 1fr;
+}
+
+.header-done {
+  min-height: 48px;
+  border: 0;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.header-done:disabled {
+  opacity: 0.4;
 }
 
 .icon-button {
@@ -153,12 +195,23 @@ ul {
   cursor: pointer;
 }
 
+.add-icon-button {
+  font-size: 1.7em;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.add-icon-button:disabled {
+  opacity: 0.4;
+}
+
 .content {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 16px 16px 96px;
+  padding: 16px;
 }
 
 .empty,
@@ -254,6 +307,37 @@ ul {
 .store-name {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.store-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-local-mark {
+  flex-shrink: 0;
+  font-size: 0.75em;
+  font-weight: 400;
+  padding: 1px 6px;
+  border-radius: 20px;
+  border: 1px dashed var(--text-secondary);
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.store-row--local {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 4px,
+    color-mix(in srgb, var(--accent) 12%, transparent) 4px,
+    color-mix(in srgb, var(--accent) 12%, transparent) 8px
+  );
 }
 
 .store-row-wrap {
@@ -595,6 +679,14 @@ ul {
 .category-name-input {
   flex: 1;
   min-width: 0;
+}
+
+button.category-name-input {
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .category-name-input--custom {

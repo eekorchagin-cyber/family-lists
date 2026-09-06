@@ -10,10 +10,7 @@ import type {
 } from '../types'
 import { catalogFromItems, mergeCatalogFromItems } from './catalog'
 import backup from './backup.json'
-import {
-  appendCategoryToStores,
-  restoreLocalCategoryStoreIds,
-} from './categories'
+import { appendCategoryToStores } from './categories'
 import {
   createDefaultData,
   DEFAULT_CATEGORIES,
@@ -184,11 +181,7 @@ export function migrate(raw: unknown): AppData {
   const items = Array.isArray(raw.items)
     ? raw.items.map(normalizeItem).filter((item): item is Item => item !== null)
     : []
-  const normalizedCategories = normalizeCategories(raw.categories)
-  const backupCategories = normalizeCategories(
-    (backup as { categories?: unknown }).categories,
-  )
-  const categories = restoreLocalCategoryStoreIds(normalizedCategories, backupCategories)
+  const categories = normalizeCategories(raw.categories)
   const stores = Array.isArray(raw.stores)
     ? raw.stores.map(normalizeStore).filter((store): store is Store => store !== null)
     : []

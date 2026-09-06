@@ -51,22 +51,29 @@ export function NewCategoryDialog({ onClose, onAdd, showScopeToggle }: NewCatego
           autoFocus={canAutofocus()}
         />
         {showScopeToggle && (
-          <div className="scope-toggle">
-            <button
-              type="button"
-              className={`scope-option${!isGlobal ? ' scope-option--active' : ''}`}
-              onClick={() => setIsGlobal(false)}
-            >
-              Только здесь
-            </button>
-            <button
-              type="button"
-              className={`scope-option${isGlobal ? ' scope-option--active' : ''}`}
-              onClick={() => setIsGlobal(true)}
-            >
-              Для всех списков
-            </button>
-          </div>
+          <>
+            <div className="scope-toggle">
+              <button
+                type="button"
+                className={`scope-option${!isGlobal ? ' scope-option--active' : ''}`}
+                onClick={() => setIsGlobal(false)}
+              >
+                Только здесь
+              </button>
+              <button
+                type="button"
+                className={`scope-option${isGlobal ? ' scope-option--active' : ''}`}
+                onClick={() => setIsGlobal(true)}
+              >
+                Для всех списков
+              </button>
+            </div>
+            <p className="hint">
+              {isGlobal
+                ? 'Общая категория: её можно будет добавить в другие списки.'
+                : 'Категория появится только в этом списке.'}
+            </p>
+          </>
         )}
         <CategoryMarkPicker
           color={color}
@@ -82,7 +89,7 @@ export function NewCategoryDialog({ onClose, onAdd, showScopeToggle }: NewCatego
             Отмена
           </button>
           <button type="button" className="button-primary" disabled={!name.trim()} onClick={submit}>
-            Добавить
+            Готово
           </button>
         </div>
       </div>

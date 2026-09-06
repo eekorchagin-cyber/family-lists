@@ -1,9 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { DoneButton } from '../components/DoneButton'
 import { CategoryMark } from '../components/CategoryMark'
 import { Header } from '../components/Header'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
-import { categoryName } from '../data/categories'
+import { categoryName, isLocalToStore } from '../data/categories'
 import { catalogCategoryId } from '../data/catalog'
 import { formatQty, parseQty } from '../data/qty'
 import type { CatalogEntry, Category, Item, ParsedItem, Store } from '../types'
@@ -67,6 +68,7 @@ export function AddItemScreen({
             ←
           </button>
         }
+        right={<DoneButton type="submit" disabled={!categoryId || qty === null} />}
       />
 
       <div className="add-scroll">
@@ -95,7 +97,7 @@ export function AddItemScreen({
                 className={[
                   'category-chip',
                   categoryId === category.id ? 'active' : '',
-                  (category.storeId === store.id || store.categoryNames?.[category.id]) ? 'category-chip--local' : '',
+                  isLocalToStore(category, store) ? 'category-chip--local' : '',
                 ].filter(Boolean).join(' ')}
                 onClick={() => setCategoryId(category.id)}
               >
@@ -111,12 +113,6 @@ export function AddItemScreen({
           onClick={() => setAddingCategory(true)}
         >
           Новая категория
-        </button>
-      </div>
-
-      <div className="add-footer">
-        <button type="submit" className="button-primary add-submit" disabled={!categoryId || qty === null}>
-          Добавить
         </button>
       </div>
 

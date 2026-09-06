@@ -6,7 +6,7 @@ import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
 import { SettingsIcon } from '../components/SettingsIcon'
-import { categoryName } from '../data/categories'
+import { categoryName, isLocalToStore } from '../data/categories'
 import { parseItem } from '../data/parseItem'
 import { formatQty, parseQty } from '../data/qty'
 import type { Category, Item, ParsedItem, Store } from '../types'
@@ -126,6 +126,7 @@ export function StoreScreen({
       <Header
         title={store.name}
         onTitleLongPress={() => setRenamingStore(true)}
+        help="Введите товар и нажмите «Далее». Можно сразу указать количество, например: Молоко: 2 шт. Нажмите товар, чтобы отметить купленным; нажмите купленный ещё раз, чтобы вернуть."
         left={
           <button type="button" className="icon-button" onClick={onBack} aria-label="К списку магазинов">
             ←
@@ -157,7 +158,6 @@ export function StoreScreen({
             Далее
           </button>
         </form>
-        <p className="hint">Введите, например, Молоко: 2 шт</p>
 
         {suggestions.length > 0 && (
           <ul className="suggestions">
@@ -189,7 +189,7 @@ export function StoreScreen({
           <div className="groups">
             {grouped.map(({ category, items: categoryItems }) => (
               <section key={category.id} className="group">
-                <h2 className={`group-title${(category.storeId === store.id || store.categoryNames?.[category.id]) ? ' group-title--local' : ''}`}>
+                <h2 className={`group-title${isLocalToStore(category, store) ? ' group-title--local' : ''}`}>
                   <CategoryMark category={category} />
                   {categoryName(category, store)}
                 </h2>
@@ -247,8 +247,8 @@ export function StoreScreen({
                     <li key={item.id}>
                       <LongPressButton
                         className="item-row bought"
-                        onClick={() => undefined}
-                        onLongPress={() => onUnmarkBought(item.id)}
+                        onClick={() => onUnmarkBought(item.id)}
+                        onLongPress={() => openEdit(item)}
                       >
                         <span className="item-name">{item.name}</span>
                         <span className="item-qty">

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AddIconButton } from '../components/AddIconButton'
 import { CatalogDialog } from '../components/CatalogDialog'
 import { CategoryMark } from '../components/CategoryMark'
 import { CategoryStyleDialog } from '../components/CategoryStyleDialog'
@@ -11,7 +12,7 @@ type SettingsSection = 'appearance' | 'categories' | 'catalog'
 
 const SECTIONS: { id: SettingsSection; title: string; hint: string }[] = [
   { id: 'appearance', title: 'Оформление', hint: 'Тема и размер шрифта' },
-  { id: 'categories', title: 'Категории', hint: 'Общие для всех списков' },
+  { id: 'categories', title: 'Категории', hint: 'Общие — добавить в любой список' },
   { id: 'catalog', title: 'Товары', hint: 'Справочник' },
 ]
 
@@ -137,6 +138,22 @@ export function SettingsScreen({
             ←
           </button>
         }
+        right={
+          section === 'categories' ? (
+            <AddIconButton ariaLabel="Новая категория" onClick={() => setAddingCategory(true)} />
+          ) : section === 'catalog' ? (
+            <AddIconButton ariaLabel="Новый товар" onClick={() => setEditing('new')} />
+          ) : undefined
+        }
+        help={
+          section === 'categories' ? (
+              <p>Порядок отделов задаётся в каждом списке отдельно. Новая общая категория не появится в списках сама — её нужно добавить.</p>
+          ) : section === 'catalog' ? (
+            <p>
+              Если выбрать товар из справочника, он попадёт в свою категорию в любом списке.
+            </p>
+          ) : undefined
+        }
       />
       <main className="content">
         {section === null && (
@@ -209,7 +226,6 @@ export function SettingsScreen({
 
         {section === 'categories' && (
           <section className="settings-block">
-            <p className="hint">Порядок отделов задаётся в каждом списке отдельно.</p>
             <ul className="category-edit-list">
               {globals.map((category) => (
                 <li key={category.id} className="category-edit-row">
@@ -254,21 +270,11 @@ export function SettingsScreen({
                 </li>
               ))}
             </ul>
-            <button
-              type="button"
-              className="button-secondary add-category"
-              onClick={() => setAddingCategory(true)}
-            >
-              Новая категория
-            </button>
           </section>
         )}
 
         {section === 'catalog' && (
           <section className="settings-block">
-            <p className="hint">
-              Если выбрать товар из справочника, он попадёт в свою категорию в любом списке.
-            </p>
             {(catalog ?? []).length > 0 && (
               <>
                 <div className="choice-row">
@@ -357,13 +363,6 @@ export function SettingsScreen({
                 })}
               </ul>
             )}
-            <button
-              type="button"
-              className="button-secondary add-category"
-              onClick={() => setEditing('new')}
-            >
-              Новый товар
-            </button>
           </section>
         )}
       </main>

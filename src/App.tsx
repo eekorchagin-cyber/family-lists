@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { categoriesForStore, sortCategories } from './data/categories'
+import { categoriesForStore, sortCategories, unusedGlobalCategories } from './data/categories'
 import { useAppState } from './hooks/useAppState'
 import { HomeScreen } from './screens/HomeScreen'
 import { NewStoreScreen } from './screens/NewStoreScreen'
@@ -23,7 +23,9 @@ function App() {
     saveCatalogEntry,
     deleteCatalogEntry,
     addCategory,
-    renameCategory,
+    enableCategoryInStore,
+    removeCategoryFromStore,
+    setCategoryScope,
     setCategorySort,
     moveCategory,
     updateItem,
@@ -78,6 +80,7 @@ function App() {
       return (
         <HomeScreen
           stores={data.stores}
+          categories={data.categories}
           onOpenSettings={() => setScreen({ name: 'settings' })}
           onOpenStore={(storeId) => setScreen({ name: 'store', storeId })}
           onStartAddStore={() => setScreen({ name: 'newStore' })}
@@ -92,7 +95,7 @@ function App() {
     }
 
     const storeCategories = sortCategories(
-      categoriesForStore(data.categories, store.id),
+      categoriesForStore(data.categories, store),
       store,
     )
     const storeItems = data.items.filter((item) => item.storeId === store.id)
@@ -102,6 +105,8 @@ function App() {
         <ListSettingsScreen
           store={store}
           categories={storeCategories}
+          unusedCategories={unusedGlobalCategories(data.categories, store)}
+          items={storeItems}
           otherStores={data.stores.filter((item) => item.id !== store.id)}
           activeCount={storeItems.filter((item) => !item.bought).length}
           onBack={() => setScreen({ name: 'store', storeId: store.id })}
@@ -111,13 +116,17 @@ function App() {
             setScreen({ name: 'home' })
           }}
           onSort={(sort) => setCategorySort(store.id, sort)}
-          onRename={(categoryId, name) => renameCategory(store.id, categoryId, name)}
+          onSetScope={(categoryId, name, global) =>
+            setCategoryScope(store.id, categoryId, name, global)
+          }
           onMove={(categoryId, direction) => moveCategory(store.id, categoryId, direction)}
           onAddCategory={(name, color, icon, global) =>
             global
-              ? addGlobalCategory(name, color, icon)
+              ? addGlobalCategory(name, color, icon, store.id)
               : addCategory(store.id, name, color, icon)
           }
+          onEnableCategory={(categoryId) => enableCategoryInStore(store.id, categoryId)}
+          onRemoveCategory={(categoryId) => removeCategoryFromStore(store.id, categoryId)}
           onApplyTemplate={(templateId) => {
             applyTemplate(store.id, templateId)
             setScreen({ name: 'store', storeId: store.id })
@@ -187,6 +196,7 @@ function App() {
   return (
     <HomeScreen
       stores={data.stores}
+      categories={data.categories}
       onOpenSettings={() => setScreen({ name: 'settings' })}
       onOpenStore={(storeId) => setScreen({ name: 'store', storeId })}
       onStartAddStore={() => setScreen({ name: 'newStore' })}
