@@ -9,12 +9,12 @@ import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
-import type { Category, CategorySort, Item, Store } from '../types'
+import type { Category, CategorySort, Item, Store, StoreVisibility } from '../types'
 
 type ListSettingsSection = 'list' | 'categories' | 'templates' | 'transfer'
 
 const SECTIONS: { id: ListSettingsSection; title: string; hint: string }[] = [
-  { id: 'list', title: 'Список', hint: 'Название и удаление' },
+  { id: 'list', title: 'Список', hint: 'Название, кто видит и удаление' },
   { id: 'categories', title: 'Категории', hint: 'Отделы этого списка' },
   { id: 'templates', title: 'Шаблоны', hint: 'Заполнить список' },
   { id: 'transfer', title: 'В другой список', hint: 'Копирование и перенос' },
@@ -65,6 +65,8 @@ type ListSettingsScreenProps = {
   onSaveTemplate: (name: string) => void
   onCopyToStore: (storeId: string) => void
   onMoveToStore: (storeId: string) => void
+  syncEnabled?: boolean
+  onVisibility?: (visibility: StoreVisibility) => void
 }
 
 export function ListSettingsScreen({
@@ -89,6 +91,8 @@ export function ListSettingsScreen({
   onSaveTemplate,
   onCopyToStore,
   onMoveToStore,
+  syncEnabled = false,
+  onVisibility,
 }: ListSettingsScreenProps) {
   const [section, setSection] = useState<ListSettingsSection | null>(null)
   const [picking, setPicking] = useState(false)
@@ -133,6 +137,9 @@ export function ListSettingsScreen({
     <div className="screen">
       <Header
         title={title}
+        subtitle={
+          section === 'list' || section === 'transfer' ? undefined : store.name
+        }
         left={
           <button type="button" className="icon-button" onClick={goBack} aria-label="Назад">
             ←
@@ -216,6 +223,27 @@ export function ListSettingsScreen({
                 if (event.key === 'Enter') event.currentTarget.blur()
               }}
             />
+            {syncEnabled && onVisibility ? (
+              <>
+                <p className="field-label">Кто видит</p>
+                <div className="choice-row">
+                  <button
+                    type="button"
+                    className={store.visibility !== 'home' ? 'choice active' : 'choice'}
+                    onClick={() => onVisibility('private')}
+                  >
+                    Только я
+                  </button>
+                  <button
+                    type="button"
+                    className={store.visibility === 'home' ? 'choice active' : 'choice'}
+                    onClick={() => onVisibility('home')}
+                  >
+                    Весь дом
+                  </button>
+                </div>
+              </>
+            ) : null}
             <button
               type="button"
               className="button-danger add-category"

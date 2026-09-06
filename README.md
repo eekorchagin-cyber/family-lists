@@ -22,3 +22,22 @@ npm run dev
 ```
 
 Откроется `http://localhost:5173/`.
+
+## Семья и синхронизация
+
+Сайт как сейчас: GitHub Pages + Supabase Free. Почту (Resend) не подключаем.
+
+1. Создайте проект на [supabase.com](https://supabase.com).
+2. Authentication → Providers → Email: выключите **Confirm email**.
+3. SQL Editor: вставьте `supabase/schema.sql`.
+4. Settings → API: скопируйте URL и `anon` ключ в `.env.local`:
+
+```
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=...
+```
+
+5. Пересоберите сайт (`npm run build`) и залейте Pages — ключи попадают в сборку.
+
+Без ключей приложение работает только на телефоне, как раньше. В настройках раздел «Семья».
+

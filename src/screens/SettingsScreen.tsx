@@ -5,19 +5,24 @@ import { CategoryMark } from '../components/CategoryMark'
 import { CategoryStyleDialog } from '../components/CategoryStyleDialog'
 import { Header } from '../components/Header'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
+import { SyncPanel } from '../components/SyncPanel'
+import { SyncPhoneGuide } from '../components/SyncPhoneGuide'
 import { globalCategories, groupCatalog, sortCatalog } from '../data/catalog'
+import type { HomeMember, SyncSession } from '../data/sync/session'
 import type { CatalogEntry, Category, FontSize, Settings, Store, Theme } from '../types'
 
-type SettingsSection = 'appearance' | 'categories' | 'catalog'
+type SettingsSection = 'appearance' | 'categories' | 'catalog' | 'sync'
 
 const SECTIONS: { id: SettingsSection; title: string; hint: string }[] = [
   { id: 'appearance', title: 'Оформление', hint: 'Тема и размер шрифта' },
+  { id: 'sync', title: 'Семья', hint: 'Коды, ярлык и инструкция' },
   { id: 'categories', title: 'Категории', hint: 'Общие — добавить в любой список' },
   { id: 'catalog', title: 'Товары', hint: 'Справочник' },
 ]
 
 const SECTION_TITLES: Record<SettingsSection, string> = {
   appearance: 'Оформление',
+  sync: 'Семья',
   categories: 'Категории',
   catalog: 'Товары',
 }
@@ -36,6 +41,25 @@ type SettingsScreenProps = {
   onDeleteCategory: (categoryId: string) => void
   onSaveCatalog: (name: string, categoryId: string, entryId?: string) => boolean
   onDeleteCatalog: (entryId: string) => void
+  sync: {
+    configured: boolean
+    session: SyncSession | null
+    members: HomeMember[]
+    inviteCode: string | null
+    pairingCode: string | null
+    busy: boolean
+    error: string | null
+    initialCode?: string | null
+    onEnable: (name: string) => void
+    onConnect: (code: string, name?: string) => Promise<'need-name' | 'error' | 'already' | void>
+    onCreateInvite: () => void
+    onCreatePairing: () => void
+    onExclude: (userId: string) => void
+    onReclaim: () => void
+    onRetry: () => void
+    onClearCode: () => void
+    onClearError: () => void
+  }
 }
 
 export function SettingsScreen({
@@ -52,8 +76,11 @@ export function SettingsScreen({
   onDeleteCategory,
   onSaveCatalog,
   onDeleteCatalog,
+  sync,
 }: SettingsScreenProps) {
-  const [section, setSection] = useState<SettingsSection | null>(null)
+  const [section, setSection] = useState<SettingsSection | null>(
+    sync.initialCode ? 'sync' : null,
+  )
   const globals = useMemo(() => {
     const listed = globalCategories(categories)
     const source = listed.length > 0 ? listed : categories
@@ -152,8 +179,11 @@ export function SettingsScreen({
             <p>
               Если выбрать товар из справочника, он попадёт в свою категорию в любом списке.
             </p>
+          ) : section === 'sync' ? (
+            <SyncPhoneGuide />
           ) : undefined
         }
+        helpTitle={section === 'sync' ? 'Семья на телефоне' : undefined}
       />
       <main className="content">
         {section === null && (
@@ -176,6 +206,28 @@ export function SettingsScreen({
               </li>
             ))}
           </ul>
+        )}
+
+        {section === 'sync' && (
+          <SyncPanel
+            configured={sync.configured}
+            session={sync.session}
+            members={sync.members}
+            inviteCode={sync.inviteCode}
+            pairingCode={sync.pairingCode}
+            busy={sync.busy}
+            error={sync.error}
+            initialCode={sync.initialCode}
+            onEnable={sync.onEnable}
+            onConnect={sync.onConnect}
+            onCreateInvite={sync.onCreateInvite}
+            onCreatePairing={sync.onCreatePairing}
+            onExclude={sync.onExclude}
+            onReclaim={sync.onReclaim}
+            onRetry={sync.onRetry}
+            onClearCode={sync.onClearCode}
+            onClearError={sync.onClearError}
+          />
         )}
 
         {section === 'appearance' && (

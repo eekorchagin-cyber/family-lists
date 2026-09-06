@@ -17,6 +17,8 @@ import {
   DEFAULT_SETTINGS,
   emptyStoreFields,
   SCHEMA_VERSION,
+  CLEARED_STORES_KEY,
+  STORE_ORDER_KEY,
   STORAGE_KEY,
 } from './defaults'
 
@@ -31,7 +33,8 @@ function isCategory(value: unknown): value is Category {
     typeof value.name === 'string' &&
     typeof value.color === 'string' &&
     (value.icon === undefined || typeof value.icon === 'string') &&
-    (value.storeId === undefined || typeof value.storeId === 'string')
+    (value.storeId === undefined || typeof value.storeId === 'string') &&
+    (value.updatedAt === undefined || typeof value.updatedAt === 'string')
   )
 }
 
@@ -64,6 +67,9 @@ function normalizeItem(value: unknown): Item | null {
     qty,
     unit: value.unit,
     bought: value.bought,
+    ...(typeof value.addedBy === 'string' ? { addedBy: value.addedBy } : {}),
+    ...(typeof value.boughtBy === 'string' ? { boughtBy: value.boughtBy } : {}),
+    ...(typeof value.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
   }
 }
 
@@ -124,6 +130,9 @@ function normalizeStore(value: unknown): Store | null {
       : defaults.categoryOrder,
     categoryNames: normalizeCategoryNames(value.categoryNames),
     templates: normalizeTemplates(value),
+    visibility: value.visibility === 'home' ? 'home' : 'private',
+    ...(typeof value.ownerId === 'string' ? { ownerId: value.ownerId } : {}),
+    ...(typeof value.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
   }
 }
 
@@ -168,6 +177,7 @@ function normalizeCatalog(
         id: entry.id,
         name: entry.name.trim(),
         categoryId: entry.categoryId,
+        ...(entry.updatedAt ? { updatedAt: entry.updatedAt } : {}),
       })
     }
     return catalog
@@ -233,6 +243,38 @@ export function loadData(): AppData {
 
 export function saveData(data: AppData): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+}
+
+export function loadStoreOrder(): string[] {
+  try {
+    const raw = localStorage.getItem(STORE_ORDER_KEY)
+    if (!raw) return []
+    const value = JSON.parse(raw) as unknown
+    if (!Array.isArray(value)) return []
+    return value.filter((id): id is string => typeof id === 'string')
+  } catch {
+    return []
+  }
+}
+
+export function saveStoreOrder(ids: string[]): void {
+  localStorage.setItem(STORE_ORDER_KEY, JSON.stringify(ids))
+}
+
+export function loadClearedStoreIds(): string[] {
+  try {
+    const raw = localStorage.getItem(CLEARED_STORES_KEY)
+    if (!raw) return []
+    const value = JSON.parse(raw) as unknown
+    if (!Array.isArray(value)) return []
+    return value.filter((id): id is string => typeof id === 'string')
+  } catch {
+    return []
+  }
+}
+
+export function saveClearedStoreIds(ids: string[]): void {
+  localStorage.setItem(CLEARED_STORES_KEY, JSON.stringify(ids))
 }
 
 export function applyAppearance(settings: Settings): void {

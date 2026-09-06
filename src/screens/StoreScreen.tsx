@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { CategoryMark } from '../components/CategoryMark'
 import { Header } from '../components/Header'
 import { LongPressButton } from '../components/LongPressButton'
@@ -9,6 +9,7 @@ import { SettingsIcon } from '../components/SettingsIcon'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { parseItem } from '../data/parseItem'
 import { formatQty, parseQty } from '../data/qty'
+import type { HomeMember } from '../data/sync/session'
 import type { Category, Item, ParsedItem, Store } from '../types'
 
 type StoreScreenProps = {
@@ -26,7 +27,12 @@ type StoreScreenProps = {
   onStartAdd: (draft: ParsedItem) => void
   onUpdateItem: (itemId: string, patch: Partial<Pick<Item, 'qty' | 'unit' | 'categoryId'>>) => void
   onClearBought: () => void
+  completedEmpty?: boolean
   onSaveTemplate: (name: string) => void
+  members?: HomeMember[]
+  myId?: string
+  thisListUpdated?: boolean
+  onDismissStoreUpdate?: () => void
 }
 
 export function StoreScreen({
@@ -44,7 +50,12 @@ export function StoreScreen({
   onStartAdd,
   onUpdateItem,
   onClearBought,
+  completedEmpty = false,
   onSaveTemplate,
+  members = [],
+  myId,
+  thisListUpdated = false,
+  onDismissStoreUpdate,
 }: StoreScreenProps) {
   const [query, setQuery] = useState('')
   const [editItem, setEditItem] = useState<Item | null>(null)
@@ -54,6 +65,7 @@ export function StoreScreen({
   const [namingTemplate, setNamingTemplate] = useState(false)
   const [renamingStore, setRenamingStore] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
+  const completionHandled = useRef(false)
 
   const activeItems = useMemo(
     () => items.filter((item) => !item.bought),
@@ -64,10 +76,19 @@ export function StoreScreen({
     [items],
   )
   const allDone = items.length > 0 && activeItems.length === 0
-  const [wasAllDone, setWasAllDone] = useState(allDone)
-  if (allDone !== wasAllDone) {
-    setWasAllDone(allDone)
-    setShowCompletion(allDone)
+
+  useEffect(() => {
+    if (activeItems.length > 0) completionHandled.current = false
+    if (!allDone) {
+      setShowCompletion(false)
+      return
+    }
+    if (!completionHandled.current) setShowCompletion(true)
+  }, [allDone, activeItems.length])
+
+  function dismissCompletion() {
+    completionHandled.current = true
+    setShowCompletion(false)
   }
 
   const grouped = useMemo(() => {
@@ -125,10 +146,19 @@ export function StoreScreen({
     <div className="screen">
       <Header
         title={store.name}
+        updated={thisListUpdated}
         onTitleLongPress={() => setRenamingStore(true)}
         help="Введите товар и нажмите «Далее». Можно сразу указать количество, например: Молоко: 2 шт. Нажмите товар, чтобы отметить купленным; нажмите купленный ещё раз, чтобы вернуть."
         left={
-          <button type="button" className="icon-button" onClick={onBack} aria-label="К списку магазинов">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => {
+              onDismissStoreUpdate?.()
+              onBack()
+            }}
+            aria-label="К списку магазинов"
+          >
             ←
           </button>
         }
@@ -184,7 +214,17 @@ export function StoreScreen({
         )}
 
         {items.length === 0 ? (
-          <p className="empty">Список пуст</p>
+          <div className="empty empty-store">
+            {completedEmpty ? (
+              <>
+                <p className="empty-complete">Все исполнено</p>
+                <p className="empty-thumb" aria-hidden="true">
+                  👍
+                </p>
+              </>
+            ) : null}
+            <p>Список пуст</p>
+          </div>
         ) : (
           <div className="groups">
             {grouped.map(({ category, items: categoryItems }) => (
@@ -201,7 +241,10 @@ export function StoreScreen({
                         onClick={() => onMarkBought(item.id)}
                         onLongPress={() => openEdit(item)}
                       >
-                        <span className="item-name">{item.name}</span>
+                        <span className="item-main">
+                          <span className="item-name">{item.name}</span>
+                          <ItemMeta item={item} members={members} myId={myId} />
+                        </span>
                         <span className="item-qty">
                           {formatQty(item.qty)} {item.unit}
                         </span>
@@ -228,7 +271,10 @@ export function StoreScreen({
                         onClick={() => onMarkBought(item.id)}
                         onLongPress={() => openEdit(item)}
                       >
-                        <span className="item-name">{item.name}</span>
+                        <span className="item-main">
+                          <span className="item-name">{item.name}</span>
+                          <ItemMeta item={item} members={members} myId={myId} />
+                        </span>
                         <span className="item-qty">
                           {formatQty(item.qty)} {item.unit}
                         </span>
@@ -250,7 +296,10 @@ export function StoreScreen({
                         onClick={() => onUnmarkBought(item.id)}
                         onLongPress={() => openEdit(item)}
                       >
-                        <span className="item-name">{item.name}</span>
+                        <span className="item-main">
+                          <span className="item-name">{item.name}</span>
+                          <ItemMeta item={item} members={members} myId={myId} />
+                        </span>
                         <span className="item-qty">
                           {formatQty(item.qty)} {item.unit}
                         </span>
@@ -333,16 +382,16 @@ export function StoreScreen({
                 type="button"
                 className="button-primary"
                 onClick={() => {
+                  dismissCompletion()
                   onClearBought()
-                  setShowCompletion(false)
                 }}
               >
-                Стереть купленные
+                Стереть исполненное
               </button>
               <button
                 type="button"
                 className="button-secondary"
-                onClick={() => setShowCompletion(false)}
+                onClick={() => dismissCompletion()}
               >
                 Оставить список
               </button>
@@ -369,7 +418,7 @@ export function StoreScreen({
           onConfirm={(name) => {
             onSaveTemplate(name)
             setNamingTemplate(false)
-            setShowCompletion(false)
+            dismissCompletion()
           }}
         />
       )}
@@ -388,4 +437,30 @@ export function StoreScreen({
       )}
     </div>
   )
+}
+
+function ItemMeta({
+  item,
+  members,
+  myId,
+}: {
+  item: Item
+  members: HomeMember[]
+  myId?: string
+}) {
+  if (members.length === 0) return null
+  const nameOf = (id?: string) => members.find((member) => member.id === id)?.displayName
+  let text: string | null = null
+  if (item.bought) {
+    const name = nameOf(item.boughtBy)
+    if (name) text = `куплено · ${name}`
+  }
+  if (!text) {
+    const name = nameOf(item.addedBy)
+    if (name && (members.length > 1 || item.addedBy !== myId)) {
+      text = `добавлено · ${name}`
+    }
+  }
+  if (!text) return null
+  return <span className="item-meta">{text}</span>
 }

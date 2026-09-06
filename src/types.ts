@@ -7,6 +7,7 @@ export type Category = {
   color: string
   icon?: string
   storeId?: string
+  updatedAt?: string
 }
 
 export type CategorySort = 'alpha' | 'custom'
@@ -24,6 +25,8 @@ export type NamedTemplate = {
   items: TemplateItem[]
 }
 
+export type StoreVisibility = 'private' | 'home'
+
 export type Store = {
   id: string
   name: string
@@ -31,6 +34,9 @@ export type Store = {
   categoryOrder: string[]
   categoryNames: Record<string, string>
   templates: NamedTemplate[]
+  visibility?: StoreVisibility
+  ownerId?: string
+  updatedAt?: string
 }
 
 export type Item = {
@@ -41,12 +47,16 @@ export type Item = {
   qty: number
   unit: string
   bought: boolean
+  addedBy?: string
+  boughtBy?: string
+  updatedAt?: string
 }
 
 export type CatalogEntry = {
   id: string
   name: string
   categoryId: string
+  updatedAt?: string
 }
 
 export type Settings = {

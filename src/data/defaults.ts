@@ -2,6 +2,8 @@ import type { AppData, Category, Settings, Store } from '../types'
 
 export const SCHEMA_VERSION = 1
 export const STORAGE_KEY = 'pokupki-data'
+export const STORE_ORDER_KEY = 'pokupki-store-order'
+export const CLEARED_STORES_KEY = 'pokupki-cleared-stores'
 
 export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'dairy', name: 'Молочное', color: '#3b82f6' },
@@ -19,13 +21,14 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export function emptyStoreFields(): Pick<
   Store,
-  'categorySort' | 'categoryOrder' | 'categoryNames' | 'templates'
+  'categorySort' | 'categoryOrder' | 'categoryNames' | 'templates' | 'visibility'
 > {
   return {
     categorySort: 'custom',
     categoryOrder: DEFAULT_CATEGORIES.map((category) => category.id),
     categoryNames: {},
     templates: [],
+    visibility: 'private',
   }
 }
 

@@ -2,16 +2,29 @@
   "name": "Покупки",
   "short_name": "Покупки",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#fffdf8",
+  "background_color": "#209055",
   "theme_color": "#2a7a4f",
   "lang": "ru",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

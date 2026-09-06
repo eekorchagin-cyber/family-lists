@@ -9,7 +9,11 @@ import {
 } from '../data/categories'
 import { mergeCatalogFromItems, upsertCatalog } from '../data/catalog'
 import { emptyStoreFields } from '../data/defaults'
-import { applyAppearance, loadData, saveData } from '../data/storage'
+import { applyAppearance, loadClearedStoreIds, loadData, loadStoreOrder, saveClearedStoreIds, saveData, saveStoreOrder } from '../data/storage'
+import { queueDeleted } from '../data/sync/deletes'
+import { markDirty } from '../data/sync/dirty'
+import { applyStoreOrder, nowIso, withUpdatedAt } from '../data/sync/merge'
+import { loadSession } from '../data/sync/session'
 import type {
   AppData,
   CatalogEntry,
@@ -18,6 +22,7 @@ import type {
   Item,
   Settings,
   Store,
+  StoreVisibility,
   Theme,
 } from '../types'
 
@@ -25,9 +30,17 @@ function newId(): string {
   return crypto.randomUUID()
 }
 
-function persist(next: AppData): AppData {
+function actorId(): string | undefined {
+  const session = loadSession()
+  if (!session || session.frozen) return undefined
+  return session.userId
+}
+
+function persist(next: AppData, mode: 'user' | 'sync' | 'local' = 'user'): AppData {
   saveData(next)
   applyAppearance(next.settings)
+  if (mode !== 'sync') saveStoreOrder(next.stores.map((store) => store.id))
+  if (mode === 'user') markDirty()
   return next
 }
 
@@ -36,14 +49,19 @@ function rememberCatalog(
   name: string,
   categoryId: string,
 ): CatalogEntry[] {
-  return upsertCatalog(catalog, name, categoryId)
+  const next = upsertCatalog(catalog, name, categoryId)
+  if (next === catalog) return catalog
+  const needle = name.trim().toLowerCase()
+  return next.map((entry) =>
+    entry.name.toLowerCase() === needle ? withUpdatedAt(entry) : entry,
+  )
 }
 
 function patchStore(current: AppData, storeId: string, patch: Partial<Store>): AppData {
   return {
     ...current,
     stores: current.stores.map((store) =>
-      store.id === storeId ? { ...store, ...patch } : store,
+      store.id === storeId ? withUpdatedAt({ ...store, ...patch }) : store,
     ),
   }
 }
@@ -51,9 +69,32 @@ function patchStore(current: AppData, storeId: string, patch: Partial<Store>): A
 export function useAppState() {
   const [data, setData] = useState<AppData>(() => {
     const loaded = loadData()
-    applyAppearance(loaded.settings)
-    return loaded
+    const order = loadStoreOrder()
+    const next =
+      order.length > 0 ? { ...loaded, stores: applyStoreOrder(loaded.stores, order) } : loaded
+    applyAppearance(next.settings)
+    return next
   })
+
+  const [clearedStoreIds, setClearedStoreIds] = useState<string[]>(() => loadClearedStoreIds())
+
+  const rememberCleared = useCallback((storeId: string) => {
+    setClearedStoreIds((current) => {
+      if (current.includes(storeId)) return current
+      const next = [...current, storeId]
+      saveClearedStoreIds(next)
+      return next
+    })
+  }, [])
+
+  const forgetCleared = useCallback((storeId: string) => {
+    setClearedStoreIds((current) => {
+      if (!current.includes(storeId)) return current
+      const next = current.filter((id) => id !== storeId)
+      saveClearedStoreIds(next)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     applyAppearance(data.settings)
@@ -67,7 +108,14 @@ export function useAppState() {
         ...current,
         stores: [
           ...current.stores,
-          { id: newId(), name: trimmed, ...emptyStoreFields() },
+          {
+            id: newId(),
+            name: trimmed,
+            ...emptyStoreFields(),
+            ownerId: actorId(),
+            visibility: actorId() ? 'home' : 'private',
+            updatedAt: nowIso(),
+          },
         ],
       }),
     )
@@ -86,6 +134,14 @@ export function useAppState() {
   const deleteStore = useCallback((storeId: string) => {
     setData((current) => {
       if (!current.stores.some((store) => store.id === storeId)) return current
+      queueDeleted('stores', storeId)
+      for (const item of current.items) {
+        if (item.storeId === storeId) queueDeleted('items', item.id)
+      }
+      for (const category of current.categories) {
+        if (category.storeId === storeId) queueDeleted('categories', category.id)
+      }
+      forgetCleared(storeId)
       return persist({
         ...current,
         stores: current.stores.filter((store) => store.id !== storeId),
@@ -93,7 +149,7 @@ export function useAppState() {
         categories: current.categories.filter((category) => category.storeId !== storeId),
       })
     })
-  }, [])
+  }, [forgetCleared])
 
   const addCategory = useCallback((
     storeId: string,
@@ -121,7 +177,7 @@ export function useAppState() {
       id = newId()
       const categories = [
         ...current.categories,
-        { id, name: trimmed, color, icon: icon || iconIdFromName(trimmed), storeId },
+        { id, name: trimmed, color, icon: icon || iconIdFromName(trimmed), storeId, updatedAt: nowIso() },
       ]
       return persist({
         ...current,
@@ -144,7 +200,7 @@ export function useAppState() {
     setData((current) => {
       const categories = [
         ...current.categories,
-        { id, name: trimmed, color, icon: icon || iconIdFromName(trimmed) },
+        { id, name: trimmed, color, icon: icon || iconIdFromName(trimmed), updatedAt: nowIso() },
       ]
       const stores = storeId
         ? current.stores.map((store) =>
@@ -173,7 +229,7 @@ export function useAppState() {
       return persist({
         ...current,
         categories: current.categories.map((item) =>
-          item.id === categoryId ? { ...item, color, icon } : item,
+          item.id === categoryId ? withUpdatedAt({ ...item, color, icon }) : item,
         ),
       })
     })
@@ -188,7 +244,7 @@ export function useAppState() {
       return persist({
         ...current,
         categories: current.categories.map((item) =>
-          item.id === categoryId ? { ...item, name: trimmed } : item,
+          item.id === categoryId ? withUpdatedAt({ ...item, name: trimmed }) : item,
         ),
       })
     })
@@ -198,6 +254,7 @@ export function useAppState() {
     setData((current) => {
       const category = current.categories.find((item) => item.id === categoryId)
       if (!category || category.storeId) return current
+      queueDeleted('categories', categoryId)
       return persist({
         ...current,
         categories: current.categories.filter((item) => item.id !== categoryId),
@@ -220,7 +277,7 @@ export function useAppState() {
         return persist({
           ...current,
           categories: current.categories.map((item) =>
-            item.id === categoryId ? { ...item, name: trimmed } : item,
+            item.id === categoryId ? withUpdatedAt({ ...item, name: trimmed }) : item,
           ),
         })
       }
@@ -250,14 +307,14 @@ export function useAppState() {
       const categories = current.categories.map((item) => {
         if (item.id !== categoryId) return item
         if (global) {
-          return {
+          return withUpdatedAt({
             id: item.id,
             name: trimmed,
             color: item.color,
             ...(item.icon ? { icon: item.icon } : {}),
-          }
+          })
         }
-        return { ...item, name: trimmed, storeId }
+        return withUpdatedAt({ ...item, name: trimmed, storeId })
       })
 
       const stores = current.stores.map((store) => {
@@ -351,6 +408,7 @@ export function useAppState() {
       if (category.storeId && category.storeId !== storeId) return current
 
       if (category.storeId === storeId) {
+        queueDeleted('categories', categoryId)
         return persist({
           ...current,
           categories: current.categories.filter((item) => item.id !== categoryId),
@@ -383,7 +441,9 @@ export function useAppState() {
       persist({
         ...current,
         items: current.items.map((item) =>
-          item.id === itemId ? { ...item, bought: false } : item,
+          item.id === itemId
+            ? withUpdatedAt({ ...item, bought: false, boughtBy: undefined })
+            : item,
         ),
       }),
     )
@@ -393,6 +453,7 @@ export function useAppState() {
     (storeId: string, name: string, categoryId: string, qty: number, unit: string) => {
       const trimmedName = name.trim()
       if (!trimmedName) return
+      forgetCleared(storeId)
 
       setData((current) => {
         const existing = current.items.find(
@@ -419,7 +480,11 @@ export function useAppState() {
             ...current,
             items: current.items.map((item) =>
               item.id === existing.id
-                ? { ...item, qty: item.qty + qty, unit: unit.trim() || item.unit }
+                ? withUpdatedAt({
+                    ...item,
+                    qty: item.qty + qty,
+                    unit: unit.trim() || item.unit,
+                  })
                 : item,
             ),
             catalog,
@@ -435,6 +500,8 @@ export function useAppState() {
           qty,
           unit: unit.trim() || 'шт',
           bought: false,
+          addedBy: actorId(),
+          updatedAt: nowIso(),
         }
 
         return persist({
@@ -445,7 +512,7 @@ export function useAppState() {
         })
       })
     },
-    [],
+    [forgetCleared],
   )
 
   const updateItem = useCallback(
@@ -454,7 +521,7 @@ export function useAppState() {
         const prev = current.items.find((item) => item.id === itemId)
         if (!prev) return current
         const items = current.items.map((item) =>
-          item.id === itemId ? { ...item, ...patch } : item,
+          item.id === itemId ? withUpdatedAt({ ...item, ...patch }) : item,
         )
         const categoryId = patch.categoryId
         const catalog =
@@ -479,22 +546,29 @@ export function useAppState() {
       persist({
         ...current,
         items: current.items.map((item) =>
-          item.id === itemId ? { ...item, bought: true } : item,
+          item.id === itemId
+            ? withUpdatedAt({ ...item, bought: true, boughtBy: actorId() })
+            : item,
         ),
       }),
     )
   }, [])
 
   const clearBought = useCallback((storeId: string) => {
-    setData((current) =>
-      persist({
+    setData((current) => {
+      const removing = current.items.filter(
+        (item) => item.storeId === storeId && item.bought,
+      )
+      for (const item of removing) queueDeleted('clearedItems', item.id)
+      rememberCleared(storeId)
+      return persist({
         ...current,
         items: current.items.filter(
           (item) => !(item.storeId === storeId && item.bought),
         ),
-      }),
-    )
-  }, [])
+      })
+    })
+  }, [rememberCleared])
 
   const saveTemplate = useCallback((storeId: string, name: string) => {
     const trimmed = name.trim()
@@ -526,6 +600,7 @@ export function useAppState() {
       const store = current.stores.find((item) => item.id === storeId)
       const template = store?.templates?.find((item) => item.id === templateId)
       if (!template) return current
+      forgetCleared(storeId)
 
       let items = [...current.items]
       for (const entry of template.items) {
@@ -547,6 +622,8 @@ export function useAppState() {
             qty: entry.qty,
             unit: entry.unit,
             bought: false,
+            addedBy: actorId(),
+            updatedAt: nowIso(),
           },
         ]
       }
@@ -565,7 +642,7 @@ export function useAppState() {
         ),
       })
     })
-  }, [])
+  }, [forgetCleared])
 
   const renameTemplate = useCallback((storeId: string, templateId: string, name: string) => {
     const trimmed = name.trim()
@@ -617,7 +694,7 @@ export function useAppState() {
           ...current,
           catalog: catalog.map((entry) =>
             entry.id === entryId
-              ? { ...entry, name: trimmed, categoryId }
+              ? withUpdatedAt({ ...entry, name: trimmed, categoryId })
               : entry,
           ),
         })
@@ -625,19 +702,20 @@ export function useAppState() {
       saved = true
       return persist({
         ...current,
-        catalog: [...catalog, { id: newId(), name: trimmed, categoryId }],
+        catalog: [...catalog, { id: newId(), name: trimmed, categoryId, updatedAt: nowIso() }],
       })
     })
     return saved
   }, [])
 
   const deleteCatalogEntry = useCallback((entryId: string) => {
-    setData((current) =>
-      persist({
+    setData((current) => {
+      queueDeleted('catalog', entryId)
+      return persist({
         ...current,
         catalog: (current.catalog ?? []).filter((entry) => entry.id !== entryId),
-      }),
-    )
+      })
+    })
   }, [])
 
   const transferItems = useCallback(
@@ -651,6 +729,7 @@ export function useAppState() {
         const sourceActive = current.items.filter(
           (item) => item.storeId === fromStoreId && !item.bought,
         )
+        if (sourceActive.length > 0) forgetCleared(toStoreId)
         let items = [...current.items]
         for (const entry of sourceActive) {
           const existing = items.find(
@@ -671,12 +750,15 @@ export function useAppState() {
               qty: entry.qty,
               unit: entry.unit,
               bought: false,
+              addedBy: actorId(),
+              updatedAt: nowIso(),
             },
           ]
         }
 
         if (mode === 'move') {
           const sourceIds = new Set(sourceActive.map((item) => item.id))
+          for (const id of sourceIds) queueDeleted('items', id)
           items = items.filter((item) => !sourceIds.has(item.id))
         }
 
@@ -696,7 +778,7 @@ export function useAppState() {
         })
       })
     },
-    [],
+    [forgetCleared],
   )
 
   const reorderStores = useCallback((orderedIds: string[]) => {
@@ -711,16 +793,19 @@ export function useAppState() {
       }
       const unchanged = stores.every((store, index) => store.id === current.stores[index]?.id)
       if (unchanged) return current
-      return persist({ ...current, stores })
+      return persist({ ...current, stores }, 'local')
     })
   }, [])
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     setData((current) =>
-      persist({
-        ...current,
-        settings: { ...current.settings, ...patch },
-      }),
+      persist(
+        {
+          ...current,
+          settings: { ...current.settings, ...patch },
+        },
+        'local',
+      ),
     )
   }, [])
 
@@ -734,8 +819,31 @@ export function useAppState() {
     [updateSettings],
   )
 
+  const setStoreVisibility = useCallback((storeId: string, visibility: StoreVisibility) => {
+    setData((current) => {
+      const store = current.stores.find((item) => item.id === storeId)
+      if (!store || store.visibility === visibility) return current
+      return persist(patchStore(current, storeId, { visibility }))
+    })
+  }, [])
+
+  const replaceData = useCallback((next: AppData, opts?: { takeCloudOrder?: boolean }) => {
+    setData((current) => {
+      if (opts?.takeCloudOrder) {
+        saveStoreOrder(next.stores.map((store) => store.id))
+        return persist({ ...next, settings: current.settings }, 'sync')
+      }
+      const saved = loadStoreOrder()
+      const orderedIds = saved.length > 0 ? saved : current.stores.map((store) => store.id)
+      const stores = applyStoreOrder(next.stores, orderedIds)
+      return persist({ ...next, settings: current.settings, stores }, 'sync')
+    })
+  }, [])
+
   return {
     data,
+    replaceData,
+    clearedStoreIds,
     addStore,
     renameStore,
     deleteStore,
@@ -765,5 +873,6 @@ export function useAppState() {
     reorderStores,
     setTheme,
     setFontSize,
+    setStoreVisibility,
   }
 }

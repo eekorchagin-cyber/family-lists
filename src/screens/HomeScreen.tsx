@@ -5,6 +5,7 @@ import { Header } from '../components/Header'
 import { NameDialog } from '../components/NameDialog'
 import { SettingsIcon } from '../components/SettingsIcon'
 import { storeHasLocalCategories } from '../data/categories'
+import { APP_VERSION } from '../data/version'
 import type { Category, Store } from '../types'
 
 type HomeScreenProps = {
@@ -16,6 +17,11 @@ type HomeScreenProps = {
   onRenameStore: (storeId: string, name: string) => void
   onDeleteStore: (storeId: string) => void
   onReorderStores: (orderedIds: string[]) => void
+  syncEnabled?: boolean
+  displayName?: string
+  frozen?: boolean
+  updatedStoreIds?: string[]
+  onDismissStoreUpdate?: (storeId: string) => void
 }
 
 const DRAG_THRESHOLD_PX = 10
@@ -37,6 +43,11 @@ export function HomeScreen({
   onRenameStore,
   onDeleteStore,
   onReorderStores,
+  syncEnabled = false,
+  displayName,
+  frozen = false,
+  updatedStoreIds = [],
+  onDismissStoreUpdate,
 }: HomeScreenProps) {
   const [managing, setManaging] = useState<Store | null>(null)
   const [renaming, setRenaming] = useState<Store | null>(null)
@@ -126,13 +137,14 @@ export function HomeScreen({
       skipClick.current = false
       return
     }
+    onDismissStoreUpdate?.(storeId)
     onOpenStore(storeId)
   }
 
   return (
     <div className="screen">
       <Header
-        title="Списки"
+        title={displayName ? `Списки · ${displayName}` : 'Списки'}
         help={
           stores.length > 1
             ? 'Потяните список за полоски слева, чтобы изменить порядок. Заштрихованные списки содержат свои категории.'
@@ -154,6 +166,12 @@ export function HomeScreen({
       />
 
       <main className="content">
+        {frozen ? (
+          <p className="hint">
+            Синхронизация остановлена. Списки остались на этом телефоне. Откройте Настройки →
+            Семья, чтобы вернуться в дом.
+          </p>
+        ) : null}
         {stores.length === 0 ? (
           <p className="empty">Нет магазинов. Нажмите «+» справа вверху.</p>
         ) : (
@@ -166,6 +184,7 @@ export function HomeScreen({
                     className={[
                       draggingId === store.id ? 'store-row dragging' : 'store-row',
                       storeHasLocalCategories(categories, store.id) ? 'store-row--local' : '',
+                      updatedStoreIds.includes(store.id) ? 'store-row--updated' : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
@@ -173,6 +192,11 @@ export function HomeScreen({
                     onPointerMove={onPointerMove}
                     onPointerUp={finishDrag}
                     onPointerCancel={finishDrag}
+                    aria-label={
+                      updatedStoreIds.includes(store.id)
+                        ? `${store.name}, список обновился`
+                        : undefined
+                    }
                     onClick={() => onStoreClick(store.id)}
                     onContextMenu={(event) => event.preventDefault()}
                   >
@@ -185,6 +209,9 @@ export function HomeScreen({
                       <span className="store-name-text">{store.name}</span>
                       {storeHasLocalCategories(categories, store.id) ? (
                         <span className="store-local-mark">свои</span>
+                      ) : null}
+                      {syncEnabled && store.visibility !== 'home' ? (
+                        <span className="store-local-mark">личное</span>
                       ) : null}
                     </span>
                   </button>
@@ -201,6 +228,7 @@ export function HomeScreen({
             </ul>
           </>
         )}
+        <p className="app-version">Версия {APP_VERSION}</p>
       </main>
 
       {managing && (
