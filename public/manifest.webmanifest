@@ -1,0 +1,17 @@
+{
+  "name": "Покупки",
+  "short_name": "Покупки",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fffdf8",
+  "theme_color": "#2a7a4f",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

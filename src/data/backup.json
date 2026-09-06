@@ -1,0 +1,531 @@
+{
+  "version": 1,
+  "stores": [
+    {
+      "id": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75",
+      "name": "Командор",
+      "categorySort": "custom",
+      "categoryOrder": [
+        "household",
+        "72abb783-6763-4aab-a38b-2974a642baac",
+        "5234608e-765e-413a-a419-bba6e116f05e",
+        "74a55c57-5db7-4470-a67d-b22da08bddab",
+        "produce",
+        "grocery",
+        "meat",
+        "aedbf76d-ceb3-4998-8513-6b36250711ad",
+        "09c9c6d5-cce2-46f1-95cc-7f5e369c623c",
+        "a0338953-6d00-47ed-a50c-23bfa31207e6",
+        "dairy",
+        "75eaa19b-e6bc-4d8e-91b5-e73cdf708a14",
+        "other",
+        "758e2d01-8afa-4393-96b9-62bffa281541",
+        "2992114f-6e7e-4cbf-9582-e8c857c94ed9",
+        "8ae56bfa-0c62-46a9-bd0c-f286ecadb953"
+      ],
+      "categoryNames": {
+        "dairy": "Молочные продукты"
+      },
+      "templates": [
+        {
+          "id": "legacy",
+          "name": "Шаблон",
+          "items": [
+            {
+              "name": "Молоко",
+              "categoryId": "dairy",
+              "qty": 2,
+              "unit": "шт"
+            },
+            {
+              "name": "Сыр",
+              "categoryId": "dairy",
+              "qty": 1,
+              "unit": "шт"
+            },
+            {
+              "name": "Хлеб литовский",
+              "categoryId": "grocery",
+              "qty": 1,
+              "unit": "шт"
+            },
+            {
+              "name": "Стиральный порошок",
+              "categoryId": "household",
+              "qty": 1,
+              "unit": "шт"
+            },
+            {
+              "name": "Молоко",
+              "categoryId": "dairy",
+              "qty": 1,
+              "unit": "шт"
+            },
+            {
+              "name": "Туалетная бумага",
+              "categoryId": "dairy",
+              "qty": 1,
+              "unit": "шт"
+            },
+            {
+              "name": "Туалетная бумага",
+              "categoryId": "other",
+              "qty": 1,
+              "unit": "шт"
+            },
+            {
+              "name": "Молоко",
+              "categoryId": "dairy",
+              "qty": 1,
+              "unit": "кг"
+            },
+            {
+              "name": "Туалетная бумага",
+              "categoryId": "household",
+              "qty": 4,
+              "unit": "шт"
+            },
+            {
+              "name": "Салфетки",
+              "categoryId": "74a55c57-5db7-4470-a67d-b22da08bddab",
+              "qty": 1,
+              "unit": "шт"
+            },
+            {
+              "name": "Провод",
+              "categoryId": "74a55c57-5db7-4470-a67d-b22da08bddab",
+              "qty": 5,
+              "unit": "м"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "6bbb6333-d4ab-4ef3-a7e9-a9b4c9929f3d",
+      "name": "Командор на Калинина",
+      "categorySort": "custom",
+      "categoryOrder": [
+        "produce",
+        "meat",
+        "grocery",
+        "dairy",
+        "d822daee-2d99-4f8d-a932-c72f1b77d5a0",
+        "household",
+        "other",
+        "758e2d01-8afa-4393-96b9-62bffa281541",
+        "2992114f-6e7e-4cbf-9582-e8c857c94ed9",
+        "8ae56bfa-0c62-46a9-bd0c-f286ecadb953"
+      ],
+      "categoryNames": {},
+      "templates": []
+    },
+    {
+      "id": "cad30135-1ebc-4967-9027-81f0d8425bc8",
+      "name": "Лемана Про",
+      "categorySort": "custom",
+      "categoryOrder": [
+        "dairy",
+        "produce",
+        "meat",
+        "grocery",
+        "household",
+        "other",
+        "758e2d01-8afa-4393-96b9-62bffa281541",
+        "2992114f-6e7e-4cbf-9582-e8c857c94ed9",
+        "8ae56bfa-0c62-46a9-bd0c-f286ecadb953"
+      ],
+      "categoryNames": {},
+      "templates": []
+    },
+    {
+      "id": "aeb4c6c6-f848-4807-afa7-7a4c6ba4fc48",
+      "name": "Взять на дачу",
+      "categorySort": "custom",
+      "categoryOrder": [
+        "dairy",
+        "produce",
+        "meat",
+        "grocery",
+        "household",
+        "other",
+        "758e2d01-8afa-4393-96b9-62bffa281541",
+        "2992114f-6e7e-4cbf-9582-e8c857c94ed9",
+        "8ae56bfa-0c62-46a9-bd0c-f286ecadb953",
+        "b1ed57a8-65f4-4afa-8d30-6739790a380d",
+        "737e9e43-3d4e-4ec7-8848-9a6afca6cfea"
+      ],
+      "categoryNames": {},
+      "templates": []
+    },
+    {
+      "id": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "В командировку на 3 ночи",
+      "categorySort": "custom",
+      "categoryOrder": [
+        "dairy",
+        "produce",
+        "meat",
+        "grocery",
+        "household",
+        "other",
+        "758e2d01-8afa-4393-96b9-62bffa281541",
+        "2992114f-6e7e-4cbf-9582-e8c857c94ed9",
+        "8ae56bfa-0c62-46a9-bd0c-f286ecadb953",
+        "4befebf3-b5db-40c6-a933-90bd630c157e",
+        "6630465b-37ae-48bb-b69d-4bb59ff0c0a5",
+        "e6fb274b-eec3-4baa-ac84-e22536e14b6b",
+        "9b7e0b7b-03a2-4a35-83ec-322237903800",
+        "b7706a40-1cc1-423d-a9c7-976266295467"
+      ],
+      "categoryNames": {},
+      "templates": []
+    }
+  ],
+  "items": [
+    {
+      "id": "71312b59-d63c-4def-89c9-3b3c5438caf3",
+      "storeId": "cad30135-1ebc-4967-9027-81f0d8425bc8",
+      "name": "Провод",
+      "categoryId": "other",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "583dae6e-b89f-4ae8-a479-818cb23087be",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75",
+      "name": "Порошок стиральный",
+      "categoryId": "household",
+      "qty": 1,
+      "unit": "шт",
+      "bought": true
+    },
+    {
+      "id": "bfbd0e90-8b9e-4c64-9d3f-1d49ff10f075",
+      "storeId": "6bbb6333-d4ab-4ef3-a7e9-a9b4c9929f3d",
+      "name": "Кефир",
+      "categoryId": "dairy",
+      "qty": 1,
+      "unit": "шт",
+      "bought": true
+    },
+    {
+      "id": "7c767e17-4040-4b34-a1b8-d18ffe325e33",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75",
+      "name": "Молоко",
+      "categoryId": "dairy",
+      "qty": 0.5,
+      "unit": "л",
+      "bought": false
+    },
+    {
+      "id": "9491dd50-0d6d-485c-960a-41bfe21196b2",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75",
+      "name": "Капуста",
+      "categoryId": "produce",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "5b169712-059d-4276-9dbd-fd6be8e61710",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75",
+      "name": "Яйцо С0",
+      "categoryId": "grocery",
+      "qty": 10,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "7cf4083e-b6be-4a1c-9b40-773ce18b912d",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "Черный чемодан",
+      "categoryId": "4befebf3-b5db-40c6-a933-90bd630c157e",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "1b3e5812-22b2-4857-837e-181246c5f15c",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "Зарядное устройство",
+      "categoryId": "4befebf3-b5db-40c6-a933-90bd630c157e",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "5fd10715-8ded-4be8-b50c-cf87836a8f43",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "Трусы",
+      "categoryId": "6630465b-37ae-48bb-b69d-4bb59ff0c0a5",
+      "qty": 3,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "b22aa69c-c307-4572-9b08-060490e3dbd2",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "Носки",
+      "categoryId": "6630465b-37ae-48bb-b69d-4bb59ff0c0a5",
+      "qty": 3,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "9a1bf50d-8ac2-4413-9bf3-5927eef33edd",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "Паспорт",
+      "categoryId": "e6fb274b-eec3-4baa-ac84-e22536e14b6b",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "3f64d9a0-6f94-45c5-8ffd-70ee92c18704",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "Костюм",
+      "categoryId": "9b7e0b7b-03a2-4a35-83ec-322237903800",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "64d09696-a062-4536-967c-857e8807afcd",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "Ремень",
+      "categoryId": "9b7e0b7b-03a2-4a35-83ec-322237903800",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "47f7ed5a-a192-4584-8c2c-946d983958c8",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "Туфли",
+      "categoryId": "b7706a40-1cc1-423d-a9c7-976266295467",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "47ab47f1-7a9c-49fa-8c2c-e8f989480d34",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "PowerBank",
+      "categoryId": "4befebf3-b5db-40c6-a933-90bd630c157e",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "4c39cec6-0a40-4715-8a65-ee1990cf6a29",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "Зубная щетка",
+      "categoryId": "4befebf3-b5db-40c6-a933-90bd630c157e",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "f9fc0353-dc87-4b2d-91cb-86594238f095",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc",
+      "name": "Гидронить",
+      "categoryId": "4befebf3-b5db-40c6-a933-90bd630c157e",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "5c0da083-4dbf-4f73-8854-1dc7194fc34b",
+      "storeId": "aeb4c6c6-f848-4807-afa7-7a4c6ba4fc48",
+      "name": "Молоко",
+      "categoryId": "dairy",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    },
+    {
+      "id": "6f8f6725-01d7-4f93-a29b-81d8f9659bea",
+      "storeId": "aeb4c6c6-f848-4807-afa7-7a4c6ba4fc48",
+      "name": "Удобрение для газона",
+      "categoryId": "b1ed57a8-65f4-4afa-8d30-6739790a380d",
+      "qty": 1,
+      "unit": "шт",
+      "bought": false
+    }
+  ],
+  "categories": [
+    {
+      "id": "dairy",
+      "name": "Молочное",
+      "color": "#3b82f6"
+    },
+    {
+      "id": "produce",
+      "name": "Овощи и фрукты",
+      "color": "#22c55e"
+    },
+    {
+      "id": "meat",
+      "name": "Мясо и рыба",
+      "color": "#ef4444"
+    },
+    {
+      "id": "grocery",
+      "name": "Бакалея",
+      "color": "#f59e0b"
+    },
+    {
+      "id": "household",
+      "name": "Бытовая химия",
+      "color": "#8b5cf6"
+    },
+    {
+      "id": "other",
+      "name": "Другое",
+      "color": "#6b7280"
+    },
+    {
+      "id": "74a55c57-5db7-4470-a67d-b22da08bddab",
+      "name": "Хозтовары",
+      "color": "#22c55e",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75"
+    },
+    {
+      "id": "aedbf76d-ceb3-4998-8513-6b36250711ad",
+      "name": "Заморозка",
+      "color": "#6b7280",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75"
+    },
+    {
+      "id": "09c9c6d5-cce2-46f1-95cc-7f5e369c623c",
+      "name": "Чай, кофе, конфеты",
+      "color": "#f59e0b",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75"
+    },
+    {
+      "id": "a0338953-6d00-47ed-a50c-23bfa31207e6",
+      "name": "Вода, соки",
+      "color": "#3b82f6",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75"
+    },
+    {
+      "id": "5234608e-765e-413a-a419-bba6e116f05e",
+      "name": "Канцелярия",
+      "color": "#ec4899",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75"
+    },
+    {
+      "id": "72abb783-6763-4aab-a38b-2974a642baac",
+      "name": "Посуда",
+      "color": "#8b5cf6",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75"
+    },
+    {
+      "id": "75eaa19b-e6bc-4d8e-91b5-e73cdf708a14",
+      "name": "Алкоголь",
+      "color": "#ec4899",
+      "storeId": "fd7ad4d7-9463-4f9f-8a8a-56cb9b403e75"
+    },
+    {
+      "id": "d822daee-2d99-4f8d-a932-c72f1b77d5a0",
+      "name": "Алкоголь",
+      "color": "#8b5cf6",
+      "storeId": "6bbb6333-d4ab-4ef3-a7e9-a9b4c9929f3d"
+    },
+    {
+      "id": "758e2d01-8afa-4393-96b9-62bffa281541",
+      "name": "Электротовары",
+      "color": "#14b8a6"
+    },
+    {
+      "id": "2992114f-6e7e-4cbf-9582-e8c857c94ed9",
+      "name": "Сантехника",
+      "color": "#f59e0b"
+    },
+    {
+      "id": "8ae56bfa-0c62-46a9-bd0c-f286ecadb953",
+      "name": "Инструменты",
+      "color": "#ef4444"
+    },
+    {
+      "id": "4befebf3-b5db-40c6-a933-90bd630c157e",
+      "name": "Вещи в дорогу",
+      "color": "#f59e0b",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc"
+    },
+    {
+      "id": "6630465b-37ae-48bb-b69d-4bb59ff0c0a5",
+      "name": "Белье",
+      "color": "#22c55e",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc"
+    },
+    {
+      "id": "e6fb274b-eec3-4baa-ac84-e22536e14b6b",
+      "name": "Документы",
+      "color": "#6b7280",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc"
+    },
+    {
+      "id": "9b7e0b7b-03a2-4a35-83ec-322237903800",
+      "name": "Одежда",
+      "color": "#8b5cf6",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc"
+    },
+    {
+      "id": "b7706a40-1cc1-423d-a9c7-976266295467",
+      "name": "Обувь",
+      "color": "#3b82f6",
+      "storeId": "1ce416e6-0598-4637-8bbc-dbc8efc682cc"
+    },
+    {
+      "id": "b1ed57a8-65f4-4afa-8d30-6739790a380d",
+      "name": "Сад-огород",
+      "color": "#22c55e",
+      "storeId": "aeb4c6c6-f848-4807-afa7-7a4c6ba4fc48"
+    },
+    {
+      "id": "737e9e43-3d4e-4ec7-8848-9a6afca6cfea",
+      "name": "Хозтовары",
+      "color": "#6b7280",
+      "storeId": "aeb4c6c6-f848-4807-afa7-7a4c6ba4fc48"
+    }
+  ],
+  "catalog": [
+    {
+      "id": "seed-молоко",
+      "name": "Молоко",
+      "categoryId": "dairy"
+    },
+    {
+      "id": "seed-провод",
+      "name": "Провод электрический",
+      "categoryId": "758e2d01-8afa-4393-96b9-62bffa281541"
+    },
+    {
+      "id": "5b81e406-92d9-4f9d-8969-c33a8830f2fc",
+      "name": "Кефир",
+      "categoryId": "dairy"
+    },
+    {
+      "id": "3137c7b8-f8c6-4ac8-bc46-ffbbc487beeb",
+      "name": "Капуста",
+      "categoryId": "produce"
+    },
+    {
+      "id": "e23844b1-81f7-45f0-a5b7-94b05f251e0b",
+      "name": "Порошок стиральный",
+      "categoryId": "household"
+    },
+    {
+      "id": "c0e3cfed-1eae-4c5b-a9af-940eaadeb798",
+      "name": "Яйцо С0",
+      "categoryId": "grocery"
+    }
+  ],
+  "settings": {
+    "theme": "light",
+    "fontSize": "m"
+  }
+}
