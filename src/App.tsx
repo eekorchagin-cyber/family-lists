@@ -27,6 +27,7 @@ function App() {
     deleteGlobalCategory,
     saveCatalogEntry,
     deleteCatalogEntry,
+    importCatalogRows,
     addCategory,
     enableCategoryInStore,
     removeCategoryFromStore,
@@ -111,6 +112,7 @@ function App() {
           onDeleteCategory={deleteGlobalCategory}
           onSaveCatalog={saveCatalogEntry}
           onDeleteCatalog={deleteCatalogEntry}
+          onImportCatalog={importCatalogRows}
           sync={{
             configured: sync.configured,
             session: sync.session,

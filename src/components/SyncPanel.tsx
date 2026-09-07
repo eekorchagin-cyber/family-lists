@@ -86,7 +86,8 @@ export function SyncPanel({
           ) : (
             <p className="hint">
               Этот браузер отключён от дома. Списки на устройстве на месте. Организатор нажимает
-              «Вернуться в дом». Остальным нужен код: T — свой второй телефон, D — приглашение.
+              «Вернуться в дом». Чтобы вернуть этот телефон, нужен код на T (Мой второй телефон).
+              Код на D приглашает нового человека и спросит имя — его здесь вводить не нужно.
             </p>
           )}
           <button
@@ -291,12 +292,25 @@ export function SyncPanel({
           <p className="hint">Пока только вы.</p>
         ) : (
           <ul className="member-list">
-            {members.map((member) => (
+            {members.map((member) => {
+              const sameName = members.filter(
+                (other) =>
+                  other.displayName.trim().toLowerCase() ===
+                  member.displayName.trim().toLowerCase(),
+              )
+              const isDuplicate = sameName.length > 1
+              const isNewest =
+                isDuplicate &&
+                sameName.every(
+                  (other) => (member.createdAt ?? '') >= (other.createdAt ?? ''),
+                )
+              return (
               <li key={member.id} className="member-row">
                 <span>
                   {member.displayName}
                   {member.isCreator ? ' · организатор' : ''}
                   {member.id === session.userId ? ' · вы' : ''}
+                  {isNewest ? ' · новый вход' : ''}
                 </span>
                 {session.isCreator && member.id !== session.userId ? (
                   <button
@@ -309,7 +323,8 @@ export function SyncPanel({
                   </button>
                 ) : null}
               </li>
-            ))}
+              )
+            })}
           </ul>
         )}
       </section>
@@ -465,7 +480,7 @@ function EnterCodeDialog({
   return (
     <CodeJoinDialog
       title="Ввести код"
-      text="Введите код, который вам показали."
+      text="Код на T — этот же человек на другом телефоне. Код на D — новый человек в семье."
       codeLabel="Код"
       confirmLabel="Продолжить"
       busy={busy}

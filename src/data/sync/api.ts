@@ -160,13 +160,14 @@ export async function loadMembers(): Promise<HomeMember[]> {
   const client = requireClient()
   const { data, error } = await client
     .from('profiles')
-    .select('id, display_name, is_creator')
+    .select('id, display_name, is_creator, created_at')
     .not('home_id', 'is', null)
   if (error) throw error
   return (data ?? []).map((row) => ({
     id: row.id,
     displayName: row.display_name,
     isCreator: row.is_creator,
+    createdAt: row.created_at,
   }))
 }
 

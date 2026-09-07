@@ -330,6 +330,12 @@ export function useSync(
       const existing = loadSession()
       if (existing && !existing.frozen) return 'already'
       const kind = kindFromCode(code)
+      if (existing?.frozen && kind === 'invite') {
+        setError(
+          'Этот телефон уже был в семье. Нужен код на T (Мой второй телефон), а не приглашение на D.',
+        )
+        return 'error'
+      }
       if (kind === 'invite' && !displayName?.trim()) return 'need-name'
       setBusy(true)
       setError(null)
@@ -355,6 +361,12 @@ export function useSync(
           await finishConnect(nextSession, 'auto')
           return
         } catch {
+          if (existing?.frozen) {
+            setError(
+              'Этот телефон уже был в семье. Нужен код на T (Мой второй телефон), а не приглашение на D.',
+            )
+            return 'error'
+          }
           if (!displayName?.trim()) return 'need-name'
           const nextSession = await joinHome(code, displayName)
           saveSession(nextSession)

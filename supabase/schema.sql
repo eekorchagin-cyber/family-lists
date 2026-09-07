@@ -292,6 +292,14 @@ begin
   if v_existing is not null and v_existing <> v_home then
     raise exception 'already in a home';
   end if;
+  if exists (
+    select 1 from public.profiles
+    where home_id = v_home
+      and id <> auth.uid()
+      and lower(trim(display_name)) = lower(trim(p_name))
+  ) then
+    raise exception 'name taken';
+  end if;
   insert into public.profiles (id, home_id, display_name, is_creator)
   values (auth.uid(), v_home, trim(p_name), false)
   on conflict (id) do update

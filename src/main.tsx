@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { isLocalHost } from './data/sync/codes'
 
 if (import.meta.hot) {
   import.meta.hot.on('vite:beforeUpdate', (payload) => {
@@ -9,6 +10,12 @@ if (import.meta.hot) {
     if (paths.some((path) => path.includes('/src/data/') || path.includes('useAppState'))) {
       location.reload()
     }
+  })
+}
+
+if (!isLocalHost(location.hostname) && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
   })
 }
 

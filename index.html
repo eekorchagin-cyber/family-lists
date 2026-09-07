@@ -13,6 +13,8 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Покупки" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
     <title>Покупки</title>
     <script>
       if (location.hostname === '127.0.0.1' && location.port === '5173') {
@@ -30,5 +32,30 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function () {
+        var host = location.hostname
+        if (host === 'localhost' || host === '127.0.0.1') return
+        if (sessionStorage.getItem('pokupki-reloaded')) return
+        var current = ''
+        var scripts = document.getElementsByTagName('script')
+        for (var i = 0; i < scripts.length; i++) {
+          var src = scripts[i].getAttribute('src') || ''
+          if (src.indexOf('assets/index-') !== -1) current = src
+        }
+        if (!current) return
+        fetch('./index.html?t=' + Date.now(), { cache: 'no-store' })
+          .then(function (response) {
+            return response.text()
+          })
+          .then(function (html) {
+            var match = html.match(/assets\/index-[^"' ]+\.js/)
+            if (!match || current.indexOf(match[0]) !== -1) return
+            sessionStorage.setItem('pokupki-reloaded', '1')
+            location.reload()
+          })
+          .catch(function () {})
+      })()
+    </script>
   </body>
 </html>

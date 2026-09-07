@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AddIconButton } from '../components/AddIconButton'
 import { CatalogDialog } from '../components/CatalogDialog'
 import { CategoryMark } from '../components/CategoryMark'
@@ -8,16 +8,22 @@ import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { SyncPanel } from '../components/SyncPanel'
 import { SyncPhoneGuide } from '../components/SyncPhoneGuide'
 import { globalCategories, groupCatalog, sortCatalog } from '../data/catalog'
+import {
+  downloadCatalogXlsx,
+  importSummaryText,
+  readCatalogXlsx,
+} from '../data/catalogExcel'
 import type { HomeMember, SyncSession } from '../data/sync/session'
 import type { CatalogEntry, Category, FontSize, Settings, Store, Theme } from '../types'
 
-type SettingsSection = 'appearance' | 'categories' | 'catalog' | 'sync'
+type SettingsSection = 'appearance' | 'categories' | 'catalog' | 'sync' | 'transfer'
 
 const SECTIONS: { id: SettingsSection; title: string; hint: string }[] = [
   { id: 'appearance', title: 'Оформление', hint: 'Тема и размер шрифта' },
   { id: 'sync', title: 'Семья', hint: 'Коды, ярлык и инструкция' },
   { id: 'categories', title: 'Категории', hint: 'Общие — добавить в любой список' },
   { id: 'catalog', title: 'Товары', hint: 'Справочник' },
+  { id: 'transfer', title: 'Экспорт / импорт', hint: 'Наименования в таблице Excel' },
 ]
 
 const SECTION_TITLES: Record<SettingsSection, string> = {
@@ -25,6 +31,7 @@ const SECTION_TITLES: Record<SettingsSection, string> = {
   sync: 'Семья',
   categories: 'Категории',
   catalog: 'Товары',
+  transfer: 'Экспорт / импорт',
 }
 
 type SettingsScreenProps = {
@@ -41,6 +48,11 @@ type SettingsScreenProps = {
   onDeleteCategory: (categoryId: string) => void
   onSaveCatalog: (name: string, categoryId: string, entryId?: string) => boolean
   onDeleteCatalog: (entryId: string) => void
+  onImportCatalog: (rows: { name: string; category: string }[]) => {
+    addedItems: number
+    skippedItems: number
+    addedCategories: number
+  }
   sync: {
     configured: boolean
     session: SyncSession | null
@@ -76,6 +88,7 @@ export function SettingsScreen({
   onDeleteCategory,
   onSaveCatalog,
   onDeleteCatalog,
+  onImportCatalog,
   sync,
 }: SettingsScreenProps) {
   const [section, setSection] = useState<SettingsSection | null>(
@@ -120,6 +133,9 @@ export function SettingsScreen({
   const [editing, setEditing] = useState<CatalogEntry | null | 'new'>(null)
   const [addingCategory, setAddingCategory] = useState(false)
   const [styling, setStyling] = useState<Category | null>(null)
+  const [transferHint, setTransferHint] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const deviceName = sync.session?.displayName.trim() || 'Не задано'
 
   const filteredCatalog = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -181,31 +197,43 @@ export function SettingsScreen({
             </p>
           ) : section === 'sync' ? (
             <SyncPhoneGuide />
+          ) : section === 'transfer' ? (
+            <p>
+              Экспорт сохраняет названия товаров и категории. При импорте товар с уже известным
+              названием пропускается. Если категории ещё нет в программе, она добавится в
+              справочник.
+            </p>
           ) : undefined
         }
         helpTitle={section === 'sync' ? 'Семья на телефоне' : undefined}
       />
       <main className="content">
         {section === null && (
-          <ul className="store-list">
-            {SECTIONS.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  className="settings-nav-row"
-                  onClick={() => setSection(item.id)}
-                >
-                  <span className="settings-nav-text">
-                    <span className="settings-nav-title">{item.title}</span>
-                    <span className="settings-nav-hint">{item.hint}</span>
-                  </span>
-                  <span className="settings-nav-chevron" aria-hidden="true">
-                    ›
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="settings-user">
+              <span className="settings-user-label">Пользователь на этом устройстве</span>
+              <span className="settings-user-name">{deviceName}</span>
+            </p>
+            <ul className="store-list">
+              {SECTIONS.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className="settings-nav-row"
+                    onClick={() => setSection(item.id)}
+                  >
+                    <span className="settings-nav-text">
+                      <span className="settings-nav-title">{item.title}</span>
+                      <span className="settings-nav-hint">{item.hint}</span>
+                    </span>
+                    <span className="settings-nav-chevron" aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
 
         {section === 'sync' && (
@@ -415,6 +443,52 @@ export function SettingsScreen({
                 })}
               </ul>
             )}
+          </section>
+        )}
+
+        {section === 'transfer' && (
+          <section className="settings-block">
+            <input
+              ref={fileRef}
+              className="visually-hidden"
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              aria-label="Файл Excel со справочником"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                if (!file) return
+                void readCatalogXlsx(file)
+                  .then((rows) => {
+                    setTransferHint(importSummaryText(onImportCatalog(rows)))
+                  })
+                  .catch((caught: unknown) => {
+                    setTransferHint(
+                      caught instanceof Error
+                        ? caught.message
+                        : 'Не получилось прочитать файл Excel',
+                    )
+                  })
+              }}
+            />
+            <button
+              type="button"
+              className="button-primary add-category"
+              onClick={() => {
+                downloadCatalogXlsx(catalog, categories)
+                setTransferHint('Файл Excel сохранён.')
+              }}
+            >
+              Экспорт в Excel
+            </button>
+            <button
+              type="button"
+              className="button-secondary add-category"
+              onClick={() => fileRef.current?.click()}
+            >
+              Импорт из Excel
+            </button>
+            {transferHint ? <p className="hint">{transferHint}</p> : null}
           </section>
         )}
       </main>

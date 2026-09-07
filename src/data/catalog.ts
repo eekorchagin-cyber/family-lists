@@ -1,3 +1,4 @@
+import { CATEGORY_COLORS, iconIdFromName } from './categories'
 import type { CatalogEntry, Category, Item } from '../types'
 
 export function globalCategories(categories: Category[]): Category[] {
@@ -91,4 +92,108 @@ export function catalogFromItems(
   _categories: Category[],
 ): CatalogEntry[] {
   return mergeCatalogFromItems([], items)
+}
+
+export type CatalogImportRow = {
+  name: string
+  category: string
+}
+
+export type CatalogImportSummary = {
+  addedItems: number
+  skippedItems: number
+  addedCategories: number
+  catalog: CatalogEntry[]
+  categories: Category[]
+}
+
+function nameKey(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function colorForName(name: string): string {
+  const colors = CATEGORY_COLORS.filter((color) => color !== 'none')
+  let hash = 0
+  for (const ch of name) hash = (hash + ch.charCodeAt(0)) % Math.max(colors.length, 1)
+  return colors[hash] ?? '#6b7280'
+}
+
+export function findCategoryByName(
+  categories: Category[],
+  name: string,
+): Category | undefined {
+  const needle = nameKey(name)
+  if (!needle) return undefined
+  const globals = categories.filter((category) => !category.storeId)
+  return (
+    globals.find((category) => nameKey(category.name) === needle) ??
+    categories.find((category) => nameKey(category.name) === needle)
+  )
+}
+
+export function catalogExportRows(
+  catalog: CatalogEntry[],
+  categories: Category[],
+): CatalogImportRow[] {
+  const byId = new Map(categories.map((category) => [category.id, category]))
+  return [...catalog]
+    .sort((a, b) => {
+      const left = byId.get(a.categoryId)?.name ?? ''
+      const right = byId.get(b.categoryId)?.name ?? ''
+      return left.localeCompare(right, 'ru') || a.name.localeCompare(b.name, 'ru')
+    })
+    .map((entry) => ({
+      name: entry.name,
+      category: byId.get(entry.categoryId)?.name ?? '',
+    }))
+}
+
+export function applyCatalogImport(
+  catalog: CatalogEntry[],
+  categories: Category[],
+  rows: CatalogImportRow[],
+  now = new Date().toISOString(),
+): CatalogImportSummary {
+  const nextCatalog = [...catalog]
+  const nextCategories = [...categories]
+  let addedItems = 0
+  let skippedItems = 0
+  let addedCategories = 0
+
+  for (const row of rows) {
+    const name = row.name.trim()
+    const categoryName = row.category.trim()
+    if (!name) continue
+    if (!categoryName || findCatalogEntry(nextCatalog, name)) {
+      skippedItems += 1
+      continue
+    }
+    let category = findCategoryByName(nextCategories, categoryName)
+    if (!category) {
+      category = {
+        id: newCatalogId(),
+        name: categoryName,
+        color: colorForName(categoryName),
+        icon: iconIdFromName(categoryName),
+        updatedAt: now,
+      }
+      nextCategories.push(category)
+      addedCategories += 1
+    }
+    nextCatalog.push({
+      id: newCatalogId(),
+      name,
+      categoryId: category.id,
+      updatedAt: now,
+    })
+    addedItems += 1
+  }
+
+  return {
+    addedItems,
+    skippedItems,
+    addedCategories,
+    catalog: nextCatalog,
+    categories: nextCategories,
+  }
 }

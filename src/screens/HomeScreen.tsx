@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { AddIconButton } from '../components/AddIconButton'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
@@ -24,6 +24,8 @@ type HomeScreenProps = {
   onDismissStoreUpdate?: (storeId: string) => void
 }
 
+const LONG_PRESS_MS = 450
+const MOVE_CANCEL_PX = 12
 const DRAG_THRESHOLD_PX = 10
 
 type DragState = {
@@ -31,6 +33,7 @@ type DragState = {
   pointerId: number
   startX: number
   startY: number
+  armed: boolean
   dragging: boolean
 }
 
@@ -56,37 +59,64 @@ export function HomeScreen({
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const drag = useRef<DragState | null>(null)
+  const holdTimer = useRef(0)
   const skipClick = useRef(false)
   const draftRef = useRef<Store[] | null>(null)
+  const storesRef = useRef(stores)
+  const boundRef = useRef(false)
+  const liveWindow = useRef({
+    move: (_event: PointerEvent) => {},
+    up: (_event: PointerEvent) => {},
+    touch: (_event: TouchEvent) => {},
+  })
+  const stableWindow = useRef({
+    move: (event: PointerEvent) => liveWindow.current.move(event),
+    up: (event: PointerEvent) => liveWindow.current.up(event),
+    touch: (event: TouchEvent) => liveWindow.current.touch(event),
+  })
   const displayed = draftStores ?? stores
+  storesRef.current = stores
 
-  function onPointerDown(
-    event: PointerEvent<HTMLButtonElement>,
-    storeId: string,
-  ) {
-    if (event.button !== 0) return
-    skipClick.current = false
-    drag.current = {
-      id: storeId,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      dragging: false,
-    }
+  useEffect(() => () => {
+    clearHoldTimer()
+    unbindWindow()
+  }, [])
+
+  function clearHoldTimer() {
+    window.clearTimeout(holdTimer.current)
   }
 
-  function onPointerMove(event: PointerEvent<HTMLButtonElement>) {
+  function unbindWindow() {
+    if (!boundRef.current) return
+    boundRef.current = false
+    window.removeEventListener('pointermove', stableWindow.current.move)
+    window.removeEventListener('pointerup', stableWindow.current.up)
+    window.removeEventListener('pointercancel', stableWindow.current.up)
+    window.removeEventListener('touchmove', stableWindow.current.touch)
+  }
+
+  function onWindowTouchMove(event: TouchEvent) {
+    if (drag.current?.armed) event.preventDefault()
+  }
+
+  function onWindowPointerMove(event: PointerEvent) {
     const state = drag.current
     if (!state || event.pointerId !== state.pointerId) return
     const dx = event.clientX - state.startX
     const dy = event.clientY - state.startY
+    const moved = dx * dx + dy * dy
+    if (!state.armed) {
+      if (moved > MOVE_CANCEL_PX * MOVE_CANCEL_PX) {
+        clearHoldTimer()
+        skipClick.current = true
+        unbindWindow()
+        drag.current = null
+      }
+      return
+    }
     if (!state.dragging) {
-      if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return
+      if (moved < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return
       state.dragging = true
-      setDraggingId(state.id)
-      draftRef.current = stores
-      setDraftStores(stores)
-      event.currentTarget.setPointerCapture(event.pointerId)
     }
     event.preventDefault()
 
@@ -104,31 +134,80 @@ export function HomeScreen({
       }
     }
 
-    const listItems = draftRef.current ?? stores
+    const listItems = draftRef.current ?? storesRef.current
     const from = listItems.findIndex((store) => store.id === state.id)
     if (from < 0 || from === nextIndex) return
     const next = [...listItems]
-    const [moved] = next.splice(from, 1)
-    if (!moved) return
-    next.splice(nextIndex, 0, moved)
+    const [row] = next.splice(from, 1)
+    if (!row) return
+    next.splice(nextIndex, 0, row)
     draftRef.current = next
     setDraftStores(next)
   }
 
-  function finishDrag(event: PointerEvent<HTMLButtonElement>) {
+  function onWindowPointerUp(event: PointerEvent) {
     const state = drag.current
     if (!state || event.pointerId !== state.pointerId) return
-    if (state.dragging) {
-      skipClick.current = true
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      }
-      const order = (draftRef.current ?? stores).map((store) => store.id)
-      onReorderStores(order)
-      draftRef.current = null
-      setDraftStores(null)
-      setDraggingId(null)
+    finishDrag()
+  }
+
+  function onPointerDown(
+    event: ReactPointerEvent<HTMLButtonElement>,
+    storeId: string,
+  ) {
+    if (event.button !== 0) return
+    skipClick.current = false
+    clearHoldTimer()
+    unbindWindow()
+    const pointerId = event.pointerId
+    const target = event.currentTarget
+    drag.current = {
+      id: storeId,
+      pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      armed: false,
+      dragging: false,
     }
+    boundRef.current = true
+    window.addEventListener('pointermove', stableWindow.current.move)
+    window.addEventListener('pointerup', stableWindow.current.up)
+    window.addEventListener('pointercancel', stableWindow.current.up)
+    window.addEventListener('touchmove', stableWindow.current.touch, { passive: false })
+    holdTimer.current = window.setTimeout(() => {
+      const state = drag.current
+      if (!state || state.pointerId !== pointerId) return
+      state.armed = true
+      skipClick.current = true
+      setDraggingId(state.id)
+      draftRef.current = storesRef.current
+      setDraftStores(storesRef.current)
+      try {
+        target.setPointerCapture(pointerId)
+      } catch {
+        /* iOS sometimes не даёт capture после паузы — слушаем window */
+      }
+      navigator.vibrate?.(15)
+    }, LONG_PRESS_MS)
+  }
+
+  liveWindow.current.move = onWindowPointerMove
+  liveWindow.current.up = onWindowPointerUp
+  liveWindow.current.touch = onWindowTouchMove
+
+  function finishDrag() {
+    clearHoldTimer()
+    unbindWindow()
+    const state = drag.current
+    if (!state) return
+    if (state.armed) skipClick.current = true
+    if (state.dragging) {
+      const order = (draftRef.current ?? storesRef.current).map((store) => store.id)
+      onReorderStores(order)
+    }
+    draftRef.current = null
+    setDraftStores(null)
+    setDraggingId(null)
     drag.current = null
   }
 
@@ -147,7 +226,7 @@ export function HomeScreen({
         title={displayName ? `Списки · ${displayName}` : 'Списки'}
         help={
           stores.length > 1
-            ? 'Потяните список за полоски слева, чтобы изменить порядок. Заштрихованные списки содержат свои категории.'
+            ? 'Удерживайте список, затем потяните, чтобы изменить порядок. Заштрихованные списки содержат свои категории.'
             : categories.some((category) => category.storeId)
               ? 'Заштрихованные списки содержат свои категории.'
               : undefined
@@ -176,7 +255,10 @@ export function HomeScreen({
           <p className="empty">Нет магазинов. Нажмите «+» справа вверху.</p>
         ) : (
           <>
-            <ul className="store-list" ref={listRef}>
+            <ul
+              className={draggingId ? 'store-list store-list--reordering' : 'store-list'}
+              ref={listRef}
+            >
               {displayed.map((store) => (
                 <li key={store.id} data-store-id={store.id} className="store-row-wrap">
                   <button
@@ -189,9 +271,6 @@ export function HomeScreen({
                       .filter(Boolean)
                       .join(' ')}
                     onPointerDown={(event) => onPointerDown(event, store.id)}
-                    onPointerMove={onPointerMove}
-                    onPointerUp={finishDrag}
-                    onPointerCancel={finishDrag}
                     aria-label={
                       updatedStoreIds.includes(store.id)
                         ? `${store.name}, список обновился`

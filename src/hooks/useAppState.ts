@@ -7,7 +7,7 @@ import {
   withCategoriesEnabled,
   withCategoryEnabled,
 } from '../data/categories'
-import { mergeCatalogFromItems, upsertCatalog } from '../data/catalog'
+import { applyCatalogImport, mergeCatalogFromItems, upsertCatalog } from '../data/catalog'
 import { emptyStoreFields } from '../data/defaults'
 import { applyAppearance, loadClearedStoreIds, loadData, loadStoreOrder, saveClearedStoreIds, saveData, saveStoreOrder } from '../data/storage'
 import { queueDeleted } from '../data/sync/deletes'
@@ -718,6 +718,32 @@ export function useAppState() {
     })
   }, [])
 
+  const importCatalogRows = useCallback((
+    rows: { name: string; category: string }[],
+  ) => {
+    let summary = { addedItems: 0, skippedItems: 0, addedCategories: 0 }
+    setData((current) => {
+      const imported = applyCatalogImport(
+        current.catalog ?? [],
+        current.categories,
+        rows,
+        nowIso(),
+      )
+      summary = {
+        addedItems: imported.addedItems,
+        skippedItems: imported.skippedItems,
+        addedCategories: imported.addedCategories,
+      }
+      if (imported.addedItems === 0 && imported.addedCategories === 0) return current
+      return persist({
+        ...current,
+        catalog: imported.catalog,
+        categories: imported.categories,
+      })
+    })
+    return summary
+  }, [])
+
   const transferItems = useCallback(
     (fromStoreId: string, toStoreId: string, mode: 'copy' | 'move') => {
       if (fromStoreId === toStoreId) return
@@ -857,6 +883,7 @@ export function useAppState() {
     deleteGlobalCategory,
     saveCatalogEntry,
     deleteCatalogEntry,
+    importCatalogRows,
     renameCategory,
     setCategoryScope,
     setCategorySort,

@@ -50,6 +50,11 @@ export const CATEGORY_ICONS = [
   { id: 'docs', glyph: '📄', keywords: ['документ', 'паспорт'] },
   { id: 'travel', glyph: '🧳', keywords: ['дорог', 'чемодан'] },
   { id: 'garden', glyph: '🌱', keywords: ['сад', 'огород', 'газон'] },
+  {
+    id: 'westie',
+    glyph: '',
+    keywords: ['вест', 'терьер', 'westie', 'west highland'],
+  },
   { id: 'other', glyph: '📦', keywords: ['друго'] },
 ] as const
 

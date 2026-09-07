@@ -1,4 +1,5 @@
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '../data/categories'
+import { WestieIcon } from './WestieIcon'
 
 type CategoryMarkPickerProps = {
   color: string
@@ -39,10 +40,10 @@ export function CategoryMarkPicker({
             key={item.id}
             type="button"
             className={icon === item.id ? 'icon-swatch active' : 'icon-swatch'}
-            aria-label={`Значок ${item.id}`}
+            aria-label={item.id === 'westie' ? 'Вест-хайленд-уайт-терьер' : `Значок ${item.id}`}
             onClick={() => onIcon(item.id)}
           >
-            {item.glyph}
+            {item.id === 'westie' ? <WestieIcon /> : item.glyph}
           </button>
         ))}
       </div>

@@ -17,6 +17,7 @@ export type HomeMember = {
   id: string
   displayName: string
   isCreator: boolean
+  createdAt?: string
 }
 
 export function loadSession(): SyncSession | null {
