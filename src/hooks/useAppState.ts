@@ -100,25 +100,34 @@ export function useAppState() {
     applyAppearance(data.settings)
   }, [data.settings])
 
-  const addStore = useCallback((name: string) => {
+  const addStore = useCallback((name: string, categoryIds?: string[]) => {
     const trimmed = name.trim()
-    if (!trimmed) return
-    setData((current) =>
-      persist({
+    if (!trimmed) return undefined
+    const id = newId()
+    setData((current) => {
+      const known = new Set(
+        current.categories.filter((category) => !category.storeId).map((category) => category.id),
+      )
+      const categoryOrder =
+        categoryIds !== undefined
+          ? categoryIds.filter((categoryId) => known.has(categoryId))
+          : undefined
+      return persist({
         ...current,
         stores: [
           ...current.stores,
           {
-            id: newId(),
+            id,
             name: trimmed,
-            ...emptyStoreFields(),
+            ...emptyStoreFields(categoryOrder),
             ownerId: actorId(),
             visibility: actorId() ? 'home' : 'private',
             updatedAt: nowIso(),
           },
         ],
-      }),
-    )
+      })
+    })
+    return id
   }, [])
 
   const renameStore = useCallback((storeId: string, name: string) => {
@@ -390,15 +399,20 @@ export function useAppState() {
     })
   }, [])
 
-  const enableCategoryInStore = useCallback((storeId: string, categoryId: string) => {
+  const enableCategoriesInStore = useCallback((storeId: string, categoryIds: string[]) => {
+    if (categoryIds.length === 0) return
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       if (!store) return current
-      const next = withCategoryEnabled(store, categoryId, current.categories)
+      const next = withCategoriesEnabled(store, categoryIds, current.categories)
       if (next === store) return current
       return persist(patchStore(current, storeId, { categoryOrder: next.categoryOrder }))
     })
   }, [])
+
+  const enableCategoryInStore = useCallback((storeId: string, categoryId: string) => {
+    enableCategoriesInStore(storeId, [categoryId])
+  }, [enableCategoriesInStore])
 
   const removeCategoryFromStore = useCallback((storeId: string, categoryId: string) => {
     setData((current) => {
@@ -877,6 +891,7 @@ export function useAppState() {
     addCategory,
     addGlobalCategory,
     enableCategoryInStore,
+    enableCategoriesInStore,
     removeCategoryFromStore,
     renameGlobalCategory,
     setCategoryStyle,

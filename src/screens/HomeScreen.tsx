@@ -260,7 +260,16 @@ export function HomeScreen({
               ref={listRef}
             >
               {displayed.map((store) => (
-                <li key={store.id} data-store-id={store.id} className="store-row-wrap">
+                <li
+                  key={store.id}
+                  data-store-id={store.id}
+                  className={[
+                    'store-row-wrap',
+                    draggingId === store.id ? 'store-row-wrap--dragging' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
                   <button
                     type="button"
                     className={[

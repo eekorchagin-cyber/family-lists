@@ -29,7 +29,7 @@ function App() {
     deleteCatalogEntry,
     importCatalogRows,
     addCategory,
-    enableCategoryInStore,
+    enableCategoriesInStore,
     removeCategoryFromStore,
     setCategoryScope,
     setCategorySort,
@@ -196,7 +196,7 @@ function App() {
                 ? addGlobalCategory(name, color, icon, store.id)
                 : addCategory(store.id, name, color, icon)
             }
-            onEnableCategory={(categoryId) => enableCategoryInStore(store.id, categoryId)}
+            onEnableCategory={(categoryIds) => enableCategoriesInStore(store.id, categoryIds)}
             onRemoveCategory={(categoryId) => removeCategoryFromStore(store.id, categoryId)}
             onApplyTemplate={(templateId) => {
               applyTemplate(store.id, templateId)
@@ -269,11 +269,14 @@ function App() {
     return (
       <>
         <NewStoreScreen
+          categories={data.categories}
           onBack={() => setScreen({ name: 'home' })}
-          onAdd={(name) => {
-            addStore(name)
-            setScreen({ name: 'home' })
+          onAdd={(name, categoryIds) => {
+            const id = addStore(name, categoryIds)
+            if (id) setScreen({ name: 'store', storeId: id })
+            else setScreen({ name: 'home' })
           }}
+          onAddCategory={(name, color, icon) => addGlobalCategory(name, color, icon)}
         />
         {overlay}
       </>

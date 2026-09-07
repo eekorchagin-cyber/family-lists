@@ -19,13 +19,15 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 'm',
 }
 
-export function emptyStoreFields(): Pick<
-  Store,
-  'categorySort' | 'categoryOrder' | 'categoryNames' | 'templates' | 'visibility'
-> {
+export function emptyStoreFields(
+  categoryOrder?: string[],
+): Pick<Store, 'categorySort' | 'categoryOrder' | 'categoryNames' | 'templates' | 'visibility'> {
   return {
     categorySort: 'custom',
-    categoryOrder: DEFAULT_CATEGORIES.map((category) => category.id),
+    categoryOrder:
+      categoryOrder !== undefined
+        ? [...categoryOrder]
+        : DEFAULT_CATEGORIES.map((category) => category.id),
     categoryNames: {},
     templates: [],
     visibility: 'private',

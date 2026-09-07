@@ -57,7 +57,7 @@ type ListSettingsScreenProps = {
   onSetScope: (categoryId: string, name: string, global: boolean) => void
   onMove: (categoryId: string, direction: -1 | 1) => void
   onAddCategory: (name: string, color: string, icon?: string, global?: boolean) => string
-  onEnableCategory: (categoryId: string) => void
+  onEnableCategory: (categoryIds: string[]) => void
   onRemoveCategory: (categoryId: string) => void
   onApplyTemplate: (templateId: string) => void
   onRenameTemplate: (templateId: string, name: string) => void
@@ -414,8 +414,8 @@ export function ListSettingsScreen({
         <AddListCategoryDialog
           categories={unusedCategories}
           onClose={() => setPicking(false)}
-          onPick={(categoryId) => {
-            onEnableCategory(categoryId)
+          onPick={(categoryIds) => {
+            onEnableCategory(categoryIds)
             setPicking(false)
           }}
           onCreate={() => {
