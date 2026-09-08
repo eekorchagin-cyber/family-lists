@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { HelpIcon } from './NavIcons'
 
 type HelpButtonProps = {
   text: ReactNode
@@ -12,11 +13,11 @@ export function HelpButton({ text, title = 'Подсказка' }: HelpButtonPro
     <>
       <button
         type="button"
-        className="icon-button help-button"
+        className="icon-button"
         aria-label="Подсказка"
         onClick={() => setOpen(true)}
       >
-        ?
+        <HelpIcon />
       </button>
       {open && (
         <div className="overlay" role="presentation" onClick={() => setOpen(false)}>

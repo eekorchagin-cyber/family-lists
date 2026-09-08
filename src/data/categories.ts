@@ -25,10 +25,12 @@ export const CATEGORY_COLORS = [
 ]
 
 export const CATEGORY_ICONS = [
-  { id: 'dairy', glyph: '🥛', keywords: ['молок', 'кефир', 'сыр', 'йогурт', 'творог', 'сливк'] },
+  { id: 'dairy', glyph: '🥛', keywords: ['молок', 'кефир', 'йогурт', 'творог', 'сливк'] },
+  { id: 'cheese', glyph: '🧀', keywords: ['сыр'] },
   { id: 'produce', glyph: '🥬', keywords: ['овощ', 'фрукт', 'зелен'] },
   { id: 'fruit', glyph: '🍎', keywords: ['ягод'] },
-  { id: 'meat', glyph: '🥩', keywords: ['мясо', 'рыб', 'птиц', 'колбас'] },
+  { id: 'meat', glyph: '🥩', keywords: ['мясо', 'рыб', 'птиц'] },
+  { id: 'sausage', glyph: '🌭', keywords: ['колбас', 'сосис', 'салями', 'ветчин'] },
   { id: 'fish', glyph: '🐟', keywords: [] },
   { id: 'bread', glyph: '🍞', keywords: ['хлеб', 'выпеч'] },
   { id: 'grocery', glyph: '🛒', keywords: ['бакале', 'круп', 'яйц'] },
@@ -100,6 +102,13 @@ export function unusedGlobalCategories(
   return categories
     .filter((category) => !category.storeId && !enabled.has(category.id))
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+}
+
+export function knownCategoriesForStore(
+  categories: Category[],
+  storeId: string,
+): Category[] {
+  return categories.filter((category) => !category.storeId || category.storeId === storeId)
 }
 
 export function storeHasLocalCategories(categories: Category[], storeId: string): boolean {

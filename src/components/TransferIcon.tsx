@@ -1,0 +1,1 @@
+export { TransferIcon } from './NavIcons'

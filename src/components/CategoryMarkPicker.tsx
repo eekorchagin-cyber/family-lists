@@ -40,7 +40,15 @@ export function CategoryMarkPicker({
             key={item.id}
             type="button"
             className={icon === item.id ? 'icon-swatch active' : 'icon-swatch'}
-            aria-label={item.id === 'westie' ? 'Вест-хайленд-уайт-терьер' : `Значок ${item.id}`}
+            aria-label={
+              item.id === 'westie'
+                ? 'Вест-хайленд-уайт-терьер'
+                : item.id === 'cheese'
+                  ? 'Сыр'
+                  : item.id === 'sausage'
+                    ? 'Колбаса'
+                    : `Значок ${item.id}`
+            }
             onClick={() => onIcon(item.id)}
           >
             {item.id === 'westie' ? <WestieIcon /> : item.glyph}

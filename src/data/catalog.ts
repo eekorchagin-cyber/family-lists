@@ -47,11 +47,12 @@ export function findCatalogEntry(
 export function catalogCategoryId(
   catalog: CatalogEntry[],
   name: string,
-  availableCategoryIds: Iterable<string>,
+  knownCategoryIds?: Iterable<string>,
 ): string | undefined {
   const entry = findCatalogEntry(catalog, name)
   if (!entry) return undefined
-  const ids = new Set(availableCategoryIds)
+  if (!knownCategoryIds) return entry.categoryId
+  const ids = new Set(knownCategoryIds)
   return ids.has(entry.categoryId) ? entry.categoryId : undefined
 }
 

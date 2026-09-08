@@ -28,15 +28,12 @@ export function mergeItems(local: Item, remote: Item): Item {
   const remoteAt = remote.updatedAt ?? ''
   const newer = localAt >= remoteAt ? local : remote
   const older = newer === local ? remote : local
-  const bought = newer.bought || older.bought
   return {
     ...newer,
-    qty: bought && older.bought && !newer.bought ? older.qty : newer.qty,
-    unit: bought && older.bought && !newer.bought ? older.unit : newer.unit,
     name: newer.name,
     categoryId: newer.categoryId,
-    bought,
-    boughtBy: bought ? (newer.bought ? newer.boughtBy : older.boughtBy) : undefined,
+    bought: newer.bought,
+    boughtBy: newer.bought ? newer.boughtBy : undefined,
     addedBy: newer.addedBy ?? older.addedBy,
     updatedAt: localAt >= remoteAt ? localAt : remoteAt,
   }

@@ -4,6 +4,7 @@ import { CatalogDialog } from '../components/CatalogDialog'
 import { CategoryMark } from '../components/CategoryMark'
 import { CategoryStyleDialog } from '../components/CategoryStyleDialog'
 import { Header } from '../components/Header'
+import { BackIcon } from '../components/NavIcons'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { SyncPanel } from '../components/SyncPanel'
 import { SyncPhoneGuide } from '../components/SyncPhoneGuide'
@@ -178,7 +179,7 @@ export function SettingsScreen({
         title={title}
         left={
           <button type="button" className="icon-button" onClick={goBack} aria-label="Назад">
-            ←
+            <BackIcon />
           </button>
         }
         right={

@@ -5,7 +5,8 @@ import { LongPressButton } from '../components/LongPressButton'
 import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
-import { SettingsIcon } from '../components/SettingsIcon'
+import { BackIcon, SettingsIcon, TransferIcon } from '../components/NavIcons'
+import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { parseItem } from '../data/parseItem'
 import { formatQty, parseQty } from '../data/qty'
@@ -33,6 +34,9 @@ type StoreScreenProps = {
   myId?: string
   thisListUpdated?: boolean
   onDismissStoreUpdate?: () => void
+  otherStores?: Store[]
+  onCopyToStore?: (storeId: string) => void
+  onMoveToStore?: (storeId: string) => void
 }
 
 export function StoreScreen({
@@ -56,6 +60,9 @@ export function StoreScreen({
   myId,
   thisListUpdated = false,
   onDismissStoreUpdate,
+  otherStores = [],
+  onCopyToStore,
+  onMoveToStore,
 }: StoreScreenProps) {
   const [query, setQuery] = useState('')
   const [editItem, setEditItem] = useState<Item | null>(null)
@@ -65,6 +72,7 @@ export function StoreScreen({
   const [namingTemplate, setNamingTemplate] = useState(false)
   const [renamingStore, setRenamingStore] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
+  const [transferring, setTransferring] = useState(false)
   const completionHandled = useRef(false)
 
   const activeItems = useMemo(
@@ -148,7 +156,7 @@ export function StoreScreen({
         title={store.name}
         updated={thisListUpdated}
         onTitleLongPress={() => setRenamingStore(true)}
-        help="Введите товар и нажмите «Далее». Можно сразу указать количество, например: Молоко: 2 шт. Нажмите товар, чтобы отметить купленным; нажмите купленный ещё раз, чтобы вернуть."
+        help="Введите товар и нажмите «Далее». Можно сразу указать количество, например: Молоко: 2 шт. Нажмите товар, чтобы отметить купленным; нажмите купленный ещё раз, чтобы вернуть. Стрелки вверху — скопировать или перенести некупленные в другой список."
         left={
           <button
             type="button"
@@ -159,35 +167,49 @@ export function StoreScreen({
             }}
             aria-label="К списку магазинов"
           >
-            ←
+            <BackIcon />
           </button>
         }
         right={
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Настройки списка"
-            onClick={onOpenSettings}
-          >
-            <SettingsIcon />
-          </button>
+          <>
+            {otherStores.length > 0 ? (
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Перенести некупленные в другой список"
+                onClick={() => setTransferring(true)}
+              >
+                <TransferIcon />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Настройки списка"
+              onClick={onOpenSettings}
+            >
+              <SettingsIcon />
+            </button>
+          </>
         }
       />
 
       <main className="content">
-        <form className="search-form" onSubmit={submitSearch}>
-          <input
-            className="input search-input"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Название товара"
-            aria-label="Поиск товара"
-            autoComplete="off"
-          />
-          <button type="submit" className="search-submit" disabled={!query.trim()}>
-            Далее
-          </button>
-        </form>
+        <div className="search-panel">
+          <form className="search-form" onSubmit={submitSearch}>
+            <input
+              className="input search-input"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Название товара"
+              aria-label="Поиск товара"
+              autoComplete="off"
+            />
+            <button type="submit" className="search-submit" disabled={!query.trim()}>
+              Далее
+            </button>
+          </form>
+        </div>
 
         {suggestions.length > 0 && (
           <ul className="suggestions">
@@ -432,6 +454,21 @@ export function StoreScreen({
           onConfirm={(name) => {
             onRenameStore(name)
             setRenamingStore(false)
+          }}
+        />
+      )}
+      {transferring && onCopyToStore && onMoveToStore && (
+        <TransferDialog
+          stores={otherStores}
+          activeCount={activeItems.length}
+          onClose={() => setTransferring(false)}
+          onCopy={(storeId) => {
+            onCopyToStore(storeId)
+            setTransferring(false)
+          }}
+          onMove={(storeId) => {
+            onMoveToStore(storeId)
+            setTransferring(false)
           }}
         />
       )}

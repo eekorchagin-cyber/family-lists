@@ -2,10 +2,11 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { DoneButton } from '../components/DoneButton'
 import { CategoryMark } from '../components/CategoryMark'
 import { Header } from '../components/Header'
+import { BackIcon } from '../components/NavIcons'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
 import { categoryName, isLocalToStore } from '../data/categories'
-import { catalogCategoryId } from '../data/catalog'
+import { catalogCategoryId, findCatalogEntry } from '../data/catalog'
 import { formatQty, parseQty } from '../data/qty'
 import type { CatalogEntry, Category, Item, ParsedItem, Store } from '../types'
 
@@ -13,6 +14,7 @@ type AddItemScreenProps = {
   store: Store
   draft: ParsedItem
   categories: Category[]
+  knownCategories: Category[]
   catalog: CatalogEntry[]
   items: Item[]
   onBack: () => void
@@ -24,6 +26,7 @@ export function AddItemScreen({
   store,
   draft,
   categories,
+  knownCategories,
   catalog,
   items,
   onBack,
@@ -31,25 +34,30 @@ export function AddItemScreen({
   onAddCategory,
 }: AddItemScreenProps) {
   const suggestedCategory = useMemo(() => {
-    const fromCatalog = catalogCategoryId(
-      catalog,
-      draft.name,
-      categories.map((category) => category.id),
-    )
+    const knownIds = knownCategories.map((category) => category.id)
+    const fromCatalog = catalogCategoryId(catalog, draft.name, knownIds)
     if (fromCatalog) return fromCatalog
     const found = [...items]
       .reverse()
       .find((item) => item.name.toLowerCase() === draft.name.toLowerCase())
-    if (found && categories.some((category) => category.id === found.categoryId)) {
-      return found.categoryId
-    }
-    return categories[0]?.id ?? ''
-  }, [catalog, categories, draft.name, items])
+    if (found && knownIds.includes(found.categoryId)) return found.categoryId
+    const entry = findCatalogEntry(catalog, draft.name)
+    if (entry && knownIds.includes(entry.categoryId)) return entry.categoryId
+    return categories[0]?.id ?? knownCategories[0]?.id ?? ''
+  }, [catalog, categories, knownCategories, draft.name, items])
 
   const [categoryId, setCategoryId] = useState(suggestedCategory)
   const [qtyText, setQtyText] = useState(formatQty(draft.qty))
   const [unit, setUnit] = useState(draft.unit)
   const [addingCategory, setAddingCategory] = useState(false)
+
+  const picker = useMemo(() => {
+    const seen = new Set(categories.map((category) => category.id))
+    const extra = knownCategories.find(
+      (category) => category.id === categoryId && !seen.has(category.id),
+    )
+    return extra ? [extra, ...categories] : categories
+  }, [categories, categoryId, knownCategories])
 
   const qty = parseQty(qtyText)
 
@@ -65,7 +73,7 @@ export function AddItemScreen({
         title={store.name}
         left={
           <button type="button" className="icon-button" onClick={onBack} aria-label="Назад">
-            ←
+            <BackIcon />
           </button>
         }
         right={<DoneButton type="submit" disabled={!categoryId || qty === null} />}
@@ -90,7 +98,7 @@ export function AddItemScreen({
 
         <p className="field-label">Категория</p>
         <ul className="category-list">
-          {categories.map((category) => (
+          {picker.map((category) => (
             <li key={category.id}>
               <button
                 type="button"

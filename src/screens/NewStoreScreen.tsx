@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { CategoryMark } from '../components/CategoryMark'
 import { DoneButton } from '../components/DoneButton'
 import { Header } from '../components/Header'
+import { BackIcon } from '../components/NavIcons'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { globalCategories } from '../data/catalog'
 import { DEFAULT_CATEGORIES } from '../data/defaults'
@@ -71,7 +72,7 @@ export function NewStoreScreen({
         title="Новый список"
         left={
           <button type="button" className="icon-button" onClick={onBack} aria-label="Назад">
-            ←
+            <BackIcon />
           </button>
         }
         right={<DoneButton type="submit" disabled={!name.trim()} />}

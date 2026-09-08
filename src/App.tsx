@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MergeDialog } from './components/MergeDialog'
-import { categoriesForStore, sortCategories, unusedGlobalCategories } from './data/categories'
+import { UpdateBanner } from './components/UpdateBanner'
+import { categoriesForStore, knownCategoriesForStore, sortCategories, unusedGlobalCategories } from './data/categories'
 import { clearStoredEnterCode, consumeEnterCode } from './data/sync/codes'
 import { useAppState } from './hooks/useAppState'
+import { useAppUpdate } from './hooks/useAppUpdate'
 import { useSync } from './hooks/useSync'
 import { HomeScreen } from './screens/HomeScreen'
 import { NewStoreScreen } from './screens/NewStoreScreen'
@@ -49,6 +51,7 @@ function App() {
     setStoreVisibility,
   } = useAppState()
   const sync = useSync(data, replaceData)
+  const appUpdate = useAppUpdate()
   const [screen, setScreen] = useState<Screen>({ name: 'home' })
   const [enterCode, setEnterCode] = useState<string | null>(null)
 
@@ -87,6 +90,16 @@ function App() {
     <>
       {sync.mergePending ? (
         <MergeDialog busy={sync.busy} onChoose={(mode) => void sync.resolveMerge(mode)} />
+      ) : null}
+      {appUpdate.remote ? (
+        <UpdateBanner
+          remote={appUpdate.remote}
+          stuck={appUpdate.stuck}
+          alreadyCurrent={appUpdate.alreadyCurrent}
+          standalone={appUpdate.standalone}
+          onReload={appUpdate.reload}
+          onDismiss={appUpdate.dismiss}
+        />
       ) : null}
     </>
   )
@@ -220,6 +233,7 @@ function App() {
             store={store}
             draft={screen.draft}
             categories={storeCategories}
+            knownCategories={knownCategoriesForStore(data.categories, store.id)}
             catalog={data.catalog ?? []}
             items={storeItems}
             onBack={() => setScreen({ name: 'store', storeId: store.id })}
@@ -259,6 +273,9 @@ function App() {
           onClearBought={() => clearBought(store.id)}
           completedEmpty={clearedStoreIds.includes(store.id)}
           onSaveTemplate={(name) => saveTemplate(store.id, name)}
+          otherStores={data.stores.filter((item) => item.id !== store.id)}
+          onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
+          onMoveToStore={(storeId) => transferItems(store.id, storeId, 'move')}
         />
         {overlay}
       </>

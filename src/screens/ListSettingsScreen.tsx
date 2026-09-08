@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
 import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
+import { BackIcon } from '../components/NavIcons'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
 import type { Category, CategorySort, Item, Store, StoreVisibility } from '../types'
@@ -142,7 +143,7 @@ export function ListSettingsScreen({
         }
         left={
           <button type="button" className="icon-button" onClick={goBack} aria-label="Назад">
-            ←
+            <BackIcon />
           </button>
         }
         right={
