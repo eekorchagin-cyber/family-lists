@@ -4,6 +4,7 @@ import { deviceCode, inviteCode, kindFromCode, localAuthEmail, randomPassword } 
 import { restoreDeletes, takeDeletes } from './deletes'
 import {
   GROUPS_CATALOG_ID,
+  mergeGroups,
   parseGroupsCatalog,
   stripGroupMarker,
   withGroupMarker,
@@ -327,8 +328,10 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
       .map((store) => store.id),
   )
 
+  // Метаданные списка (в т.ч. groupId) пушит только владелец,
+  // иначе другой телефон без групп затирает вложенность в облаке.
   const storeRows = data.stores
-    .filter((store) => writableIds.has(store.id))
+    .filter((store) => (store.ownerId ?? ownerId) === ownerId)
     .map((store) => ({
       id: store.id,
       home_id: homeId,
@@ -389,20 +392,34 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
       category_id: entry.categoryId,
       updated_at: entry.updatedAt ?? at,
     }))
-  const groupsAt = (data.groups ?? []).map((group) => group.updatedAt ?? '').sort().at(-1) ?? at
+
+  const pending = takeDeletes()
+
+  // Группы: сначала читаем облако и склеиваем, иначе устройство без групп
+  // затирает семейные названия пустым массивом.
+  const { data: remoteGroupsRow } = await client
+    .from('catalog')
+    .select('name')
+    .eq('id', GROUPS_CATALOG_ID)
+    .maybeSingle()
+  const remoteGroups = parseGroupsCatalog(remoteGroupsRow?.name) ?? []
+  const mergedGroups = mergeGroups(remoteGroups, data.groups ?? [], pending.groups)
+  const groupsAt =
+    mergedGroups.map((group) => group.updatedAt ?? '').sort().at(-1) || at
   catalogRows.push({
     id: GROUPS_CATALOG_ID,
     home_id: homeId,
-    name: JSON.stringify(data.groups ?? []),
+    name: JSON.stringify(mergedGroups),
     category_id: 'other',
     updated_at: groupsAt,
   })
   if (catalogRows.length > 0) {
     const { error } = await client.from('catalog').upsert(catalogRows)
-    if (error) throw error
+    if (error) {
+      restoreDeletes(pending)
+      throw error
+    }
   }
-
-  const pending = takeDeletes()
   try {
     if (pending.clearedItems.length > 0) {
       const { error } = await client.from('items').delete().in('id', pending.clearedItems)

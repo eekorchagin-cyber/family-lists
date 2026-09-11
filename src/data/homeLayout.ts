@@ -109,10 +109,11 @@ export function buildHomeRows(
   homeOrder: string[],
   collapsed: Record<string, boolean>,
 ): HomeRow[] {
-  const storeById = new Map(stores.map((store) => [store.id, store]))
+  const visibleStores = storesForHome(stores, groups)
+  const storeById = new Map(visibleStores.map((store) => [store.id, store]))
   const groupById = new Map(groups.map((group) => [group.id, group]))
   const nested = new Map<string, Store[]>()
-  for (const store of stores) {
+  for (const store of visibleStores) {
     if (!store.groupId) continue
     const list = nested.get(store.groupId) ?? []
     list.push(store)
@@ -120,7 +121,7 @@ export function buildHomeRows(
   }
 
   const rows: HomeRow[] = []
-  for (const key of ensureHomeOrder(stores, groups, homeOrder)) {
+  for (const key of ensureHomeOrder(visibleStores, groups, homeOrder)) {
     const entry = parseHomeKey(key)
     if (!entry) continue
     if (entry.type === 'group') {
@@ -162,6 +163,36 @@ export function withGroupMarker(
   const { names: clean } = stripGroupMarker(names)
   if (!groupId) return clean
   return { ...clean, [GROUP_NAME_KEY]: groupId }
+}
+
+
+export function mergeGroups(
+  remote: StoreGroup[],
+  local: StoreGroup[],
+  deletedIds: Iterable<string> = [],
+): StoreGroup[] {
+  const deleted = new Set(deletedIds)
+  const byId = new Map<string, StoreGroup>()
+  for (const group of remote) {
+    if (deleted.has(group.id)) continue
+    byId.set(group.id, group)
+  }
+  for (const group of local) {
+    if (deleted.has(group.id)) continue
+    const current = byId.get(group.id)
+    if (!current || (group.updatedAt ?? '') >= (current.updatedAt ?? '')) {
+      byId.set(group.id, group)
+    }
+  }
+  return [...byId.values()]
+}
+
+/** Списки с groupId без самой группы показываем на первом уровне. */
+export function storesForHome(stores: Store[], groups: StoreGroup[]): Store[] {
+  const groupIds = new Set(groups.map((group) => group.id))
+  return stores.map((store) =>
+    store.groupId && !groupIds.has(store.groupId) ? { ...store, groupId: undefined } : store,
+  )
 }
 
 export function parseGroupsCatalog(raw: string | undefined): StoreGroup[] | null {

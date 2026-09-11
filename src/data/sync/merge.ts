@@ -263,16 +263,14 @@ export function mergePulledData(
     local.stores.map((store) => store.id),
   )
   const nextStoreIds = new Set(nextStores.map((store) => store.id))
-  const groupIds = new Set(groups.keys())
-  const storesWithGroups = nextStores.map((store) =>
-    store.groupId && !groupIds.has(store.groupId) ? { ...store, groupId: undefined } : store,
-  )
+  // Не снимаем groupId, если карточки группы ещё нет: иначе список
+  // пропадает с главного экрана, а чужой push затирает привязку в облаке.
   return {
     changed,
     changedStoreIds: [...changedStoreIds].filter((id) => nextStoreIds.has(id)),
     next: {
       ...local,
-      stores: storesWithGroups,
+      stores: nextStores,
       groups: [...groups.values()],
       categories: [...categories.values()],
       catalog: [...catalog.values()],
