@@ -17,6 +17,7 @@ export function stampAllData(data: AppData): AppData {
   return {
     ...data,
     stores: data.stores.map((store) => ({ ...store, updatedAt: at })),
+    groups: (data.groups ?? []).map((group) => ({ ...group, updatedAt: at })),
     categories: data.categories.map((category) => ({ ...category, updatedAt: at })),
     items: data.items.map((item) => ({ ...item, updatedAt: at })),
     catalog: (data.catalog ?? []).map((entry) => ({ ...entry, updatedAt: at })),
@@ -236,17 +237,43 @@ export function mergePulledData(
     }
   }
 
+  const groups = new Map((local.groups ?? []).map((group) => [group.id, group]))
+  for (const group of remote.groups ?? []) {
+    const current = groups.get(group.id)
+    if (!current) {
+      groups.set(group.id, group)
+      changed = true
+    } else if ((group.updatedAt ?? '') > (current.updatedAt ?? '')) {
+      groups.set(group.id, group)
+      changed = true
+    }
+  }
+  const remoteGroupIds = new Set((remote.groups ?? []).map((group) => group.id))
+  for (const [id, group] of [...groups.entries()]) {
+    if (remoteGroupIds.has(id)) continue
+    if (locallyNewer(group.updatedAt, options.lastPulledAt)) continue
+    if (options.lastPulledAt) {
+      groups.delete(id)
+      changed = true
+    }
+  }
+
   const nextStores = applyStoreOrder(
     [...stores.values()],
     local.stores.map((store) => store.id),
   )
   const nextStoreIds = new Set(nextStores.map((store) => store.id))
+  const groupIds = new Set(groups.keys())
+  const storesWithGroups = nextStores.map((store) =>
+    store.groupId && !groupIds.has(store.groupId) ? { ...store, groupId: undefined } : store,
+  )
   return {
     changed,
     changedStoreIds: [...changedStoreIds].filter((id) => nextStoreIds.has(id)),
     next: {
       ...local,
-      stores: nextStores,
+      stores: storesWithGroups,
+      groups: [...groups.values()],
       categories: [...categories.values()],
       catalog: [...catalog.values()],
       items: [...items.values()],
@@ -310,9 +337,15 @@ export function mergeByStoreName(device: AppData, cloud: AppData): AppData {
     if (!catalogByName.has(entry.name.trim().toLowerCase())) catalog.push(entry)
   }
 
+  const groupsById = new Map((cloud.groups ?? []).map((group) => [group.id, group]))
+  for (const group of device.groups ?? []) {
+    if (!groupsById.has(group.id)) groupsById.set(group.id, group)
+  }
+
   return {
     ...device,
     stores,
+    groups: [...groupsById.values()],
     items,
     categories: [...categories.values()],
     catalog,

@@ -2,6 +2,12 @@ import type { AppData, CatalogEntry, Category, Item, Store } from '../../types'
 import { getSupabase } from './client'
 import { deviceCode, inviteCode, kindFromCode, localAuthEmail, randomPassword } from './codes'
 import { restoreDeletes, takeDeletes } from './deletes'
+import {
+  GROUPS_CATALOG_ID,
+  parseGroupsCatalog,
+  stripGroupMarker,
+  withGroupMarker,
+} from '../homeLayout'
 import { nowIso } from './merge'
 import { loadSession, type HomeMember, type SyncSession } from './session'
 
@@ -293,13 +299,17 @@ export async function pullRemote(): Promise<AppData> {
   if (items.error) throw items.error
   if (catalog.error) throw catalog.error
 
+  const catalogEntries = ((catalog.data ?? []) as CatalogRow[]).map(catalogFromRow)
+  const groupsEntry = catalogEntries.find((entry) => entry.id === GROUPS_CATALOG_ID)
+  const groups = parseGroupsCatalog(groupsEntry?.name) ?? []
   return {
     version: 1,
     settings: { theme: 'light', fontSize: 'm' },
     stores: ((stores.data ?? []) as StoreRow[]).map(storeFromRow),
+    groups,
     categories: ((categories.data ?? []) as CategoryRow[]).map(categoryFromRow),
     items: ((items.data ?? []) as ItemRow[]).map(itemFromRow),
-    catalog: ((catalog.data ?? []) as CatalogRow[]).map(catalogFromRow),
+    catalog: catalogEntries.filter((entry) => entry.id !== GROUPS_CATALOG_ID),
   }
 }
 
@@ -327,7 +337,7 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
       visibility: store.visibility ?? 'private',
       category_sort: store.categorySort,
       category_order: store.categoryOrder,
-      category_names: store.categoryNames,
+      category_names: withGroupMarker(store.categoryNames, store.groupId),
       templates: store.templates ?? [],
       updated_at: store.updatedAt ?? at,
     }))
@@ -370,13 +380,23 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
     if (error) throw error
   }
 
-  const catalogRows = (data.catalog ?? []).map((entry) => ({
-    id: entry.id,
+  const catalogRows = (data.catalog ?? [])
+    .filter((entry) => entry.id !== GROUPS_CATALOG_ID)
+    .map((entry) => ({
+      id: entry.id,
+      home_id: homeId,
+      name: entry.name,
+      category_id: entry.categoryId,
+      updated_at: entry.updatedAt ?? at,
+    }))
+  const groupsAt = (data.groups ?? []).map((group) => group.updatedAt ?? '').sort().at(-1) ?? at
+  catalogRows.push({
+    id: GROUPS_CATALOG_ID,
     home_id: homeId,
-    name: entry.name,
-    category_id: entry.categoryId,
-    updated_at: entry.updatedAt ?? at,
-  }))
+    name: JSON.stringify(data.groups ?? []),
+    category_id: 'other',
+    updated_at: groupsAt,
+  })
   if (catalogRows.length > 0) {
     const { error } = await client.from('catalog').upsert(catalogRows)
     if (error) throw error
@@ -406,6 +426,7 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
       const { error } = await client.from('stores').delete().in('id', pending.stores)
       if (error) throw error
     }
+    // groups live in catalog entry; nothing to delete per-id on the server
     if (pending.categories.length > 0) {
       const { error } = await client.from('categories').delete().in('id', pending.categories)
       if (error) throw error
@@ -421,15 +442,17 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
 }
 
 function storeFromRow(row: StoreRow): Store {
+  const marked = stripGroupMarker(row.category_names ?? {})
   return {
     id: row.id,
     name: row.name,
     categorySort: row.category_sort === 'alpha' ? 'alpha' : 'custom',
     categoryOrder: row.category_order ?? [],
-    categoryNames: row.category_names ?? {},
+    categoryNames: marked.names,
     templates: row.templates ?? [],
     visibility: row.visibility,
     ownerId: row.owner_id,
+    ...(marked.groupId ? { groupId: marked.groupId } : {}),
     updatedAt: row.updated_at,
   }
 }

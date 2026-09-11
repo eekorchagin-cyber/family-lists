@@ -5,12 +5,14 @@ import type {
   Item,
   Settings,
   Store,
+  StoreGroup,
   TemplateItem,
   NamedTemplate,
 } from '../types'
 import { catalogFromItems, mergeCatalogFromItems } from './catalog'
 import backup from './backup.json'
 import { appendCategoryToStores } from './categories'
+import { GROUPS_CATALOG_ID, parseGroupsCatalog, stripGroupMarker } from './homeLayout'
 import {
   createDefaultData,
   DEFAULT_CATEGORIES,
@@ -121,6 +123,11 @@ function normalizeStore(value: unknown): Store | null {
   }
 
   const defaults = emptyStoreFields()
+  const marked = stripGroupMarker(normalizeCategoryNames(value.categoryNames))
+  const groupId =
+    typeof value.groupId === 'string' && value.groupId.trim()
+      ? value.groupId.trim()
+      : marked.groupId
   return {
     id: value.id,
     name: value.name,
@@ -128,10 +135,24 @@ function normalizeStore(value: unknown): Store | null {
     categoryOrder: Array.isArray(value.categoryOrder)
       ? value.categoryOrder.filter((id): id is string => typeof id === 'string')
       : defaults.categoryOrder,
-    categoryNames: normalizeCategoryNames(value.categoryNames),
+    categoryNames: marked.names,
     templates: normalizeTemplates(value),
     visibility: value.visibility === 'home' ? 'home' : 'private',
     ...(typeof value.ownerId === 'string' ? { ownerId: value.ownerId } : {}),
+    ...(groupId ? { groupId } : {}),
+    ...(typeof value.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
+  }
+}
+
+function normalizeGroup(value: unknown): StoreGroup | null {
+  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.name !== 'string') {
+    return null
+  }
+  const name = value.name.trim()
+  if (!name) return null
+  return {
+    id: value.id,
+    name,
     ...(typeof value.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
   }
 }
@@ -195,13 +216,30 @@ export function migrate(raw: unknown): AppData {
   const stores = Array.isArray(raw.stores)
     ? raw.stores.map(normalizeStore).filter((store): store is Store => store !== null)
     : []
+  let groups = Array.isArray(raw.groups)
+    ? raw.groups.map(normalizeGroup).filter((group): group is StoreGroup => group !== null)
+    : []
+  const catalogRaw = normalizeCatalog(raw.catalog, items, categories)
+  const groupsEntry = catalogRaw.find((entry) => entry.id === GROUPS_CATALOG_ID)
+  if (groups.length === 0 && groupsEntry) {
+    groups = parseGroupsCatalog(groupsEntry.name) ?? []
+  }
+  const catalog = mergeCatalogFromItems(
+    catalogRaw.filter((entry) => entry.id !== GROUPS_CATALOG_ID),
+    items,
+  )
+  const groupIds = new Set(groups.map((group) => group.id))
+  const storesFixed = stores.map((store) =>
+    store.groupId && !groupIds.has(store.groupId) ? { ...store, groupId: undefined } : store,
+  )
 
   return {
     version: SCHEMA_VERSION,
-    stores: appendCategoryToStores(stores, categories),
+    stores: appendCategoryToStores(storesFixed, categories),
+    groups,
     items,
     categories,
-    catalog: mergeCatalogFromItems(normalizeCatalog(raw.catalog, items, categories), items),
+    catalog,
     settings: normalizeSettings(raw.settings),
   }
 }
