@@ -70,9 +70,7 @@ export function applyStoreOrder(stores: Store[], orderedIds: string[]): Store[] 
 }
 
 function itemFingerprint(item: Item): string {
-  return [item.id, item.storeId, item.name, String(item.qty), item.unit, item.bought ? '1' : '0', item.categoryId].join(
-    '\0',
-  )
+  return [item.id, item.storeId, item.name, String(item.qty), item.unit, item.categoryId].join('\0')
 }
 
 export function visibleStoreUpdates(before: AppData, after: AppData): string[] {
@@ -85,9 +83,12 @@ export function visibleStoreUpdates(before: AppData, after: AppData): string[] {
     if (!prev || prev.name !== store.name) ids.add(store.id)
   }
 
+  // Только активные товары: расхождение по «куплено» / очистке купленного
+  // не должно подсвечивать список как изменённый.
   const group = (items: Item[]) => {
     const map = new Map<string, string[]>()
     for (const item of items) {
+      if (item.bought) continue
       const list = map.get(item.storeId) ?? []
       list.push(itemFingerprint(item))
       map.set(item.storeId, list)
@@ -221,13 +222,16 @@ export function mergePulledData(
 
   for (const [id, item] of [...items.entries()]) {
     if (remoteIds.has(id)) continue
-    if (item.bought) continue
     const store = stores.get(item.storeId)
     if (!store) {
       items.delete(id)
       changed = true
       continue
     }
+    // Раньше купленные товары без пары в облаке оставляли навсегда —
+    // после очистки «куплено» на другом устройстве локальная копия
+    // расходилась с облаком и при холодном старте PWA все такие списки
+    // подсвечивались как изменённые. Держим только реально более новые.
     if (locallyNewer(item.updatedAt, options.lastPulledAt)) continue
     if (options.lastPulledAt) {
       markStore(item.storeId)
