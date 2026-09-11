@@ -40,10 +40,31 @@ export function mergeItems(local: Item, remote: Item): Item {
   }
 }
 
-function mergeStore(local: Store, remote: Store): Store {
+function mergeStore(local: Store, remote: Store, userId?: string): Store {
+  const ownerId = remote.ownerId ?? local.ownerId
+  // Чужой список: облако — источник правды (группа, имя, категории).
+  // Иначе локальные правки на втором телефоне «перебивают» вложенность.
+  if (userId && ownerId && ownerId !== userId) return remote
   const localAt = local.updatedAt ?? ''
   const remoteAt = remote.updatedAt ?? ''
-  return localAt >= remoteAt ? local : remote
+  if (remoteAt > localAt) return remote
+  if (localAt > remoteAt) return local
+  if (remote.groupId && !local.groupId) return { ...local, groupId: remote.groupId }
+  return local
+}
+
+function sameStoreMeta(a: Store, b: Store): boolean {
+  return (
+    a.name === b.name &&
+    a.groupId === b.groupId &&
+    a.visibility === b.visibility &&
+    a.categorySort === b.categorySort &&
+    a.ownerId === b.ownerId &&
+    (a.updatedAt ?? '') === (b.updatedAt ?? '') &&
+    JSON.stringify(a.categoryOrder) === JSON.stringify(b.categoryOrder) &&
+    JSON.stringify(a.categoryNames) === JSON.stringify(b.categoryNames) &&
+    JSON.stringify(a.templates ?? []) === JSON.stringify(b.templates ?? [])
+  )
 }
 
 function locallyNewer(updatedAt: string | undefined, lastPulledAt: string | null): boolean {
@@ -133,8 +154,8 @@ export function mergePulledData(
       changed = true
       continue
     }
-    const merged = mergeStore(current, store)
-    if (merged !== current) {
+    const merged = mergeStore(current, store, options.userId)
+    if (!sameStoreMeta(merged, current)) {
       stores.set(store.id, merged)
       markStore(store.id)
       changed = true

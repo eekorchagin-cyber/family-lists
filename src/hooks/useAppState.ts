@@ -50,6 +50,8 @@ function persist(next: AppData, mode: 'user' | 'sync' | 'local' = 'user'): AppDa
   if (mode !== 'sync') {
     saveStoreOrder(withGroups.stores.map((store) => store.id))
     saveHomeOrder(ensureHomeOrder(withGroups.stores, withGroups.groups, loadHomeOrder()))
+  } else {
+    saveHomeOrder(ensureHomeOrder(withGroups.stores, withGroups.groups, loadHomeOrder()))
   }
   if (mode === 'user') markDirty()
   return withGroups

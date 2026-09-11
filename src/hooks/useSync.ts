@@ -166,7 +166,12 @@ export function useSync(
           replaceRef.current(incoming, { takeCloudOrder: onLocalhost })
           sessionStorage.setItem('pokupki-adopt-cloud', '1')
           if (dirtyRef.current || gone.length > 0 || pending.stores.length > 0) {
-            await pushLocal(current, incoming)
+            const pushed = await pushLocal(current, incoming)
+            if (
+              JSON.stringify(pushed.groups) !== JSON.stringify(incoming.groups ?? [])
+            ) {
+              replaceRef.current({ ...incoming, groups: pushed.groups })
+            }
             dirtyRef.current = false
           }
           const saved = { ...current, lastPulledAt: nowIso(), displayName: profile.displayName }
@@ -190,7 +195,11 @@ export function useSync(
       }
       const toPush = changed ? next : dataRef.current
       if (dirtyRef.current || changed) {
-        await pushLocal(current, toPush)
+        const pushed = await pushLocal(current, toPush)
+        const withGroups = { ...toPush, groups: pushed.groups }
+        if (JSON.stringify(pushed.groups) !== JSON.stringify(toPush.groups ?? [])) {
+          replaceRef.current(withGroups)
+        }
         dirtyRef.current = false
       }
       const saved = { ...current, lastPulledAt: nowIso(), displayName: profile.displayName }
@@ -281,12 +290,19 @@ export function useSync(
       }
       replaceRef.current(next)
       dirtyRef.current = true
-      await pushLocal(nextSession, next)
+      const pushed = await pushLocal(nextSession, next)
+      if (JSON.stringify(pushed.groups) !== JSON.stringify(next.groups ?? [])) {
+        replaceRef.current({ ...next, groups: pushed.groups })
+      }
       const pulled = await pullRemote()
-      const merged = mergePulledData(next, pulled, {
-        lastPulledAt: null,
-        userId: nextSession.userId,
-      })
+      const merged = mergePulledData(
+        { ...next, groups: pushed.groups },
+        pulled,
+        {
+          lastPulledAt: null,
+          userId: nextSession.userId,
+        },
+      )
       if (merged.changed) replaceRef.current(merged.next)
       const saved = { ...nextSession, lastPulledAt: nowIso() }
       saveSession(saved)

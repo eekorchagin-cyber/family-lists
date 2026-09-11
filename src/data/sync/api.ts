@@ -4,6 +4,8 @@ import { deviceCode, inviteCode, kindFromCode, localAuthEmail, randomPassword } 
 import { restoreDeletes, takeDeletes } from './deletes'
 import {
   GROUPS_CATALOG_ID,
+  groupsCatalogIdForHome,
+  isGroupsCatalogId,
   mergeGroups,
   parseGroupsCatalog,
   stripGroupMarker,
@@ -301,7 +303,9 @@ export async function pullRemote(): Promise<AppData> {
   if (catalog.error) throw catalog.error
 
   const catalogEntries = ((catalog.data ?? []) as CatalogRow[]).map(catalogFromRow)
-  const groupsEntry = catalogEntries.find((entry) => entry.id === GROUPS_CATALOG_ID)
+  const groupsEntry =
+    catalogEntries.find((entry) => entry.id.startsWith(`${GROUPS_CATALOG_ID}:`)) ??
+    catalogEntries.find((entry) => entry.id === GROUPS_CATALOG_ID)
   const groups = parseGroupsCatalog(groupsEntry?.name) ?? []
   return {
     version: 1,
@@ -310,11 +314,14 @@ export async function pullRemote(): Promise<AppData> {
     groups,
     categories: ((categories.data ?? []) as CategoryRow[]).map(categoryFromRow),
     items: ((items.data ?? []) as ItemRow[]).map(itemFromRow),
-    catalog: catalogEntries.filter((entry) => entry.id !== GROUPS_CATALOG_ID),
+    catalog: catalogEntries.filter((entry) => !isGroupsCatalogId(entry.id)),
   }
 }
 
-export async function pushLocal(session: SyncSession, data: AppData): Promise<void> {
+export async function pushLocal(
+  session: SyncSession,
+  data: AppData,
+): Promise<{ groups: AppData['groups'] }> {
   const client = requireClient()
   const homeId = session.homeId
   const ownerId = session.userId
@@ -384,7 +391,7 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
   }
 
   const catalogRows = (data.catalog ?? [])
-    .filter((entry) => entry.id !== GROUPS_CATALOG_ID)
+    .filter((entry) => !isGroupsCatalogId(entry.id))
     .map((entry) => ({
       id: entry.id,
       home_id: homeId,
@@ -395,19 +402,22 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
 
   const pending = takeDeletes()
 
-  // Группы: сначала читаем облако и склеиваем, иначе устройство без групп
-  // затирает семейные названия пустым массивом.
-  const { data: remoteGroupsRow } = await client
-    .from('catalog')
-    .select('name')
-    .eq('id', GROUPS_CATALOG_ID)
-    .maybeSingle()
-  const remoteGroups = parseGroupsCatalog(remoteGroupsRow?.name) ?? []
+  // Группы: читаем облако (id на дом + старый общий) и склеиваем,
+  // иначе устройство без групп затирает семейные названия.
+  const groupsId = groupsCatalogIdForHome(homeId)
+  const [{ data: homeGroupsRow }, { data: legacyGroupsRow }] = await Promise.all([
+    client.from('catalog').select('name').eq('id', groupsId).maybeSingle(),
+    client.from('catalog').select('name').eq('id', GROUPS_CATALOG_ID).maybeSingle(),
+  ])
+  const remoteGroups =
+    parseGroupsCatalog(homeGroupsRow?.name) ??
+    parseGroupsCatalog(legacyGroupsRow?.name) ??
+    []
   const mergedGroups = mergeGroups(remoteGroups, data.groups ?? [], pending.groups)
   const groupsAt =
     mergedGroups.map((group) => group.updatedAt ?? '').sort().at(-1) || at
   catalogRows.push({
-    id: GROUPS_CATALOG_ID,
+    id: groupsId,
     home_id: homeId,
     name: JSON.stringify(mergedGroups),
     category_id: 'other',
@@ -419,6 +429,10 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
       restoreDeletes(pending)
       throw error
     }
+  }
+  // Старый глобальный id мог перехватываться другими домами — убираем свою копию.
+  if (legacyGroupsRow) {
+    await client.from('catalog').delete().eq('id', GROUPS_CATALOG_ID).eq('home_id', homeId)
   }
   try {
     if (pending.clearedItems.length > 0) {
@@ -449,13 +463,20 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
       if (error) throw error
     }
     if (pending.catalog.length > 0) {
-      const { error } = await client.from('catalog').delete().in('id', pending.catalog)
+      const { error } = await client
+        .from('catalog')
+        .delete()
+        .in(
+          'id',
+          pending.catalog.filter((id) => !isGroupsCatalogId(id)),
+        )
       if (error) throw error
     }
   } catch (error) {
     restoreDeletes(pending)
     throw error
   }
+  return { groups: mergedGroups }
 }
 
 function storeFromRow(row: StoreRow): Store {

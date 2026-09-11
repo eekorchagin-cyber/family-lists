@@ -5,6 +5,15 @@ export const GROUP_COLLAPSED_KEY = 'pokupki-group-collapsed'
 export const GROUPS_CATALOG_ID = '__pokupki_groups__'
 export const GROUP_NAME_KEY = '__g'
 
+/** Id строки каталога с группами: на дом, чтобы семьи не затирали друг друга. */
+export function groupsCatalogIdForHome(homeId: string): string {
+  return `${GROUPS_CATALOG_ID}:${homeId}`
+}
+
+export function isGroupsCatalogId(id: string): boolean {
+  return id === GROUPS_CATALOG_ID || id.startsWith(`${GROUPS_CATALOG_ID}:`)
+}
+
 export type HomeEntry =
   | { type: 'store'; id: string }
   | { type: 'group'; id: string }

@@ -12,7 +12,7 @@ import type {
 import { catalogFromItems, mergeCatalogFromItems } from './catalog'
 import backup from './backup.json'
 import { appendCategoryToStores } from './categories'
-import { GROUPS_CATALOG_ID, parseGroupsCatalog, stripGroupMarker } from './homeLayout'
+import { isGroupsCatalogId, parseGroupsCatalog, stripGroupMarker } from './homeLayout'
 import {
   createDefaultData,
   DEFAULT_CATEGORIES,
@@ -220,22 +220,19 @@ export function migrate(raw: unknown): AppData {
     ? raw.groups.map(normalizeGroup).filter((group): group is StoreGroup => group !== null)
     : []
   const catalogRaw = normalizeCatalog(raw.catalog, items, categories)
-  const groupsEntry = catalogRaw.find((entry) => entry.id === GROUPS_CATALOG_ID)
+  const groupsEntry = catalogRaw.find((entry) => isGroupsCatalogId(entry.id))
   if (groups.length === 0 && groupsEntry) {
     groups = parseGroupsCatalog(groupsEntry.name) ?? []
   }
   const catalog = mergeCatalogFromItems(
-    catalogRaw.filter((entry) => entry.id !== GROUPS_CATALOG_ID),
+    catalogRaw.filter((entry) => !isGroupsCatalogId(entry.id)),
     items,
   )
-  const groupIds = new Set(groups.map((group) => group.id))
-  const storesFixed = stores.map((store) =>
-    store.groupId && !groupIds.has(store.groupId) ? { ...store, groupId: undefined } : store,
-  )
-
+  // groupId не снимаем при загрузке: иначе вложенность пропадает, пока
+  // карточка группы ещё не доехала с другого телефона.
   return {
     version: SCHEMA_VERSION,
-    stores: appendCategoryToStores(storesFixed, categories),
+    stores: appendCategoryToStores(stores, categories),
     groups,
     items,
     categories,
