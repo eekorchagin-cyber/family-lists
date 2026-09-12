@@ -147,9 +147,9 @@ export function useSync(
         localStorage.setItem(SHARE_LISTS_KEY, userId)
       }
       // Раз за сессию принудительно пушим локальное — лечит «есть у меня, нет в облаке».
-      if (sessionStorage.getItem('pokupki-force-push') !== '1') {
+      if (sessionStorage.getItem('pokupki-force-push') !== '2') {
         dirtyRef.current = true
-        sessionStorage.setItem('pokupki-force-push', '1')
+        sessionStorage.setItem('pokupki-force-push', '2')
       }
       const onLocalhost = isLocalHost(window.location.hostname)
       // Раньше adopt-cloud полностью затирал локальные данные облаком при каждом
@@ -177,9 +177,13 @@ export function useSync(
               userId: current.userId,
               deletedItemIds: gone,
               deletedStoreIds: pending.stores,
+              deletedGroupIds: pending.groups,
             })
             if (merged.changed) {
-              markStoresUpdated(visibleStoreUpdates(before, merged.next))
+              markStoresUpdated([
+                ...visibleStoreUpdates(before, merged.next),
+                ...merged.changedStoreIds,
+              ])
               replaceRef.current(merged.next)
             }
             dirtyRef.current = true
@@ -194,14 +198,18 @@ export function useSync(
       const remote = await pullRemote()
       local = dataRef.current
       const pending = peekDeletes()
-      const { next, changed } = mergePulledData(local, remote, {
+      const { next, changed, changedStoreIds } = mergePulledData(local, remote, {
         lastPulledAt: current.lastPulledAt,
         userId: current.userId,
         deletedItemIds: deletedItemIds(pending),
         deletedStoreIds: pending.stores,
+        deletedGroupIds: pending.groups,
       })
       if (changed) {
-        markStoresUpdated(visibleStoreUpdates(local, next))
+        markStoresUpdated([
+          ...visibleStoreUpdates(local, next),
+          ...changedStoreIds,
+        ])
         replaceRef.current(next)
       }
       const toPush = changed ? next : dataRef.current
@@ -211,7 +219,8 @@ export function useSync(
         if (JSON.stringify(pushed.groups) !== JSON.stringify(toPush.groups ?? [])) {
           replaceRef.current(withGroups)
         }
-        dirtyRef.current = false
+        // Если группы не записались — оставим dirty, чтобы повторить.
+        dirtyRef.current = !pushed.groupsSaved
       }
       const saved = { ...current, lastPulledAt: nowIso(), displayName: profile.displayName }
       saveSession(saved)
@@ -312,6 +321,7 @@ export function useSync(
         {
           lastPulledAt: null,
           userId: nextSession.userId,
+          deletedGroupIds: peekDeletes().groups,
         },
       )
       if (merged.changed) replaceRef.current(merged.next)

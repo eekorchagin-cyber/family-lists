@@ -137,10 +137,12 @@ export function mergePulledData(
     userId: string
     deletedItemIds?: string[]
     deletedStoreIds?: string[]
+    deletedGroupIds?: string[]
   },
 ): { next: AppData; changed: boolean; changedStoreIds: string[] } {
   const deletedItems = new Set(options.deletedItemIds ?? [])
   const deletedStores = new Set(options.deletedStoreIds ?? [])
+  const deletedGroups = new Set(options.deletedGroupIds ?? [])
   const stores = new Map(local.stores.map((store) => [store.id, store]))
   const changedStoreIds = new Set<string>()
   const markStore = (id: string | undefined) => {
@@ -262,23 +264,26 @@ export function mergePulledData(
 
   const groups = new Map((local.groups ?? []).map((group) => [group.id, group]))
   for (const group of remote.groups ?? []) {
+    if (deletedGroups.has(group.id)) continue
     const current = groups.get(group.id)
     if (!current) {
       groups.set(group.id, group)
       changed = true
+      // Новая группа с другого телефона — подсветим списки внутри неё.
+      for (const store of stores.values()) {
+        if (store.groupId === group.id) markStore(store.id)
+      }
     } else if ((group.updatedAt ?? '') > (current.updatedAt ?? '')) {
       groups.set(group.id, group)
       changed = true
     }
   }
-  const remoteGroupIds = new Set((remote.groups ?? []).map((group) => group.id))
-  for (const [id, group] of [...groups.entries()]) {
-    if (remoteGroupIds.has(id)) continue
-    if (locallyNewer(group.updatedAt, options.lastPulledAt)) continue
-    if (options.lastPulledAt) {
-      groups.delete(id)
-      changed = true
-    }
+  // Группы не удаляем только потому, что их нет в облаке: иначе телефон
+  // с пустым каталогом групп затирает семейные названия навсегда.
+  for (const id of deletedGroups) {
+    if (!groups.has(id)) continue
+    groups.delete(id)
+    changed = true
   }
 
   const nextStores = applyStoreOrder(

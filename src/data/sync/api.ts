@@ -329,7 +329,7 @@ export async function pullRemote(): Promise<AppData> {
 export async function pushLocal(
   session: SyncSession,
   data: AppData,
-): Promise<{ groups: AppData['groups'] }> {
+): Promise<{ groups: AppData['groups']; groupsSaved: boolean }> {
   const client = requireClient()
   const homeId = session.homeId
   const ownerId = session.userId
@@ -418,6 +418,7 @@ export async function pushLocal(
   // Группы отдельно от товарного каталога: списки/товары уже в облаке.
   const groupsId = groupsCatalogIdForHome(homeId)
   let mergedGroups = data.groups ?? []
+  let groupsSaved = false
   try {
     const [{ data: homeGroupsRow }, { data: legacyGroupsRow }] = await Promise.all([
       client.from('catalog').select('name, home_id').eq('id', groupsId).maybeSingle(),
@@ -460,10 +461,10 @@ export async function pushLocal(
     }
     const { error: groupsError } = await client.from('catalog').upsert(groupRows)
     if (groupsError) throw groupsError
+    groupsSaved = true
   } catch (groupsError) {
-    // Списки уже в облаке; группы попробуем снова на следующем тике.
-    restoreDeletes(pending)
-    throw groupsError
+    // Списки/товары уже в облаке — не валим весь sync из‑за групп.
+    console.warn('groups sync failed', groupsError)
   }
 
   try {
@@ -503,7 +504,7 @@ export async function pushLocal(
     restoreDeletes(pending)
     throw error
   }
-  return { groups: mergedGroups }
+  return { groups: mergedGroups, groupsSaved }
 }
 
 function storeFromRow(row: StoreRow): Store {
