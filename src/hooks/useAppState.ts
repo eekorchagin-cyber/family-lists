@@ -81,14 +81,25 @@ function patchStore(current: AppData, storeId: string, patch: Partial<Store>): A
 
 export function useAppState() {
   const [data, setData] = useState<AppData>(() => {
-    const loaded = loadData()
-    const order = loadStoreOrder()
-    const base = { ...loaded, groups: loaded.groups ?? [] }
-    const next =
-      order.length > 0 ? { ...base, stores: applyStoreOrder(base.stores, order) } : base
-    saveHomeOrder(ensureHomeOrder(next.stores, next.groups))
-    applyAppearance(next.settings)
-    return next
+    try {
+      const loaded = loadData()
+      const order = loadStoreOrder()
+      const base = { ...loaded, groups: loaded.groups ?? [] }
+      const next =
+        order.length > 0 ? { ...base, stores: applyStoreOrder(base.stores, order) } : base
+      try {
+        saveHomeOrder(ensureHomeOrder(next.stores, next.groups))
+      } catch {
+        /* private mode / quota */
+      }
+      applyAppearance(next.settings)
+      return next
+    } catch (error) {
+      console.error('boot state failed', error)
+      const fallback = { ...loadData(), groups: [] as AppData['groups'] }
+      applyAppearance(fallback.settings)
+      return fallback
+    }
   })
 
   const [clearedStoreIds, setClearedStoreIds] = useState<string[]>(() => loadClearedStoreIds())

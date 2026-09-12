@@ -7,7 +7,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta name="theme-color" content="#2a7a4f" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -24,18 +24,122 @@
     <script>
       try {
         const data = JSON.parse(localStorage.getItem('pokupki-data') || 'null')
-        if (data?.settings?.theme) document.documentElement.dataset.theme = data.settings.theme
-        if (data?.settings?.fontSize) document.documentElement.dataset.font = data.settings.fontSize
-      } catch {}
+        if (data && data.settings && data.settings.theme) {
+          document.documentElement.dataset.theme = data.settings.theme
+        }
+        if (data && data.settings && data.settings.fontSize) {
+          document.documentElement.dataset.font = data.settings.fontSize
+        }
+      } catch (e) {}
     </script>
+    <style>
+      #boot-fail {
+        display: none;
+        box-sizing: border-box;
+        min-height: 100dvh;
+        margin: 0;
+        padding: 32px 24px;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #f4f7f5;
+        color: #1a2e24;
+      }
+      #boot-fail h1 {
+        margin: 0 0 12px;
+        font-size: 22px;
+      }
+      #boot-fail p {
+        margin: 0 0 20px;
+        line-height: 1.45;
+        color: #3d5a4c;
+      }
+      #boot-fail button {
+        appearance: none;
+        border: 0;
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 16px;
+        font-weight: 600;
+        background: #2a7a4f;
+        color: #fff;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="boot-fail">
+      <h1>Не удалось загрузить приложение</h1>
+      <p>
+        На этом iPhone зависла старая копия файлов. Нажмите кнопку — очистим кэш и
+        откроем свежую версию.
+      </p>
+      <button type="button" id="boot-fail-btn">Обновить приложение</button>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       (function () {
         var host = location.hostname
-        if (host === 'localhost' || host === '127.0.0.1') return
+        var isLocal = host === 'localhost' || host === '127.0.0.1'
+        var root = document.getElementById('root')
+        var fail = document.getElementById('boot-fail')
+        var btn = document.getElementById('boot-fail-btn')
+        var recovered = false
+
+        function showFail() {
+          if (recovered) return
+          if (root && root.childNodes.length > 0) return
+          if (fail) fail.style.display = 'block'
+        }
+
+        function hardRecover() {
+          recovered = true
+          try {
+            sessionStorage.removeItem('pokupki-reloaded')
+            sessionStorage.removeItem('pokupki-force-push')
+            sessionStorage.removeItem('pokupki-adopt-cloud')
+          } catch (e) {}
+          var done = function () {
+            var url = new URL(location.href)
+            url.searchParams.set('v', String(Date.now()))
+            location.replace(url.toString())
+          }
+          var tasks = []
+          if ('serviceWorker' in navigator) {
+            tasks.push(
+              navigator.serviceWorker.getRegistrations().then(function (regs) {
+                return Promise.all(regs.map(function (reg) { return reg.unregister() }))
+              }),
+            )
+          }
+          if (window.caches && caches.keys) {
+            tasks.push(
+              caches.keys().then(function (keys) {
+                return Promise.all(keys.map(function (key) { return caches.delete(key) }))
+              }),
+            )
+          }
+          Promise.all(tasks).then(done).catch(done)
+        }
+
+        if (btn) btn.addEventListener('click', hardRecover)
+
+        // Если по ?recover=1 — сразу жёсткое обновление.
+        try {
+          if (new URLSearchParams(location.search).get('recover') === '1') {
+            hardRecover()
+            return
+          }
+        } catch (e) {}
+
+        window.addEventListener('error', function (event) {
+          if (event.target && event.target.tagName === 'SCRIPT') showFail()
+        }, true)
+
+        // Белый экран: через 4с root пустой — показываем восстановление.
+        window.setTimeout(function () {
+          if (!root || root.childNodes.length === 0) showFail()
+        }, 4000)
+
+        if (isLocal) return
         if (sessionStorage.getItem('pokupki-reloaded')) return
         var current = ''
         var scripts = document.getElementsByTagName('script')
