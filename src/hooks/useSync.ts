@@ -17,7 +17,7 @@ import {
   signUpDevice,
 } from '../data/sync/api'
 import { supabaseConfigured } from '../data/sync/client'
-import { isLocalHost, isStandaloneApp, kindFromCode } from '../data/sync/codes'
+import { kindFromCode } from '../data/sync/codes'
 import { DIRTY_EVENT } from '../data/sync/dirty'
 import { deletedItemIds, peekDeletes } from '../data/sync/deletes'
 import { syncErrorMessage } from '../data/sync/errors'
@@ -34,6 +34,7 @@ import {
   loadUpdatedStoreIds,
   saveSession,
   saveUpdatedStoreIds,
+  shouldReplaceWithCloud,
   type HomeMember,
   type SyncSession,
 } from '../data/sync/session'
@@ -85,7 +86,8 @@ export function useSync(
     if (loadSession()?.password) return
     void recoverSessionFromAuth()
       .then((recovered) => {
-        if (!recovered?.homeId) return
+        // Без пароля loadSession потом вернёт null — не сохраняем «пустую» сессию.
+        if (!recovered?.homeId || !recovered.password) return
         saveSession(recovered)
         setSession(recovered)
       })
@@ -108,6 +110,9 @@ export function useSync(
       const profile = await loadMyProfile()
       if (!profile?.homeId) {
         if (!current.frozen) freeze(current)
+        setError(
+          'Синхронизация остановлена: этот телефон не в семье. Откройте Настройки → Семья.',
+        )
         return
       }
       if (
@@ -127,15 +132,12 @@ export function useSync(
       }
       let local = dataRef.current
       const userId = current.userId
-      if (localStorage.getItem(SHARE_LISTS_KEY) !== userId) {
+      // Проставляем ownerId своим спискам, но visibility НЕ трогаем:
+      // иначе «Только я» каждый тик сбрасывается в «Весь дом».
+      {
         const stores = local.stores.map((store) => {
-          if (store.visibility === 'home') return store
-          if (store.ownerId && store.ownerId !== userId) return store
-          return {
-            ...store,
-            ownerId: store.ownerId ?? userId,
-            visibility: 'home' as const,
-          }
+          if (store.ownerId) return store
+          return { ...store, ownerId: userId }
         })
         if (stores.some((store, index) => store !== local.stores[index])) {
           local = { ...local, stores }
@@ -144,11 +146,15 @@ export function useSync(
         }
         localStorage.setItem(SHARE_LISTS_KEY, userId)
       }
-      const onLocalhost = isLocalHost(window.location.hostname)
-      if (
-        (isStandaloneApp() || onLocalhost) &&
-        sessionStorage.getItem('pokupki-adopt-cloud') !== '1'
-      ) {
+      // Раз за сессию принудительно пушим локальное — лечит «есть у меня, нет в облаке»
+      // и уносит исправленную видимость (private) в облако.
+      if (sessionStorage.getItem('pokupki-force-push') !== '5') {
+        dirtyRef.current = true
+        sessionStorage.setItem('pokupki-force-push', '5')
+      }
+      // Backup-сид и полностью чужой набор id — берём облако целиком (иначе 2-й iPhone
+      // навсегда сидит на демо-списках без групп и без подсветки обновлений).
+      if (sessionStorage.getItem('pokupki-adopt-cloud') !== '2') {
         const cloud = await pullRemote()
         if (cloud.stores.length > 0 || cloud.items.length > 0) {
           const before = dataRef.current
@@ -159,20 +165,33 @@ export function useSync(
             settings: before.settings,
             stores: cloud.stores.filter((store) => !pending.stores.includes(store.id)),
             items: cloud.items.filter((item) => !gone.includes(item.id)),
+            groups: cloud.groups,
           }
-          if (dataLooksPopulated(before)) {
-            markStoresUpdated(visibleStoreUpdates(before, incoming))
+          sessionStorage.setItem('pokupki-adopt-cloud', '2')
+          if (shouldReplaceWithCloud(before, incoming) || !dataLooksPopulated(before)) {
+            markStoresUpdated(incoming.stores.map((store) => store.id))
+            replaceRef.current(incoming, { takeCloudOrder: true })
+            dirtyRef.current = true
+          } else {
+            const merged = mergePulledData(before, incoming, {
+              lastPulledAt: current.lastPulledAt,
+              userId: current.userId,
+              deletedItemIds: gone,
+              deletedStoreIds: pending.stores,
+              deletedGroupIds: pending.groups,
+            })
+            if (merged.changed) {
+              // Только видимые изменения (имя / группа / товары), не meta категорий.
+              markStoresUpdated(visibleStoreUpdates(before, merged.next))
+              replaceRef.current(merged.next)
+            }
+            dirtyRef.current = true
           }
-          replaceRef.current(incoming, { takeCloudOrder: onLocalhost })
-          sessionStorage.setItem('pokupki-adopt-cloud', '1')
-          if (dirtyRef.current || gone.length > 0 || pending.stores.length > 0) {
-            await pushLocal(current, incoming)
-            dirtyRef.current = false
-          }
-          const saved = { ...current, lastPulledAt: nowIso(), displayName: profile.displayName }
-          saveSession(saved)
-          setSession(saved)
-          return
+        } else {
+          sessionStorage.setItem('pokupki-adopt-cloud', '2')
+          setError(
+            'В облаке пока нет списков. Откройте телефон, где списки на месте, на 15 секунд — затем повторите здесь.',
+          )
         }
       }
       const remote = await pullRemote()
@@ -183,19 +202,28 @@ export function useSync(
         userId: current.userId,
         deletedItemIds: deletedItemIds(pending),
         deletedStoreIds: pending.stores,
+        deletedGroupIds: pending.groups,
       })
       if (changed) {
+        // Только видимые изменения (имя / группа / товары), не meta категорий —
+        // иначе списки «мигают» без реальных правок товаров.
         markStoresUpdated(visibleStoreUpdates(local, next))
         replaceRef.current(next)
       }
       const toPush = changed ? next : dataRef.current
       if (dirtyRef.current || changed) {
-        await pushLocal(current, toPush)
-        dirtyRef.current = false
+        const pushed = await pushLocal(current, toPush)
+        const withGroups = { ...toPush, groups: pushed.groups }
+        if (JSON.stringify(pushed.groups) !== JSON.stringify(toPush.groups ?? [])) {
+          replaceRef.current(withGroups)
+        }
+        // Если группы не записались — оставим dirty, чтобы повторить.
+        dirtyRef.current = !pushed.groupsSaved
       }
       const saved = { ...current, lastPulledAt: nowIso(), displayName: profile.displayName }
       saveSession(saved)
       setSession(saved)
+      setError(null)
     } catch (caught) {
       setError(syncErrorMessage(caught))
     } finally {
@@ -266,14 +294,18 @@ export function useSync(
     async (nextSession: SyncSession, mode: MergeMode | 'auto') => {
       const local = dataRef.current
       const remote = await pullRemote()
-      if (mode === 'auto' && dataLooksPopulated(local) && dataLooksPopulated(remote)) {
+      let resolved: MergeMode | 'auto' = mode
+      if (resolved === 'auto' && shouldReplaceWithCloud(local, remote)) {
+        resolved = 'cloud'
+      }
+      if (resolved === 'auto' && dataLooksPopulated(local) && dataLooksPopulated(remote)) {
         setMergePending({ session: nextSession, local, remote })
         return
       }
       let next = local
-      if (mode === 'cloud') next = { ...remote, settings: local.settings }
-      else if (mode === 'device') next = adoptLocalStores(local, nextSession.userId, 'private')
-      else if (mode === 'merge') next = mergeByStoreName(local, remote)
+      if (resolved === 'cloud') next = { ...remote, settings: local.settings }
+      else if (resolved === 'device') next = adoptLocalStores(local, nextSession.userId, 'private')
+      else if (resolved === 'merge') next = mergeByStoreName(local, remote)
       else if (!dataLooksPopulated(remote)) {
         next = adoptLocalStores(local, nextSession.userId, 'private')
       } else {
@@ -281,12 +313,20 @@ export function useSync(
       }
       replaceRef.current(next)
       dirtyRef.current = true
-      await pushLocal(nextSession, next)
+      const pushed = await pushLocal(nextSession, next)
+      if (JSON.stringify(pushed.groups) !== JSON.stringify(next.groups ?? [])) {
+        replaceRef.current({ ...next, groups: pushed.groups })
+      }
       const pulled = await pullRemote()
-      const merged = mergePulledData(next, pulled, {
-        lastPulledAt: null,
-        userId: nextSession.userId,
-      })
+      const merged = mergePulledData(
+        { ...next, groups: pushed.groups },
+        pulled,
+        {
+          lastPulledAt: null,
+          userId: nextSession.userId,
+          deletedGroupIds: peekDeletes().groups,
+        },
+      )
       if (merged.changed) replaceRef.current(merged.next)
       const saved = { ...nextSession, lastPulledAt: nowIso() }
       saveSession(saved)

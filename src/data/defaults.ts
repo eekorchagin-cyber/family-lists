@@ -38,6 +38,7 @@ export function createDefaultData(): AppData {
   return {
     version: SCHEMA_VERSION,
     stores: [],
+    groups: [],
     items: [],
     categories: DEFAULT_CATEGORIES,
     catalog: [],

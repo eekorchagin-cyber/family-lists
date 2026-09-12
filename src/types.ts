@@ -27,6 +27,12 @@ export type NamedTemplate = {
 
 export type StoreVisibility = 'private' | 'home'
 
+export type StoreGroup = {
+  id: string
+  name: string
+  updatedAt?: string
+}
+
 export type Store = {
   id: string
   name: string
@@ -36,6 +42,8 @@ export type Store = {
   templates: NamedTemplate[]
   visibility?: StoreVisibility
   ownerId?: string
+  /** Если задан — список лежит внутри группы (второй уровень). */
+  groupId?: string
   updatedAt?: string
 }
 
@@ -67,6 +75,7 @@ export type Settings = {
 export type AppData = {
   version: 1
   stores: Store[]
+  groups: StoreGroup[]
   items: Item[]
   categories: Category[]
   catalog: CatalogEntry[]

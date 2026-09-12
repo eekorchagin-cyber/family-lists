@@ -10,6 +10,12 @@ import {
 import { applyCatalogImport, mergeCatalogFromItems, upsertCatalog } from '../data/catalog'
 import { emptyStoreFields } from '../data/defaults'
 import { applyAppearance, loadClearedStoreIds, loadData, loadStoreOrder, saveClearedStoreIds, saveData, saveStoreOrder } from '../data/storage'
+import {
+  ensureHomeOrder,
+  groupHomeKey,
+  loadHomeOrder,
+  saveHomeOrder,
+} from '../data/homeLayout'
 import { queueDeleted } from '../data/sync/deletes'
 import { markDirty } from '../data/sync/dirty'
 import { applyStoreOrder, nowIso, withUpdatedAt } from '../data/sync/merge'
@@ -22,6 +28,7 @@ import type {
   Item,
   Settings,
   Store,
+  StoreGroup,
   StoreVisibility,
   Theme,
 } from '../types'
@@ -37,11 +44,17 @@ function actorId(): string | undefined {
 }
 
 function persist(next: AppData, mode: 'user' | 'sync' | 'local' = 'user'): AppData {
-  saveData(next)
-  applyAppearance(next.settings)
-  if (mode !== 'sync') saveStoreOrder(next.stores.map((store) => store.id))
+  const withGroups = { ...next, groups: next.groups ?? [] }
+  saveData(withGroups)
+  applyAppearance(withGroups.settings)
+  if (mode !== 'sync') {
+    saveStoreOrder(withGroups.stores.map((store) => store.id))
+    saveHomeOrder(ensureHomeOrder(withGroups.stores, withGroups.groups, loadHomeOrder()))
+  } else {
+    saveHomeOrder(ensureHomeOrder(withGroups.stores, withGroups.groups, loadHomeOrder()))
+  }
   if (mode === 'user') markDirty()
-  return next
+  return withGroups
 }
 
 function rememberCatalog(
@@ -68,12 +81,25 @@ function patchStore(current: AppData, storeId: string, patch: Partial<Store>): A
 
 export function useAppState() {
   const [data, setData] = useState<AppData>(() => {
-    const loaded = loadData()
-    const order = loadStoreOrder()
-    const next =
-      order.length > 0 ? { ...loaded, stores: applyStoreOrder(loaded.stores, order) } : loaded
-    applyAppearance(next.settings)
-    return next
+    try {
+      const loaded = loadData()
+      const order = loadStoreOrder()
+      const base = { ...loaded, groups: loaded.groups ?? [] }
+      const next =
+        order.length > 0 ? { ...base, stores: applyStoreOrder(base.stores, order) } : base
+      try {
+        saveHomeOrder(ensureHomeOrder(next.stores, next.groups))
+      } catch {
+        /* private mode / quota */
+      }
+      applyAppearance(next.settings)
+      return next
+    } catch (error) {
+      console.error('boot state failed', error)
+      const fallback = { ...loadData(), groups: [] as AppData['groups'] }
+      applyAppearance(fallback.settings)
+      return fallback
+    }
   })
 
   const [clearedStoreIds, setClearedStoreIds] = useState<string[]>(() => loadClearedStoreIds())
@@ -837,6 +863,83 @@ export function useAppState() {
     })
   }, [])
 
+
+  const reorderHome = useCallback((orderedKeys: string[]) => {
+    setData((current) => {
+      saveHomeOrder(ensureHomeOrder(current.stores, current.groups ?? [], orderedKeys))
+      return persist(current, 'local')
+    })
+  }, [])
+
+  const addGroup = useCallback((name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return undefined
+    const id = newId()
+    setData((current) => {
+      const group: StoreGroup = { id, name: trimmed, updatedAt: nowIso() }
+      const next = persist({ ...current, groups: [...(current.groups ?? []), group] })
+      saveHomeOrder(ensureHomeOrder(next.stores, next.groups, [...loadHomeOrder(), groupHomeKey(id)]))
+      return next
+    })
+    return id
+  }, [])
+
+  const renameGroup = useCallback((groupId: string, name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setData((current) => {
+      const groups = (current.groups ?? []).map((group) =>
+        group.id === groupId ? withUpdatedAt({ ...group, name: trimmed }) : group,
+      )
+      if (groups.every((group, index) => group === (current.groups ?? [])[index])) return current
+      return persist({ ...current, groups })
+    })
+  }, [])
+
+  const deleteGroup = useCallback((groupId: string) => {
+    setData((current) => {
+      if (!(current.groups ?? []).some((group) => group.id === groupId)) return current
+      queueDeleted('groups', groupId)
+      const stores = current.stores.map((store) =>
+        store.groupId === groupId ? withUpdatedAt({ ...store, groupId: undefined }) : store,
+      )
+      const next = persist({
+        ...current,
+        groups: (current.groups ?? []).filter((group) => group.id !== groupId),
+        stores,
+      })
+      saveHomeOrder(
+        ensureHomeOrder(
+          next.stores,
+          next.groups,
+          loadHomeOrder().filter((key) => key !== groupHomeKey(groupId)),
+        ),
+      )
+      return next
+    })
+  }, [])
+
+  const setStoreGroup = useCallback((storeId: string, groupId: string | null) => {
+    setData((current) => {
+      const store = current.stores.find((item) => item.id === storeId)
+      if (!store) return current
+      const nextGroupId = groupId && (current.groups ?? []).some((group) => group.id === groupId) ? groupId : undefined
+      if ((store.groupId ?? undefined) === nextGroupId) return current
+      const stores = current.stores.map((item) =>
+        item.id === storeId
+          ? withUpdatedAt(
+              nextGroupId ? { ...item, groupId: nextGroupId } : { ...item, groupId: undefined },
+            )
+          : item,
+      )
+      const next = persist({ ...current, stores })
+      const order = loadHomeOrder().filter((key) => key !== storeId)
+      if (!nextGroupId) order.push(storeId)
+      saveHomeOrder(ensureHomeOrder(next.stores, next.groups ?? [], order))
+      return next
+    })
+  }, [])
+
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     setData((current) =>
       persist(
@@ -913,6 +1016,11 @@ export function useAppState() {
     deleteTemplate,
     transferItems,
     reorderStores,
+    reorderHome,
+    addGroup,
+    renameGroup,
+    deleteGroup,
+    setStoreGroup,
     setTheme,
     setFontSize,
     setStoreVisibility,

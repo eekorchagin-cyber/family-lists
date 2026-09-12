@@ -2,6 +2,16 @@ import type { AppData, CatalogEntry, Category, Item, Store } from '../../types'
 import { getSupabase } from './client'
 import { deviceCode, inviteCode, kindFromCode, localAuthEmail, randomPassword } from './codes'
 import { restoreDeletes, takeDeletes } from './deletes'
+import {
+  GROUPS_CATALOG_ID,
+  groupsCatalogIdForHome,
+  groupsFromStores,
+  isGroupsCatalogId,
+  mergeGroups,
+  parseGroupsCatalog,
+  stripGroupMarker,
+  withGroupMarker,
+} from '../homeLayout'
 import { nowIso } from './merge'
 import { loadSession, type HomeMember, type SyncSession } from './session'
 
@@ -293,17 +303,49 @@ export async function pullRemote(): Promise<AppData> {
   if (items.error) throw items.error
   if (catalog.error) throw catalog.error
 
+  const catalogEntries = ((catalog.data ?? []) as CatalogRow[]).map(catalogFromRow)
+  const homeGroupsEntry = catalogEntries.find((entry) =>
+    entry.id.startsWith(`${GROUPS_CATALOG_ID}:`),
+  )
+  const legacyGroupsEntry = catalogEntries.find((entry) => entry.id === GROUPS_CATALOG_ID)
+  const homeGroups = parseGroupsCatalog(homeGroupsEntry?.name)
+  const legacyGroups = parseGroupsCatalog(legacyGroupsEntry?.name)
+  const catalogGroups =
+    homeGroups && homeGroups.length > 0
+      ? homeGroups
+      : legacyGroups && legacyGroups.length > 0
+        ? legacyGroups
+        : (homeGroups ?? legacyGroups ?? [])
+
+  const groupNames = new Map<string, string>()
+  const storeRows = (stores.data ?? []) as StoreRow[]
+  const storesList = storeRows.map((row) => {
+    const marked = stripGroupMarker(row.category_names ?? {})
+    if (marked.groupId && marked.groupName) {
+      groupNames.set(marked.groupId, marked.groupName)
+    }
+    return storeFromRow(row)
+  })
+  // Имена групп дублируем в списках: если catalog пуст, второй телефон
+  // всё равно соберёт группы из метаданных списков.
+  // Catalog — приоритетнее заглушек из списков (см. mergeGroups).
+  const groups = mergeGroups(catalogGroups, groupsFromStores(storesList, groupNames), [])
+
   return {
     version: 1,
     settings: { theme: 'light', fontSize: 'm' },
-    stores: ((stores.data ?? []) as StoreRow[]).map(storeFromRow),
+    stores: storesList,
+    groups,
     categories: ((categories.data ?? []) as CategoryRow[]).map(categoryFromRow),
     items: ((items.data ?? []) as ItemRow[]).map(itemFromRow),
-    catalog: ((catalog.data ?? []) as CatalogRow[]).map(catalogFromRow),
+    catalog: catalogEntries.filter((entry) => !isGroupsCatalogId(entry.id)),
   }
 }
 
-export async function pushLocal(session: SyncSession, data: AppData): Promise<void> {
+export async function pushLocal(
+  session: SyncSession,
+  data: AppData,
+): Promise<{ groups: AppData['groups']; groupsSaved: boolean }> {
   const client = requireClient()
   const homeId = session.homeId
   const ownerId = session.userId
@@ -317,9 +359,38 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
       .map((store) => store.id),
   )
 
-  const storeRows = data.stores
-    .filter((store) => writableIds.has(store.id))
-    .map((store) => ({
+  // Метаданные списка (в т.ч. groupId + имя группы) пушит только владелец,
+  // иначе другой телефон без групп затирает вложенность в облаке.
+  const ownedStores = data.stores.filter(
+    (store) => (store.ownerId ?? ownerId) === ownerId,
+  )
+  const groupNameById = new Map((data.groups ?? []).map((group) => [group.id, group.name]))
+  const remoteMarkers = new Map<string, { groupId?: string; groupName?: string }>()
+  if (ownedStores.length > 0) {
+    const { data: existingRows } = await client
+      .from('stores')
+      .select('id, category_names')
+      .in(
+        'id',
+        ownedStores.map((store) => store.id),
+      )
+    for (const row of existingRows ?? []) {
+      const marked = stripGroupMarker(
+        ((row as { category_names?: Record<string, string> }).category_names ?? {}),
+      )
+      remoteMarkers.set(row.id as string, {
+        ...(marked.groupId ? { groupId: marked.groupId } : {}),
+        ...(marked.groupName ? { groupName: marked.groupName } : {}),
+      })
+    }
+  }
+  const storeRows = ownedStores.map((store) => {
+    const remote = remoteMarkers.get(store.id)
+    const groupId = store.groupId ?? remote?.groupId
+    const groupName =
+      (groupId ? groupNameById.get(groupId) : undefined) ??
+      (store.groupId ? undefined : remote?.groupName)
+    return {
       id: store.id,
       home_id: homeId,
       owner_id: store.ownerId ?? ownerId,
@@ -327,10 +398,11 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
       visibility: store.visibility ?? 'private',
       category_sort: store.categorySort,
       category_order: store.categoryOrder,
-      category_names: store.categoryNames,
+      category_names: withGroupMarker(store.categoryNames, groupId, groupName),
       templates: store.templates ?? [],
       updated_at: store.updatedAt ?? at,
-    }))
+    }
+  })
   if (storeRows.length > 0) {
     const { error } = await client.from('stores').upsert(storeRows)
     if (error) throw error
@@ -370,19 +442,75 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
     if (error) throw error
   }
 
-  const catalogRows = (data.catalog ?? []).map((entry) => ({
-    id: entry.id,
-    home_id: homeId,
-    name: entry.name,
-    category_id: entry.categoryId,
-    updated_at: entry.updatedAt ?? at,
-  }))
+  const catalogRows = (data.catalog ?? [])
+    .filter((entry) => !isGroupsCatalogId(entry.id))
+    .map((entry) => ({
+      id: entry.id,
+      home_id: homeId,
+      name: entry.name,
+      category_id: entry.categoryId,
+      updated_at: entry.updatedAt ?? at,
+    }))
+
   if (catalogRows.length > 0) {
     const { error } = await client.from('catalog').upsert(catalogRows)
     if (error) throw error
   }
 
   const pending = takeDeletes()
+
+  // Группы отдельно от товарного каталога: списки/товары уже в облаке.
+  const groupsId = groupsCatalogIdForHome(homeId)
+  let mergedGroups = data.groups ?? []
+  let groupsSaved = false
+  try {
+    const [{ data: homeGroupsRow }, { data: legacyGroupsRow }] = await Promise.all([
+      client.from('catalog').select('name, home_id').eq('id', groupsId).maybeSingle(),
+      client.from('catalog').select('name, home_id').eq('id', GROUPS_CATALOG_ID).maybeSingle(),
+    ])
+    const homeGroups = parseGroupsCatalog(homeGroupsRow?.name)
+    const legacyGroups =
+      !legacyGroupsRow || legacyGroupsRow.home_id === homeId
+        ? parseGroupsCatalog(legacyGroupsRow?.name)
+        : null
+    // Пустой [] не должен перекрывать legacy с реальными группами.
+    const remoteGroups =
+      homeGroups && homeGroups.length > 0
+        ? homeGroups
+        : legacyGroups && legacyGroups.length > 0
+          ? legacyGroups
+          : (homeGroups ?? legacyGroups ?? [])
+    mergedGroups = mergeGroups(remoteGroups, data.groups ?? [], pending.groups)
+    const groupsAt =
+      mergedGroups.map((group) => group.updatedAt ?? '').sort().at(-1) || at
+    const groupsPayload = JSON.stringify(mergedGroups)
+    const groupRows = [
+      {
+        id: groupsId,
+        home_id: homeId,
+        name: groupsPayload,
+        category_id: 'other',
+        updated_at: groupsAt,
+      },
+    ]
+    // Legacy только если строка наша или её ещё нет — иначе RLS валит весь upsert.
+    if (!legacyGroupsRow || legacyGroupsRow.home_id === homeId) {
+      groupRows.push({
+        id: GROUPS_CATALOG_ID,
+        home_id: homeId,
+        name: groupsPayload,
+        category_id: 'other',
+        updated_at: groupsAt,
+      })
+    }
+    const { error: groupsError } = await client.from('catalog').upsert(groupRows)
+    if (groupsError) throw groupsError
+    groupsSaved = true
+  } catch (groupsError) {
+    // Списки/товары уже в облаке — не валим весь sync из‑за групп.
+    console.warn('groups sync failed', groupsError)
+  }
+
   try {
     if (pending.clearedItems.length > 0) {
       const { error } = await client.from('items').delete().in('id', pending.clearedItems)
@@ -406,30 +534,35 @@ export async function pushLocal(session: SyncSession, data: AppData): Promise<vo
       const { error } = await client.from('stores').delete().in('id', pending.stores)
       if (error) throw error
     }
+    // groups live in catalog entry; nothing to delete per-id on the server
     if (pending.categories.length > 0) {
       const { error } = await client.from('categories').delete().in('id', pending.categories)
       if (error) throw error
     }
-    if (pending.catalog.length > 0) {
-      const { error } = await client.from('catalog').delete().in('id', pending.catalog)
+    const catalogDeletes = pending.catalog.filter((id) => !isGroupsCatalogId(id))
+    if (catalogDeletes.length > 0) {
+      const { error } = await client.from('catalog').delete().in('id', catalogDeletes)
       if (error) throw error
     }
   } catch (error) {
     restoreDeletes(pending)
     throw error
   }
+  return { groups: mergedGroups, groupsSaved }
 }
 
 function storeFromRow(row: StoreRow): Store {
+  const marked = stripGroupMarker(row.category_names ?? {})
   return {
     id: row.id,
     name: row.name,
     categorySort: row.category_sort === 'alpha' ? 'alpha' : 'custom',
     categoryOrder: row.category_order ?? [],
-    categoryNames: row.category_names ?? {},
+    categoryNames: marked.names,
     templates: row.templates ?? [],
     visibility: row.visibility,
     ownerId: row.owner_id,
+    ...(marked.groupId ? { groupId: marked.groupId } : {}),
     updatedAt: row.updated_at,
   }
 }

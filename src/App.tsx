@@ -46,6 +46,11 @@ function App() {
     deleteTemplate,
     transferItems,
     reorderStores,
+    reorderHome,
+    addGroup,
+    renameGroup,
+    deleteGroup,
+    setStoreGroup,
     setTheme,
     setFontSize,
     setStoreVisibility,
@@ -70,20 +75,33 @@ function App() {
     return [...names].sort((a, b) => a.localeCompare(b, 'ru'))
   }, [data.catalog, data.items])
 
-  const syncEnabled = Boolean(sync.session && !sync.session.frozen)
+  const syncEnabled = Boolean(sync.configured && sync.session && !sync.session.frozen)
   const homeProps = {
     stores: data.stores,
+    groups: data.groups ?? [],
     categories: data.categories,
     syncEnabled,
+    syncConfigured: sync.configured,
     frozen: Boolean(sync.session?.frozen),
     displayName: sync.session?.displayName,
+    syncError: sync.error,
+    syncBusy: sync.busy,
     updatedStoreIds: sync.updatedStoreIds,
     onDismissStoreUpdate: sync.dismissStoreUpdate,
+    onRetrySync: () => {
+      sync.clearError()
+      void sync.retry()
+    },
     onOpenSettings: () => setScreen({ name: 'settings' as const }),
     onOpenStore: (storeId: string) => setScreen({ name: 'store' as const, storeId }),
     onStartAddStore: () => setScreen({ name: 'newStore' as const }),
+    onAddGroup: addGroup,
     onRenameStore: renameStore,
+    onRenameGroup: renameGroup,
+    onDeleteGroup: deleteGroup,
+    onSetStoreGroup: setStoreGroup,
     onReorderStores: reorderStores,
+    onReorderHome: reorderHome,
   }
 
   const overlay = (

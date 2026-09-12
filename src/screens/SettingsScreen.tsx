@@ -9,6 +9,7 @@ import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { SyncPanel } from '../components/SyncPanel'
 import { SyncPhoneGuide } from '../components/SyncPhoneGuide'
 import { globalCategories, groupCatalog, sortCatalog } from '../data/catalog'
+import { isGroupsCatalogId } from '../data/homeLayout'
 import {
   downloadCatalogXlsx,
   importSummaryText,
@@ -108,7 +109,10 @@ export function SettingsScreen({
     const map = new Map(categories.map((category) => [category.id, category]))
     return map
   }, [categories])
-  const sortedCatalog = useMemo(() => sortCatalog(catalog), [catalog])
+  const sortedCatalog = useMemo(
+    () => sortCatalog(catalog.filter((entry) => !isGroupsCatalogId(entry.id))),
+    [catalog],
+  )
 
   const [names, setNames] = useState<Record<string, string>>(() => {
     const next: Record<string, string> = {}

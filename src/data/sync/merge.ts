@@ -17,6 +17,7 @@ export function stampAllData(data: AppData): AppData {
   return {
     ...data,
     stores: data.stores.map((store) => ({ ...store, updatedAt: at })),
+    groups: (data.groups ?? []).map((group) => ({ ...group, updatedAt: at })),
     categories: data.categories.map((category) => ({ ...category, updatedAt: at })),
     items: data.items.map((item) => ({ ...item, updatedAt: at })),
     catalog: (data.catalog ?? []).map((entry) => ({ ...entry, updatedAt: at })),
@@ -39,10 +40,34 @@ export function mergeItems(local: Item, remote: Item): Item {
   }
 }
 
-function mergeStore(local: Store, remote: Store): Store {
+function mergeStore(local: Store, remote: Store, userId?: string): Store {
+  const ownerId = remote.ownerId ?? local.ownerId
+  // Чужой список: облако — источник правды (группа, имя, категории).
+  // Иначе локальные правки на втором телефоне «перебивают» вложенность.
+  if (userId && ownerId && ownerId !== userId) return remote
   const localAt = local.updatedAt ?? ''
   const remoteAt = remote.updatedAt ?? ''
-  return localAt >= remoteAt ? local : remote
+  if (remoteAt > localAt) return remote
+  if (localAt > remoteAt) {
+    if (remote.groupId && !local.groupId) return { ...local, groupId: remote.groupId }
+    return local
+  }
+  if (remote.groupId && !local.groupId) return { ...local, groupId: remote.groupId }
+  return local
+}
+
+function sameStoreMeta(a: Store, b: Store): boolean {
+  return (
+    a.name === b.name &&
+    a.groupId === b.groupId &&
+    a.visibility === b.visibility &&
+    a.categorySort === b.categorySort &&
+    a.ownerId === b.ownerId &&
+    (a.updatedAt ?? '') === (b.updatedAt ?? '') &&
+    JSON.stringify(a.categoryOrder) === JSON.stringify(b.categoryOrder) &&
+    JSON.stringify(a.categoryNames) === JSON.stringify(b.categoryNames) &&
+    JSON.stringify(a.templates ?? []) === JSON.stringify(b.templates ?? [])
+  )
 }
 
 function locallyNewer(updatedAt: string | undefined, lastPulledAt: string | null): boolean {
@@ -82,7 +107,9 @@ export function visibleStoreUpdates(before: AppData, after: AppData): string[] {
 
   for (const store of after.stores) {
     const prev = beforeStores.get(store.id)
-    if (!prev || prev.name !== store.name) ids.add(store.id)
+    if (!prev || prev.name !== store.name || prev.groupId !== store.groupId) {
+      ids.add(store.id)
+    }
   }
 
   const group = (items: Item[]) => {
@@ -113,10 +140,12 @@ export function mergePulledData(
     userId: string
     deletedItemIds?: string[]
     deletedStoreIds?: string[]
+    deletedGroupIds?: string[]
   },
 ): { next: AppData; changed: boolean; changedStoreIds: string[] } {
   const deletedItems = new Set(options.deletedItemIds ?? [])
   const deletedStores = new Set(options.deletedStoreIds ?? [])
+  const deletedGroups = new Set(options.deletedGroupIds ?? [])
   const stores = new Map(local.stores.map((store) => [store.id, store]))
   const changedStoreIds = new Set<string>()
   const markStore = (id: string | undefined) => {
@@ -132,8 +161,8 @@ export function mergePulledData(
       changed = true
       continue
     }
-    const merged = mergeStore(current, store)
-    if (merged !== current) {
+    const merged = mergeStore(current, store, options.userId)
+    if (!sameStoreMeta(merged, current)) {
       stores.set(store.id, merged)
       markStore(store.id)
       changed = true
@@ -145,6 +174,14 @@ export function mergePulledData(
     if (remoteStoreIds.has(id)) continue
     const mine = !store.ownerId || store.ownerId === options.userId
     if (mine && locallyNewer(store.updatedAt, options.lastPulledAt)) continue
+    stores.delete(id)
+    changed = true
+  }
+  // Чужие private-списки не должны оставаться локально (например, после смены
+  // «Весь дом» → «Только я» у владельца).
+  for (const [id, store] of [...stores.entries()]) {
+    if (store.visibility !== 'private') continue
+    if (!store.ownerId || store.ownerId === options.userId) continue
     stores.delete(id)
     changed = true
   }
@@ -236,17 +273,44 @@ export function mergePulledData(
     }
   }
 
+  const groups = new Map((local.groups ?? []).map((group) => [group.id, group]))
+  for (const group of remote.groups ?? []) {
+    if (deletedGroups.has(group.id)) continue
+    const current = groups.get(group.id)
+    if (!current) {
+      groups.set(group.id, group)
+      changed = true
+      // Новая группа с другого телефона — подсветим списки внутри неё.
+      for (const store of stores.values()) {
+        if (store.groupId === group.id) markStore(store.id)
+      }
+    } else if ((group.updatedAt ?? '') > (current.updatedAt ?? '')) {
+      groups.set(group.id, group)
+      changed = true
+    }
+  }
+  // Группы не удаляем только потому, что их нет в облаке: иначе телефон
+  // с пустым каталогом групп затирает семейные названия навсегда.
+  for (const id of deletedGroups) {
+    if (!groups.has(id)) continue
+    groups.delete(id)
+    changed = true
+  }
+
   const nextStores = applyStoreOrder(
     [...stores.values()],
     local.stores.map((store) => store.id),
   )
   const nextStoreIds = new Set(nextStores.map((store) => store.id))
+  // Не снимаем groupId, если карточки группы ещё нет: иначе список
+  // пропадает с главного экрана, а чужой push затирает привязку в облаке.
   return {
     changed,
     changedStoreIds: [...changedStoreIds].filter((id) => nextStoreIds.has(id)),
     next: {
       ...local,
       stores: nextStores,
+      groups: [...groups.values()],
       categories: [...categories.values()],
       catalog: [...catalog.values()],
       items: [...items.values()],
@@ -310,9 +374,15 @@ export function mergeByStoreName(device: AppData, cloud: AppData): AppData {
     if (!catalogByName.has(entry.name.trim().toLowerCase())) catalog.push(entry)
   }
 
+  const groupsById = new Map((cloud.groups ?? []).map((group) => [group.id, group]))
+  for (const group of device.groups ?? []) {
+    if (!groupsById.has(group.id)) groupsById.set(group.id, group)
+  }
+
   return {
     ...device,
     stores,
+    groups: [...groupsById.values()],
     items,
     categories: [...categories.values()],
     catalog,
