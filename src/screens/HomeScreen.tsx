@@ -16,12 +16,13 @@ import {
   type HomeRow,
 } from '../data/homeLayout'
 import { APP_VERSION } from '../data/version'
-import type { Category, Store, StoreGroup } from '../types'
+import type { Category, Item, Store, StoreGroup } from '../types'
 
 type HomeScreenProps = {
   stores: Store[]
   groups: StoreGroup[]
   categories: Category[]
+  items: Item[]
   onOpenSettings: () => void
   onOpenStore: (storeId: string) => void
   onStartAddStore: () => void
@@ -67,6 +68,7 @@ export function HomeScreen({
   stores,
   groups,
   categories,
+  items,
   onOpenSettings,
   onOpenStore,
   onStartAddStore,
@@ -156,6 +158,26 @@ export function HomeScreen({
     }
     return ids
   }, [stores, updatedStoreIds])
+
+  const unboughtByStoreId = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of items) {
+      if (item.bought) continue
+      counts.set(item.storeId, (counts.get(item.storeId) ?? 0) + 1)
+    }
+    return counts
+  }, [items])
+
+  const unboughtByGroupId = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const store of stores) {
+      if (!store.groupId) continue
+      const n = unboughtByStoreId.get(store.id) ?? 0
+      if (n === 0) continue
+      counts.set(store.groupId, (counts.get(store.groupId) ?? 0) + n)
+    }
+    return counts
+  }, [stores, unboughtByStoreId])
 
   useEffect(
     () => () => {
@@ -494,6 +516,11 @@ export function HomeScreen({
                         <span className="store-name-text">{row.group.name}</span>
                         <span className="store-local-mark">{nestedCount}</span>
                       </span>
+                      {(unboughtByGroupId.get(row.group.id) ?? 0) > 0 ? (
+                        <span className="store-unbought-count" aria-label="Некуплено">
+                          {unboughtByGroupId.get(row.group.id)}
+                        </span>
+                      ) : null}
                     </button>
                     <button
                       type="button"
@@ -556,6 +583,11 @@ export function HomeScreen({
                         <span className="store-local-mark">личное</span>
                       ) : null}
                     </span>
+                    {(unboughtByStoreId.get(store.id) ?? 0) > 0 ? (
+                      <span className="store-unbought-count" aria-label="Некуплено">
+                        {unboughtByStoreId.get(store.id)}
+                      </span>
+                    ) : null}
                   </button>
                   <button
                     type="button"

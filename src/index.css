@@ -441,6 +441,20 @@ ul {
   opacity: 0.7;
 }
 
+.store-unbought-count {
+  flex-shrink: 0;
+  margin-left: auto;
+  min-width: 1.6em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text, #fff);
+  font-size: 0.85em;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+
 .store-row--local {
   background-image: repeating-linear-gradient(
     -45deg,

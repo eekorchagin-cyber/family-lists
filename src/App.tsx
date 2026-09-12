@@ -80,6 +80,7 @@ function App() {
     stores: data.stores,
     groups: data.groups ?? [],
     categories: data.categories,
+    items: data.items,
     syncEnabled,
     syncConfigured: sync.configured,
     frozen: Boolean(sync.session?.frozen),
