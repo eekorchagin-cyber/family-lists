@@ -36,6 +36,8 @@ function App() {
     setCategoryScope,
     setCategorySort,
     moveCategory,
+    reorderCategories,
+    copyCategories,
     updateItem,
     markBought,
     unmarkBought,
@@ -223,6 +225,10 @@ function App() {
               setCategoryScope(store.id, categoryId, name, global)
             }
             onMove={(categoryId, direction) => moveCategory(store.id, categoryId, direction)}
+            onReorder={(orderedIds) => reorderCategories(store.id, orderedIds)}
+            onStyleCategory={(categoryId, color, icon) => setCategoryStyle(categoryId, color, icon)}
+            onCopyCategoriesFrom={(fromStoreId) => copyCategories(fromStoreId, store.id)}
+            onCopyCategoriesTo={(toStoreId) => copyCategories(store.id, toStoreId)}
             onAddCategory={(name, color, icon, global) =>
               global
                 ? addGlobalCategory(name, color, icon, store.id)

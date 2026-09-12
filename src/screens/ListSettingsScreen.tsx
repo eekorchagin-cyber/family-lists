@@ -1,9 +1,16 @@
-import { useEffect, useState } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { AddIconButton } from '../components/AddIconButton'
 import { AddListCategoryDialog } from '../components/AddListCategoryDialog'
 import { CategoryMark } from '../components/CategoryMark'
 import { CategoryScopeDialog } from '../components/CategoryScopeDialog'
+import { CategoryStyleDialog } from '../components/CategoryStyleDialog'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { CopyCategoriesDialog } from '../components/CopyCategoriesDialog'
 import { Header } from '../components/Header'
 import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
@@ -28,6 +35,19 @@ const SECTION_TITLES: Record<ListSettingsSection, string> = {
   transfer: 'В другой список',
 }
 
+const LONG_PRESS_MS = 450
+const MOVE_CANCEL_PX = 12
+const DRAG_THRESHOLD_PX = 10
+
+type DragState = {
+  key: string
+  pointerId: number
+  startX: number
+  startY: number
+  armed: boolean
+  dragging: boolean
+}
+
 function leftoverItemsHint(count: number): string {
   if (count === 0) return ''
   if (count === 1) return ' Товар останется в списке без категории.'
@@ -44,6 +64,17 @@ function removeCategoryText(category: Category, store: Store, items: Item[]): st
   return `Категория исчезнет из этого списка. В других списках она сохранится.${leftover}`
 }
 
+function reorderKeys(keys: string[], fromKey: string, toKey: string): string[] {
+  const from = keys.indexOf(fromKey)
+  const to = keys.indexOf(toKey)
+  if (from < 0 || to < 0 || from === to) return keys
+  const next = [...keys]
+  const [row] = next.splice(from, 1)
+  if (!row) return keys
+  next.splice(to, 0, row)
+  return next
+}
+
 type ListSettingsScreenProps = {
   store: Store
   categories: Category[]
@@ -57,9 +88,13 @@ type ListSettingsScreenProps = {
   onSort: (sort: CategorySort) => void
   onSetScope: (categoryId: string, name: string, global: boolean) => void
   onMove: (categoryId: string, direction: -1 | 1) => void
+  onReorder: (orderedIds: string[]) => void
+  onStyleCategory: (categoryId: string, color: string, icon: string) => void
   onAddCategory: (name: string, color: string, icon?: string, global?: boolean) => string
   onEnableCategory: (categoryIds: string[]) => void
   onRemoveCategory: (categoryId: string) => void
+  onCopyCategoriesFrom: (fromStoreId: string) => void
+  onCopyCategoriesTo: (toStoreId: string) => void
   onApplyTemplate: (templateId: string) => void
   onRenameTemplate: (templateId: string, name: string) => void
   onDeleteTemplate: (templateId: string) => void
@@ -82,10 +117,14 @@ export function ListSettingsScreen({
   onDeleteStore,
   onSort,
   onSetScope,
-  onMove,
+  onMove: _onMove,
+  onReorder,
+  onStyleCategory,
   onAddCategory,
   onEnableCategory,
   onRemoveCategory,
+  onCopyCategoriesFrom,
+  onCopyCategoriesTo,
   onApplyTemplate,
   onRenameTemplate,
   onDeleteTemplate,
@@ -99,9 +138,11 @@ export function ListSettingsScreen({
   const [picking, setPicking] = useState(false)
   const [adding, setAdding] = useState(false)
   const [editingScope, setEditingScope] = useState<Category | null>(null)
+  const [styling, setStyling] = useState<Category | null>(null)
   const [removing, setRemoving] = useState<Category | null>(null)
   const [namingTemplate, setNamingTemplate] = useState(false)
   const [transferring, setTransferring] = useState(false)
+  const [copyMode, setCopyMode] = useState<'from' | 'to' | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [storeName, setStoreName] = useState(store.name)
   const [names, setNames] = useState<Record<string, string>>(() => {
@@ -111,6 +152,30 @@ export function ListSettingsScreen({
     }
     return next
   })
+  const [draftOrder, setDraftOrder] = useState<string[] | null>(null)
+  const [draggingKey, setDraggingKey] = useState<string | null>(null)
+
+  const listRef = useRef<HTMLUListElement>(null)
+  const drag = useRef<DragState | null>(null)
+  const holdTimer = useRef(0)
+  const skipClick = useRef(false)
+  const draftOrderRef = useRef<string[] | null>(null)
+  const orderRef = useRef(categories.map((category) => category.id))
+  const boundRef = useRef(false)
+  const liveWindow = useRef({
+    move: (_event: PointerEvent) => {},
+    up: (_event: PointerEvent) => {},
+    touch: (_event: TouchEvent) => {},
+  })
+  const stableWindow = useRef({
+    move: (event: PointerEvent) => liveWindow.current.move(event),
+    up: (event: PointerEvent) => liveWindow.current.up(event),
+    touch: (event: TouchEvent) => liveWindow.current.touch(event),
+  })
+
+  const custom = store.categorySort === 'custom'
+  void _onMove
+  orderRef.current = categories.map((category) => category.id)
 
   useEffect(() => {
     setStoreName(store.name)
@@ -130,7 +195,156 @@ export function ListSettingsScreen({
     })
   }, [categories, store])
 
-  const custom = store.categorySort === 'custom'
+  useEffect(
+    () => () => {
+      window.clearTimeout(holdTimer.current)
+      if (boundRef.current) {
+        boundRef.current = false
+        window.removeEventListener('pointermove', stableWindow.current.move)
+        window.removeEventListener('pointerup', stableWindow.current.up)
+        window.removeEventListener('pointercancel', stableWindow.current.up)
+        window.removeEventListener('touchmove', stableWindow.current.touch)
+      }
+    },
+    [],
+  )
+
+  const displayedCategories = (() => {
+    if (!draftOrder) return categories
+    const byId = new Map(categories.map((category) => [category.id, category]))
+    return draftOrder
+      .map((id) => byId.get(id))
+      .filter((category): category is Category => Boolean(category))
+  })()
+
+  function unbindWindow() {
+    if (!boundRef.current) return
+    boundRef.current = false
+    window.removeEventListener('pointermove', stableWindow.current.move)
+    window.removeEventListener('pointerup', stableWindow.current.up)
+    window.removeEventListener('pointercancel', stableWindow.current.up)
+    window.removeEventListener('touchmove', stableWindow.current.touch)
+  }
+
+  function onWindowTouchMove(event: TouchEvent) {
+    if (drag.current?.armed) event.preventDefault()
+  }
+
+  function onWindowPointerMove(event: PointerEvent) {
+    const state = drag.current
+    if (!state || event.pointerId !== state.pointerId) return
+    const dx = event.clientX - state.startX
+    const dy = event.clientY - state.startY
+    const moved = dx * dx + dy * dy
+    if (!state.armed) {
+      if (moved > MOVE_CANCEL_PX * MOVE_CANCEL_PX) {
+        window.clearTimeout(holdTimer.current)
+        skipClick.current = true
+        unbindWindow()
+        drag.current = null
+      }
+      return
+    }
+    if (!state.dragging) {
+      if (moved < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return
+      state.dragging = true
+    }
+    event.preventDefault()
+
+    const list = listRef.current
+    if (!list) return
+    const nodes = [...list.querySelectorAll<HTMLElement>('[data-category-id]')]
+    let targetKey: string | null = null
+    for (const node of nodes) {
+      const rect = node.getBoundingClientRect()
+      if (event.clientY < rect.top + rect.height / 2) {
+        targetKey = node.dataset.categoryId ?? null
+        break
+      }
+    }
+    if (!targetKey) targetKey = nodes[nodes.length - 1]?.dataset.categoryId ?? null
+    if (!targetKey) return
+    const current = draftOrderRef.current ?? orderRef.current
+    const next = reorderKeys(current, state.key, targetKey)
+    if (next === current) return
+    draftOrderRef.current = next
+    setDraftOrder(next)
+  }
+
+  function finishDrag() {
+    window.clearTimeout(holdTimer.current)
+    unbindWindow()
+    const state = drag.current
+    if (!state) return
+    if (state.armed) skipClick.current = true
+    if (state.dragging) {
+      const order = draftOrderRef.current ?? orderRef.current
+      onReorder(order)
+    }
+    draftOrderRef.current = null
+    setDraftOrder(null)
+    setDraggingKey(null)
+    drag.current = null
+  }
+
+  function onWindowPointerUp(event: PointerEvent) {
+    const state = drag.current
+    if (!state || event.pointerId !== state.pointerId) return
+    finishDrag()
+  }
+
+  function onCategoryPointerDown(
+    event: ReactPointerEvent<HTMLLIElement>,
+    categoryId: string,
+  ) {
+    if (!custom || event.button !== 0) return
+    skipClick.current = false
+    window.clearTimeout(holdTimer.current)
+    unbindWindow()
+    const pointerId = event.pointerId
+    const target = event.currentTarget
+    drag.current = {
+      key: categoryId,
+      pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      armed: false,
+      dragging: false,
+    }
+    boundRef.current = true
+    window.addEventListener('pointermove', stableWindow.current.move)
+    window.addEventListener('pointerup', stableWindow.current.up)
+    window.addEventListener('pointercancel', stableWindow.current.up)
+    window.addEventListener('touchmove', stableWindow.current.touch, { passive: false })
+    holdTimer.current = window.setTimeout(() => {
+      const state = drag.current
+      if (!state || state.pointerId !== pointerId) return
+      state.armed = true
+      skipClick.current = true
+      setDraggingKey(state.key)
+      draftOrderRef.current = orderRef.current
+      setDraftOrder(orderRef.current)
+      try {
+        target.setPointerCapture(pointerId)
+      } catch {
+        /* iOS */
+      }
+      navigator.vibrate?.(15)
+    }, LONG_PRESS_MS)
+  }
+
+  liveWindow.current.move = onWindowPointerMove
+  liveWindow.current.up = onWindowPointerUp
+  liveWindow.current.touch = onWindowTouchMove
+
+  function guardedClick(action: () => void) {
+    if (skipClick.current) {
+      skipClick.current = false
+      return
+    }
+    action()
+  }
+
   const title = section ? SECTION_TITLES[section] : 'Настройки'
   const goBack = section ? () => setSection(null) : onBack
 
@@ -166,14 +380,12 @@ export function ListSettingsScreen({
               </p>
               <p>
                 Нажмите название, чтобы сделать категорию только для этого списка или общей.
-                Заштрихованные названия — только здесь.
+                Заштрихованные названия — только здесь. Нажмите значок, чтобы выбрать цвет и
+                пиктограмму.
               </p>
               <p>
-                Названия из общего справочника товаров подставляют категорию сами, только
-                если этот отдел уже есть в списке. Сначала добавьте категорию кнопкой «+»,
-                потом выбирайте товар. Если подходящего отдела нет и товару поставить другой,
-                в справочнике останется последняя присвоенная товару вами категория, а не две
-                сразу.
+                Порядок «По ходу отделов»: зажмите плашку и перетащите, как списки на главном
+                экране. Можно скопировать отделы из другого списка или в другой список.
               </p>
             </>
           ) : section === 'transfer' && otherStores.length > 0 ? (
@@ -286,6 +498,11 @@ export function ListSettingsScreen({
                   По ходу отделов
                 </button>
               </div>
+              {custom && categories.length > 1 ? (
+                <p className="hint" style={{ opacity: 0.75 }}>
+                  Зажмите плашку и перетащите вверх или вниз.
+                </p>
+              ) : null}
             </section>
 
             <section className="settings-block">
@@ -293,45 +510,66 @@ export function ListSettingsScreen({
               {categories.length === 0 ? (
                 <p className="hint">Нажмите «+», чтобы добавить категории в этот список.</p>
               ) : (
-                <ul className="category-edit-list">
-                  {categories.map((category, index) => (
-                    <li key={category.id} className="category-edit-row">
-                      <CategoryMark category={category} />
+                <ul
+                  ref={listRef}
+                  className={
+                    draggingKey
+                      ? 'category-edit-list category-edit-list--reordering'
+                      : 'category-edit-list'
+                  }
+                >
+                  {displayedCategories.map((category) => (
+                    <li
+                      key={category.id}
+                      data-category-id={category.id}
+                      className={[
+                        'category-edit-row',
+                        custom ? 'category-edit-row--tile' : '',
+                        draggingKey === category.id ? 'category-edit-row--dragging' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      onPointerDown={
+                        custom
+                          ? (event) => onCategoryPointerDown(event, category.id)
+                          : undefined
+                      }
+                      onContextMenu={custom ? (event) => event.preventDefault() : undefined}
+                    >
+                      {custom ? (
+                        <span className="store-handle" aria-hidden="true">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="category-mark-button"
+                        aria-label={`Цвет и значок категории ${categoryName(category, store)}`}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={() => guardedClick(() => setStyling(category))}
+                      >
+                        <CategoryMark category={category} />
+                      </button>
                       <button
                         type="button"
                         className={`input category-name-input${isLocalToStore(category, store) ? ' category-name-input--custom' : ''}`}
                         aria-label={`Тип категории ${categoryName(category, store)}`}
-                        onClick={() => setEditingScope(category)}
+                        onPointerDown={(event) => {
+                          if (!custom) return
+                          event.stopPropagation()
+                        }}
+                        onClick={() => guardedClick(() => setEditingScope(category))}
                       >
                         {names[category.id] ?? categoryName(category, store)}
                       </button>
-                      {custom && (
-                        <div className="reorder-buttons">
-                          <button
-                            type="button"
-                            className="qty-button"
-                            disabled={index === 0}
-                            aria-label="Выше"
-                            onClick={() => onMove(category.id, -1)}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            className="qty-button"
-                            disabled={index === categories.length - 1}
-                            aria-label="Ниже"
-                            onClick={() => onMove(category.id, 1)}
-                          >
-                            ↓
-                          </button>
-                        </div>
-                      )}
                       <button
                         type="button"
                         className="qty-button"
                         aria-label={`Убрать категорию ${categoryName(category, store)}`}
-                        onClick={() => setRemoving(category)}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={() => guardedClick(() => setRemoving(category))}
                       >
                         ×
                       </button>
@@ -339,6 +577,24 @@ export function ListSettingsScreen({
                   ))}
                 </ul>
               )}
+              {otherStores.length > 0 ? (
+                <div className="choice-row" style={{ marginTop: 16 }}>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => setCopyMode('from')}
+                  >
+                    Скопировать из другого списка
+                  </button>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => setCopyMode('to')}
+                  >
+                    Скопировать в другой список
+                  </button>
+                </div>
+              ) : null}
             </section>
           </>
         )}
@@ -401,15 +657,13 @@ export function ListSettingsScreen({
                 скопировать или перенести товары.
               </p>
             ) : (
-              <>
-                <button
-                  type="button"
-                  className="button-secondary add-category"
-                  onClick={() => setTransferring(true)}
-                >
-                  Перенести в другой список
-                </button>
-              </>
+              <button
+                type="button"
+                className="button-secondary add-category"
+                onClick={() => setTransferring(true)}
+              >
+                Перенести в другой список
+              </button>
             )}
           </section>
         )}
@@ -452,6 +706,16 @@ export function ListSettingsScreen({
           }}
         />
       )}
+      {styling && (
+        <CategoryStyleDialog
+          category={styling}
+          onClose={() => setStyling(null)}
+          onSave={(color, icon) => {
+            onStyleCategory(styling.id, color, icon)
+            setStyling(null)
+          }}
+        />
+      )}
       {namingTemplate && (
         <NameDialog
           title="Новый шаблон"
@@ -478,6 +742,18 @@ export function ListSettingsScreen({
           onMove={(storeId) => {
             onMoveToStore(storeId)
             setTransferring(false)
+          }}
+        />
+      )}
+      {copyMode && (
+        <CopyCategoriesDialog
+          mode={copyMode}
+          stores={otherStores}
+          onClose={() => setCopyMode(null)}
+          onCopy={(otherStoreId) => {
+            if (copyMode === 'from') onCopyCategoriesFrom(otherStoreId)
+            else onCopyCategoriesTo(otherStoreId)
+            setCopyMode(null)
           }}
         />
       )}
