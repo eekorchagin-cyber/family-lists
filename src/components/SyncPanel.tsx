@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatCode, joinUrl, kindFromCode, pairUrl } from '../data/sync/codes'
+import { saveSupabaseConfig } from '../data/sync/client'
 import type { HomeMember, SyncSession } from '../data/sync/session'
 import { CodeJoinDialog } from './CodeJoinDialog'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -51,6 +52,9 @@ export function SyncPanel({
   const [excluding, setExcluding] = useState<HomeMember | null>(null)
   const [copied, setCopied] = useState<'code' | 'link' | 'pair' | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [cloudUrl, setCloudUrl] = useState('')
+  const [cloudKey, setCloudKey] = useState('')
+  const [cloudError, setCloudError] = useState<string | null>(null)
 
   async function copy(text: string, kind: 'code' | 'link' | 'pair') {
     try {
@@ -61,13 +65,61 @@ export function SyncPanel({
     }
   }
 
+  function saveCloudKeys() {
+    const url = cloudUrl.trim().replace(/\/$/, '')
+    const anonKey = cloudKey.trim()
+    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) {
+      setCloudError('Нужен Project URL вида https://xxxx.supabase.co')
+      return
+    }
+    if (anonKey.length < 20) {
+      setCloudError('Вставьте anon public key из Supabase → Settings → API')
+      return
+    }
+    saveSupabaseConfig({ url, anonKey })
+    window.location.reload()
+  }
+
   if (!configured) {
     return (
       <section className="settings-block">
         <p className="hint">
-          Сейчас списки живут только на этом телефоне. Чтобы делиться ими дома, нужен проект
-          Supabase и ключи в сборке сайта. Почту подключать не нужно.
+          Синхронизация на сайте выключена: в сборке нет ключей Supabase. Вставьте их ниже на
+          обоих телефонах (это публичный anon-ключ). Почту подключать не нужно.
         </p>
+        <label className="field">
+          <span>Project URL</span>
+          <input
+            value={cloudUrl}
+            onChange={(event) => {
+              setCloudUrl(event.target.value)
+              setCloudError(null)
+            }}
+            placeholder="https://xxxx.supabase.co"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+        </label>
+        <label className="field">
+          <span>anon public key</span>
+          <textarea
+            value={cloudKey}
+            onChange={(event) => {
+              setCloudKey(event.target.value)
+              setCloudError(null)
+            }}
+            placeholder="eyJhbGciOi..."
+            rows={3}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+        </label>
+        {cloudError ? <p className="hint sync-error">{cloudError}</p> : null}
+        <button type="button" className="button-primary add-category" onClick={saveCloudKeys}>
+          Включить синхронизацию
+        </button>
       </section>
     )
   }

@@ -75,12 +75,13 @@ function App() {
     return [...names].sort((a, b) => a.localeCompare(b, 'ru'))
   }, [data.catalog, data.items])
 
-  const syncEnabled = Boolean(sync.session && !sync.session.frozen)
+  const syncEnabled = Boolean(sync.configured && sync.session && !sync.session.frozen)
   const homeProps = {
     stores: data.stores,
     groups: data.groups ?? [],
     categories: data.categories,
     syncEnabled,
+    syncConfigured: sync.configured,
     frozen: Boolean(sync.session?.frozen),
     displayName: sync.session?.displayName,
     syncError: sync.error,

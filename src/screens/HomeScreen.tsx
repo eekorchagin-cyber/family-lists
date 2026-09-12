@@ -34,6 +34,7 @@ type HomeScreenProps = {
   onReorderStores: (orderedIds: string[]) => void
   onReorderHome: (orderedKeys: string[]) => void
   syncEnabled?: boolean
+  syncConfigured?: boolean
   displayName?: string
   frozen?: boolean
   syncError?: string | null
@@ -78,6 +79,7 @@ export function HomeScreen({
   onReorderStores,
   onReorderHome,
   syncEnabled = false,
+  syncConfigured = true,
   displayName,
   frozen = false,
   syncError = null,
@@ -377,6 +379,17 @@ export function HomeScreen({
       />
 
       <main className="content">
+        {!syncConfigured ? (
+          <div className="hint hint--error" style={{ display: 'grid', gap: 8 }}>
+            <span>
+              Телефоны не синхронизируются: на сайте нет ключей Supabase. Откройте Настройки → Семья
+              и вставьте Project URL и anon key на обоих телефонах.
+            </span>
+            <button type="button" className="qty-button" onClick={onOpenSettings}>
+              Открыть Семью
+            </button>
+          </div>
+        ) : null}
         {frozen ? (
           <p className="hint">
             Синхронизация остановлена. Списки остались на этом телефоне. Откройте Настройки → Семья,
@@ -393,7 +406,7 @@ export function HomeScreen({
             ) : null}
           </div>
         ) : null}
-        {syncEnabled && !frozen && !syncError ? (
+        {syncConfigured && syncEnabled && !frozen && !syncError ? (
           <p className="hint" style={{ opacity: 0.75 }}>
             Семья подключена{syncBusy ? ' · обновляем…' : ''}.
           </p>
