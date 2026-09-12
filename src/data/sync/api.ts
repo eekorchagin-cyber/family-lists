@@ -142,6 +142,11 @@ export async function restoreSession(session: SyncSession): Promise<void> {
   const client = requireClient()
   const { data } = await client.auth.getSession()
   if (data.session?.user.id === session.userId) return
+  if (!session.password) {
+    throw new Error(
+      'Сессия семьи есть, но пароль на этом телефоне не сохранён. Откройте Настройки → Семья и войдите по коду T (Мой второй телефон).',
+    )
+  }
   await signInDevice(session.email, session.password)
 }
 

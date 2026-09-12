@@ -30,6 +30,8 @@ import {
 } from '../data/sync/merge'
 import {
   dataLooksPopulated,
+  hasStoreNameCollisions,
+  isBundledBackupData,
   loadSession,
   loadUpdatedStoreIds,
   saveSession,
@@ -83,11 +85,11 @@ export function useSync(
 
   useEffect(() => {
     if (!configured) return
-    if (loadSession()?.password) return
+    if (loadSession()?.userId) return
     void recoverSessionFromAuth()
       .then((recovered) => {
-        // Без пароля loadSession потом вернёт null — не сохраняем «пустую» сессию.
-        if (!recovered?.homeId || !recovered.password) return
+        if (!recovered?.homeId) return
+        // Сохраняем даже без password: auth Supabase уже живой, tick сможет работать.
         saveSession(recovered)
         setSession(recovered)
       })
@@ -146,15 +148,17 @@ export function useSync(
         }
         localStorage.setItem(SHARE_LISTS_KEY, userId)
       }
-      // Раз за сессию принудительно пушим локальное — лечит «есть у меня, нет в облаке»
-      // и уносит исправленную видимость (private) в облако.
-      if (sessionStorage.getItem('pokupki-force-push') !== '5') {
-        dirtyRef.current = true
-        sessionStorage.setItem('pokupki-force-push', '5')
+      // Раз за сессию принудительно пушим локальное — лечит «есть у меня, нет в облаке».
+      // Backup-сид не пушим: иначе демо-списки снова улетают в семью как дубли.
+      if (sessionStorage.getItem('pokupki-force-push') !== '6') {
+        sessionStorage.setItem('pokupki-force-push', '6')
+        if (!isBundledBackupData(dataRef.current)) {
+          dirtyRef.current = true
+        }
       }
       // Backup-сид и полностью чужой набор id — берём облако целиком (иначе 2-й iPhone
       // навсегда сидит на демо-списках без групп и без подсветки обновлений).
-      if (sessionStorage.getItem('pokupki-adopt-cloud') !== '2') {
+      if (sessionStorage.getItem('pokupki-adopt-cloud') !== '3') {
         const cloud = await pullRemote()
         if (cloud.stores.length > 0 || cloud.items.length > 0) {
           const before = dataRef.current
@@ -167,10 +171,17 @@ export function useSync(
             items: cloud.items.filter((item) => !gone.includes(item.id)),
             groups: cloud.groups,
           }
-          sessionStorage.setItem('pokupki-adopt-cloud', '2')
+          sessionStorage.setItem('pokupki-adopt-cloud', '3')
           if (shouldReplaceWithCloud(before, incoming) || !dataLooksPopulated(before)) {
             markStoresUpdated(incoming.stores.map((store) => store.id))
             replaceRef.current(incoming, { takeCloudOrder: true })
+            // Облако уже источник правды — не форсим push локальных копий.
+            dirtyRef.current = false
+          } else if (hasStoreNameCollisions(before, incoming)) {
+            // Одинаковые имена с разными id: склеиваем по имени, иначе push сделает дубли.
+            const named = mergeByStoreName(before, incoming)
+            markStoresUpdated(visibleStoreUpdates(before, named))
+            replaceRef.current(named, { takeCloudOrder: true })
             dirtyRef.current = true
           } else {
             const merged = mergePulledData(before, incoming, {
@@ -181,14 +192,13 @@ export function useSync(
               deletedGroupIds: pending.groups,
             })
             if (merged.changed) {
-              // Только видимые изменения (имя / группа / товары), не meta категорий.
               markStoresUpdated(visibleStoreUpdates(before, merged.next))
               replaceRef.current(merged.next)
             }
             dirtyRef.current = true
           }
         } else {
-          sessionStorage.setItem('pokupki-adopt-cloud', '2')
+          sessionStorage.setItem('pokupki-adopt-cloud', '3')
           setError(
             'В облаке пока нет списков. Откройте телефон, где списки на месте, на 15 секунд — затем повторите здесь.',
           )
@@ -304,8 +314,11 @@ export function useSync(
       }
       let next = local
       if (resolved === 'cloud') next = { ...remote, settings: local.settings }
-      else if (resolved === 'device') next = adoptLocalStores(local, nextSession.userId, 'private')
-      else if (resolved === 'merge') next = mergeByStoreName(local, remote)
+      else if (resolved === 'device') {
+        const adopted = adoptLocalStores(local, nextSession.userId, 'private')
+        // Не заливаем локальные uuid рядом с облачными списками тех же имён.
+        next = dataLooksPopulated(remote) ? mergeByStoreName(adopted, remote) : adopted
+      } else if (resolved === 'merge') next = mergeByStoreName(local, remote)
       else if (!dataLooksPopulated(remote)) {
         next = adoptLocalStores(local, nextSession.userId, 'private')
       } else {
@@ -470,6 +483,12 @@ export function useSync(
   const createPairing = useCallback(async () => {
     const current = loadSession()
     if (!current) return
+    if (!current.password) {
+      setError(
+        'Чтобы создать код T, нужен пароль сессии. Войдите на этом телефоне по коду T с другого устройства семьи.',
+      )
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -516,14 +535,18 @@ export function useSync(
       }
       saveSession(next)
       setSession(next)
-      dirtyRef.current = true
-      await tick()
+      // После возврата в дом берём облако целиком — иначе локальные копии
+      // с теми же именами улетают push'ем и размножают списки.
+      sessionStorage.setItem('pokupki-adopt-cloud', '3')
+      sessionStorage.setItem('pokupki-force-push', '6')
+      dirtyRef.current = false
+      await finishConnect(next, 'cloud')
     } catch (caught) {
       setError(syncErrorMessage(caught))
     } finally {
       setBusy(false)
     }
-  }, [tick])
+  }, [finishConnect])
 
   const retry = useCallback(async () => {
     setError(null)

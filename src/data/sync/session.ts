@@ -25,11 +25,13 @@ export function loadSession(): SyncSession | null {
     const raw = localStorage.getItem(SYNC_KEY)
     if (!raw) return null
     const value = JSON.parse(raw) as Partial<SyncSession>
-    if (!value.userId || !value.email || !value.password) return null
+    // Пароль не обязателен: при живой auth-сессии Supabase restore работает без него.
+    // Раньше пустой password => null, и семья «пропадалa» после сбоя storage.
+    if (!value.userId || !value.email) return null
     const homeId = value.homeId ?? ''
     return {
       email: value.email,
-      password: value.password,
+      password: value.password ?? '',
       userId: value.userId,
       homeId,
       displayName: value.displayName ?? '',
@@ -47,7 +49,20 @@ export function saveSession(session: SyncSession | null): void {
     localStorage.removeItem(SYNC_KEY)
     return
   }
-  localStorage.setItem(SYNC_KEY, JSON.stringify(session))
+  // Не затираем сохранённый пароль пустой строкой при recover без password.
+  let password = session.password
+  if (!password) {
+    try {
+      const raw = localStorage.getItem(SYNC_KEY)
+      if (raw) {
+        const prev = JSON.parse(raw) as Partial<SyncSession>
+        if (typeof prev.password === 'string' && prev.password) password = prev.password
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  localStorage.setItem(SYNC_KEY, JSON.stringify({ ...session, password }))
 }
 
 /** Id списков из встроенного backup.json — не считаем их «своими» данными семьи. */
@@ -83,6 +98,19 @@ export function shouldReplaceWithCloud(local: AppData, remote: AppData): boolean
   if (remote.stores.length === 0 && remote.items.length === 0) return false
   if (isBundledBackupData(local)) return true
   if (datasetsDisjoint(local, remote)) return true
+  return false
+}
+
+/** Одинаковые имена списков с разными id — риск дублей при id-merge + push. */
+export function hasStoreNameCollisions(local: AppData, remote: AppData): boolean {
+  if (local.stores.length === 0 || remote.stores.length === 0) return false
+  const remoteByName = new Map(
+    remote.stores.map((store) => [store.name.trim().toLowerCase(), store.id]),
+  )
+  for (const store of local.stores) {
+    const remoteId = remoteByName.get(store.name.trim().toLowerCase())
+    if (remoteId && remoteId !== store.id) return true
+  }
   return false
 }
 
