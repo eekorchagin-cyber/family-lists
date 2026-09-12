@@ -177,6 +177,14 @@ export function mergePulledData(
     stores.delete(id)
     changed = true
   }
+  // Чужие private-списки не должны оставаться локально (например, после смены
+  // «Весь дом» → «Только я» у владельца).
+  for (const [id, store] of [...stores.entries()]) {
+    if (store.visibility !== 'private') continue
+    if (!store.ownerId || store.ownerId === options.userId) continue
+    stores.delete(id)
+    changed = true
+  }
 
   const categories = new Map(local.categories.map((category) => [category.id, category]))
   for (const category of remote.categories) {

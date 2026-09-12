@@ -132,17 +132,12 @@ export function useSync(
       }
       let local = dataRef.current
       const userId = current.userId
-      // Свои списки всегда «для дома», иначе новый список остаётся private
-      // и второй телефон его никогда не увидит.
+      // Проставляем ownerId своим спискам, но visibility НЕ трогаем:
+      // иначе «Только я» каждый тик сбрасывается в «Весь дом».
       {
         const stores = local.stores.map((store) => {
-          if (store.visibility === 'home') return store
-          if (store.ownerId && store.ownerId !== userId) return store
-          return {
-            ...store,
-            ownerId: store.ownerId ?? userId,
-            visibility: 'home' as const,
-          }
+          if (store.ownerId) return store
+          return { ...store, ownerId: userId }
         })
         if (stores.some((store, index) => store !== local.stores[index])) {
           local = { ...local, stores }
@@ -151,10 +146,11 @@ export function useSync(
         }
         localStorage.setItem(SHARE_LISTS_KEY, userId)
       }
-      // Раз за сессию принудительно пушим локальное — лечит «есть у меня, нет в облаке».
-      if (sessionStorage.getItem('pokupki-force-push') !== '4') {
+      // Раз за сессию принудительно пушим локальное — лечит «есть у меня, нет в облаке»
+      // и уносит исправленную видимость (private) в облако.
+      if (sessionStorage.getItem('pokupki-force-push') !== '5') {
         dirtyRef.current = true
-        sessionStorage.setItem('pokupki-force-push', '4')
+        sessionStorage.setItem('pokupki-force-push', '5')
       }
       // Backup-сид и полностью чужой набор id — берём облако целиком (иначе 2-й iPhone
       // навсегда сидит на демо-списках без групп и без подсветки обновлений).

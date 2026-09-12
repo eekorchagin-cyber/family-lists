@@ -250,6 +250,10 @@ export function ListSettingsScreen({
                     Весь дом
                   </button>
                 </div>
+                <p className="hint" style={{ opacity: 0.75 }}>
+                  «Только я» — список виден лишь вам (и на ваших телефонах с кодом T). «Весь дом» —
+                  всем участникам семьи.
+                </p>
               </>
             ) : null}
             <button
