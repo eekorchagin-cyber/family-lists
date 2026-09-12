@@ -12,7 +12,7 @@ import type {
 import { catalogFromItems, mergeCatalogFromItems } from './catalog'
 import backup from './backup.json'
 import { appendCategoryToStores } from './categories'
-import { isGroupsCatalogId, parseGroupsCatalog, stripGroupMarker } from './homeLayout'
+import { groupsFromStores, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker } from './homeLayout'
 import {
   createDefaultData,
   DEFAULT_CATEGORIES,
@@ -228,11 +228,12 @@ export function migrate(raw: unknown): AppData {
     catalogRaw.filter((entry) => !isGroupsCatalogId(entry.id)),
     items,
   )
-  // groupId не снимаем при загрузке: иначе вложенность пропадает, пока
-  // карточка группы ещё не доехала с другого телефона.
+  // Если карточек групп нет, но у списков есть groupId — восстановим группы-заглушки.
+  const storesWithCategories = appendCategoryToStores(stores, categories)
+  groups = mergeGroups(groups, groupsFromStores(storesWithCategories, new Map()), [])
   return {
     version: SCHEMA_VERSION,
-    stores: appendCategoryToStores(stores, categories),
+    stores: storesWithCategories,
     groups,
     items,
     categories,

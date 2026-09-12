@@ -36,8 +36,11 @@ type HomeScreenProps = {
   syncEnabled?: boolean
   displayName?: string
   frozen?: boolean
+  syncError?: string | null
+  syncBusy?: boolean
   updatedStoreIds?: string[]
   onDismissStoreUpdate?: (storeId: string) => void
+  onRetrySync?: () => void
 }
 
 const LONG_PRESS_MS = 450
@@ -77,8 +80,11 @@ export function HomeScreen({
   syncEnabled = false,
   displayName,
   frozen = false,
+  syncError = null,
+  syncBusy = false,
   updatedStoreIds = [],
   onDismissStoreUpdate,
+  onRetrySync,
 }: HomeScreenProps) {
   const [managing, setManaging] = useState<Managing | null>(null)
   const [movingStore, setMovingStore] = useState<Store | null>(null)
@@ -375,6 +381,21 @@ export function HomeScreen({
           <p className="hint">
             Синхронизация остановлена. Списки остались на этом телефоне. Откройте Настройки → Семья,
             чтобы вернуться в дом.
+          </p>
+        ) : null}
+        {syncError ? (
+          <div className="hint hint--error" style={{ display: 'grid', gap: 8 }}>
+            <span>Синхронизация не работает: {syncError}</span>
+            {onRetrySync ? (
+              <button type="button" className="qty-button" disabled={syncBusy} onClick={onRetrySync}>
+                {syncBusy ? 'Обновляем…' : 'Повторить синхронизацию'}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {syncEnabled && !frozen && !syncError ? (
+          <p className="hint" style={{ opacity: 0.75 }}>
+            Семья подключена{syncBusy ? ' · обновляем…' : ''}.
           </p>
         ) : null}
         {empty ? (

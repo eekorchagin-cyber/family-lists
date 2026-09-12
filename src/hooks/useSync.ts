@@ -147,9 +147,9 @@ export function useSync(
         localStorage.setItem(SHARE_LISTS_KEY, userId)
       }
       // Раз за сессию принудительно пушим локальное — лечит «есть у меня, нет в облаке».
-      if (sessionStorage.getItem('pokupki-force-push') !== '2') {
+      if (sessionStorage.getItem('pokupki-force-push') !== '3') {
         dirtyRef.current = true
-        sessionStorage.setItem('pokupki-force-push', '2')
+        sessionStorage.setItem('pokupki-force-push', '3')
       }
       const onLocalhost = isLocalHost(window.location.hostname)
       // Раньше adopt-cloud полностью затирал локальные данные облаком при каждом

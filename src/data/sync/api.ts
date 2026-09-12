@@ -5,6 +5,7 @@ import { restoreDeletes, takeDeletes } from './deletes'
 import {
   GROUPS_CATALOG_ID,
   groupsCatalogIdForHome,
+  groupsFromStores,
   isGroupsCatalogId,
   mergeGroups,
   parseGroupsCatalog,
@@ -309,16 +310,30 @@ export async function pullRemote(): Promise<AppData> {
   const legacyGroupsEntry = catalogEntries.find((entry) => entry.id === GROUPS_CATALOG_ID)
   const homeGroups = parseGroupsCatalog(homeGroupsEntry?.name)
   const legacyGroups = parseGroupsCatalog(legacyGroupsEntry?.name)
-  const groups =
+  const catalogGroups =
     homeGroups && homeGroups.length > 0
       ? homeGroups
       : legacyGroups && legacyGroups.length > 0
         ? legacyGroups
         : (homeGroups ?? legacyGroups ?? [])
+
+  const groupNames = new Map<string, string>()
+  const storeRows = (stores.data ?? []) as StoreRow[]
+  const storesList = storeRows.map((row) => {
+    const marked = stripGroupMarker(row.category_names ?? {})
+    if (marked.groupId && marked.groupName) {
+      groupNames.set(marked.groupId, marked.groupName)
+    }
+    return storeFromRow(row)
+  })
+  // Имена групп дублируем в списках: если catalog пуст, второй телефон
+  // всё равно соберёт группы из метаданных списков.
+  const groups = mergeGroups(catalogGroups, groupsFromStores(storesList, groupNames), [])
+
   return {
     version: 1,
     settings: { theme: 'light', fontSize: 'm' },
-    stores: ((stores.data ?? []) as StoreRow[]).map(storeFromRow),
+    stores: storesList,
     groups,
     categories: ((categories.data ?? []) as CategoryRow[]).map(categoryFromRow),
     items: ((items.data ?? []) as ItemRow[]).map(itemFromRow),
@@ -343,8 +358,9 @@ export async function pushLocal(
       .map((store) => store.id),
   )
 
-  // Метаданные списка (в т.ч. groupId) пушит только владелец,
+  // Метаданные списка (в т.ч. groupId + имя группы) пушит только владелец,
   // иначе другой телефон без групп затирает вложенность в облаке.
+  const groupNameById = new Map((data.groups ?? []).map((group) => [group.id, group.name]))
   const storeRows = data.stores
     .filter((store) => (store.ownerId ?? ownerId) === ownerId)
     .map((store) => ({
@@ -355,7 +371,11 @@ export async function pushLocal(
       visibility: store.visibility ?? 'private',
       category_sort: store.categorySort,
       category_order: store.categoryOrder,
-      category_names: withGroupMarker(store.categoryNames, store.groupId),
+      category_names: withGroupMarker(
+        store.categoryNames,
+        store.groupId,
+        store.groupId ? groupNameById.get(store.groupId) : undefined,
+      ),
       templates: store.templates ?? [],
       updated_at: store.updatedAt ?? at,
     }))

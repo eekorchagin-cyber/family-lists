@@ -83,8 +83,14 @@ function App() {
     syncEnabled,
     frozen: Boolean(sync.session?.frozen),
     displayName: sync.session?.displayName,
+    syncError: sync.error,
+    syncBusy: sync.busy,
     updatedStoreIds: sync.updatedStoreIds,
     onDismissStoreUpdate: sync.dismissStoreUpdate,
+    onRetrySync: () => {
+      sync.clearError()
+      void sync.retry()
+    },
     onOpenSettings: () => setScreen({ name: 'settings' as const }),
     onOpenStore: (storeId: string) => setScreen({ name: 'store' as const, storeId }),
     onStartAddStore: () => setScreen({ name: 'newStore' as const }),

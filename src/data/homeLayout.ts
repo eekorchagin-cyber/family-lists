@@ -4,6 +4,7 @@ export const HOME_ORDER_KEY = 'pokupki-home-order'
 export const GROUP_COLLAPSED_KEY = 'pokupki-group-collapsed'
 export const GROUPS_CATALOG_ID = '__pokupki_groups__'
 export const GROUP_NAME_KEY = '__g'
+export const GROUP_TITLE_KEY = '__gn'
 
 /** Id строки каталога с группами: на дом, чтобы семьи не затирали друг друга. */
 export function groupsCatalogIdForHome(homeId: string): string {
@@ -152,26 +153,59 @@ export function buildHomeRows(
 
 export function stripGroupMarker(
   names: Record<string, string>,
-): { names: Record<string, string>; groupId?: string } {
+): { names: Record<string, string>; groupId?: string; groupName?: string } {
   const next: Record<string, string> = {}
   let groupId: string | undefined
+  let groupName: string | undefined
   for (const [key, value] of Object.entries(names)) {
     if (key === GROUP_NAME_KEY) {
       if (value.trim()) groupId = value.trim()
       continue
     }
+    if (key === GROUP_TITLE_KEY) {
+      if (value.trim()) groupName = value.trim()
+      continue
+    }
     next[key] = value
   }
-  return groupId ? { names: next, groupId } : { names: next }
+  return {
+    names: next,
+    ...(groupId ? { groupId } : {}),
+    ...(groupName ? { groupName } : {}),
+  }
 }
 
 export function withGroupMarker(
   names: Record<string, string>,
   groupId: string | undefined,
+  groupName?: string,
 ): Record<string, string> {
   const { names: clean } = stripGroupMarker(names)
   if (!groupId) return clean
-  return { ...clean, [GROUP_NAME_KEY]: groupId }
+  return {
+    ...clean,
+    [GROUP_NAME_KEY]: groupId,
+    ...(groupName?.trim() ? { [GROUP_TITLE_KEY]: groupName.trim() } : {}),
+  }
+}
+
+/** Собираем группы из метаданных списков — запасной канал, если catalog пуст. */
+export function groupsFromStores(
+  stores: Store[],
+  groupNames: Map<string, string>,
+): StoreGroup[] {
+  const byId = new Map<string, StoreGroup>()
+  for (const store of stores) {
+    if (!store.groupId) continue
+    if (byId.has(store.groupId)) continue
+    const name = groupNames.get(store.groupId)?.trim()
+    byId.set(store.groupId, {
+      id: store.groupId,
+      name: name || 'Группа',
+      updatedAt: store.updatedAt,
+    })
+  }
+  return [...byId.values()]
 }
 
 
