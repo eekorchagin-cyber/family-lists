@@ -127,7 +127,9 @@ export function useSync(
       }
       let local = dataRef.current
       const userId = current.userId
-      if (localStorage.getItem(SHARE_LISTS_KEY) !== userId) {
+      // Свои списки всегда «для дома», иначе новый список остаётся private
+      // и второй телефон его никогда не увидит.
+      {
         const stores = local.stores.map((store) => {
           if (store.visibility === 'home') return store
           if (store.ownerId && store.ownerId !== userId) return store
@@ -144,7 +146,15 @@ export function useSync(
         }
         localStorage.setItem(SHARE_LISTS_KEY, userId)
       }
+      // Раз за сессию принудительно пушим локальное — лечит «есть у меня, нет в облаке».
+      if (sessionStorage.getItem('pokupki-force-push') !== '1') {
+        dirtyRef.current = true
+        sessionStorage.setItem('pokupki-force-push', '1')
+      }
       const onLocalhost = isLocalHost(window.location.hostname)
+      // Раньше adopt-cloud полностью затирал локальные данные облаком при каждом
+      // новом sessionStorage — незапушенные группы/списки пропадали и не уходили семье.
+      // Если локально уже есть данные — только merge, без return.
       if (
         (isStandaloneApp() || onLocalhost) &&
         sessionStorage.getItem('pokupki-adopt-cloud') !== '1'
@@ -160,24 +170,25 @@ export function useSync(
             stores: cloud.stores.filter((store) => !pending.stores.includes(store.id)),
             items: cloud.items.filter((item) => !gone.includes(item.id)),
           }
-          if (dataLooksPopulated(before)) {
-            markStoresUpdated(visibleStoreUpdates(before, incoming))
-          }
-          replaceRef.current(incoming, { takeCloudOrder: onLocalhost })
           sessionStorage.setItem('pokupki-adopt-cloud', '1')
-          if (dirtyRef.current || gone.length > 0 || pending.stores.length > 0) {
-            const pushed = await pushLocal(current, incoming)
-            if (
-              JSON.stringify(pushed.groups) !== JSON.stringify(incoming.groups ?? [])
-            ) {
-              replaceRef.current({ ...incoming, groups: pushed.groups })
+          if (dataLooksPopulated(before)) {
+            const merged = mergePulledData(before, incoming, {
+              lastPulledAt: current.lastPulledAt,
+              userId: current.userId,
+              deletedItemIds: gone,
+              deletedStoreIds: pending.stores,
+            })
+            if (merged.changed) {
+              markStoresUpdated(visibleStoreUpdates(before, merged.next))
+              replaceRef.current(merged.next)
             }
-            dirtyRef.current = false
+            dirtyRef.current = true
+          } else {
+            replaceRef.current(incoming, { takeCloudOrder: onLocalhost })
+            dirtyRef.current = true
           }
-          const saved = { ...current, lastPulledAt: nowIso(), displayName: profile.displayName }
-          saveSession(saved)
-          setSession(saved)
-          return
+        } else {
+          sessionStorage.setItem('pokupki-adopt-cloud', '1')
         }
       }
       const remote = await pullRemote()

@@ -303,10 +303,18 @@ export async function pullRemote(): Promise<AppData> {
   if (catalog.error) throw catalog.error
 
   const catalogEntries = ((catalog.data ?? []) as CatalogRow[]).map(catalogFromRow)
-  const groupsEntry =
-    catalogEntries.find((entry) => entry.id.startsWith(`${GROUPS_CATALOG_ID}:`)) ??
-    catalogEntries.find((entry) => entry.id === GROUPS_CATALOG_ID)
-  const groups = parseGroupsCatalog(groupsEntry?.name) ?? []
+  const homeGroupsEntry = catalogEntries.find((entry) =>
+    entry.id.startsWith(`${GROUPS_CATALOG_ID}:`),
+  )
+  const legacyGroupsEntry = catalogEntries.find((entry) => entry.id === GROUPS_CATALOG_ID)
+  const homeGroups = parseGroupsCatalog(homeGroupsEntry?.name)
+  const legacyGroups = parseGroupsCatalog(legacyGroupsEntry?.name)
+  const groups =
+    homeGroups && homeGroups.length > 0
+      ? homeGroups
+      : legacyGroups && legacyGroups.length > 0
+        ? legacyGroups
+        : (homeGroups ?? legacyGroups ?? [])
   return {
     version: 1,
     settings: { theme: 'light', fontSize: 'm' },
@@ -400,40 +408,64 @@ export async function pushLocal(
       updated_at: entry.updatedAt ?? at,
     }))
 
-  const pending = takeDeletes()
-
-  // Группы: читаем облако (id на дом + старый общий) и склеиваем,
-  // иначе устройство без групп затирает семейные названия.
-  const groupsId = groupsCatalogIdForHome(homeId)
-  const [{ data: homeGroupsRow }, { data: legacyGroupsRow }] = await Promise.all([
-    client.from('catalog').select('name').eq('id', groupsId).maybeSingle(),
-    client.from('catalog').select('name').eq('id', GROUPS_CATALOG_ID).maybeSingle(),
-  ])
-  const remoteGroups =
-    parseGroupsCatalog(homeGroupsRow?.name) ??
-    parseGroupsCatalog(legacyGroupsRow?.name) ??
-    []
-  const mergedGroups = mergeGroups(remoteGroups, data.groups ?? [], pending.groups)
-  const groupsAt =
-    mergedGroups.map((group) => group.updatedAt ?? '').sort().at(-1) || at
-  catalogRows.push({
-    id: groupsId,
-    home_id: homeId,
-    name: JSON.stringify(mergedGroups),
-    category_id: 'other',
-    updated_at: groupsAt,
-  })
   if (catalogRows.length > 0) {
     const { error } = await client.from('catalog').upsert(catalogRows)
-    if (error) {
-      restoreDeletes(pending)
-      throw error
+    if (error) throw error
+  }
+
+  const pending = takeDeletes()
+
+  // Группы отдельно от товарного каталога: списки/товары уже в облаке.
+  const groupsId = groupsCatalogIdForHome(homeId)
+  let mergedGroups = data.groups ?? []
+  try {
+    const [{ data: homeGroupsRow }, { data: legacyGroupsRow }] = await Promise.all([
+      client.from('catalog').select('name, home_id').eq('id', groupsId).maybeSingle(),
+      client.from('catalog').select('name, home_id').eq('id', GROUPS_CATALOG_ID).maybeSingle(),
+    ])
+    const homeGroups = parseGroupsCatalog(homeGroupsRow?.name)
+    const legacyGroups =
+      !legacyGroupsRow || legacyGroupsRow.home_id === homeId
+        ? parseGroupsCatalog(legacyGroupsRow?.name)
+        : null
+    // Пустой [] не должен перекрывать legacy с реальными группами.
+    const remoteGroups =
+      homeGroups && homeGroups.length > 0
+        ? homeGroups
+        : legacyGroups && legacyGroups.length > 0
+          ? legacyGroups
+          : (homeGroups ?? legacyGroups ?? [])
+    mergedGroups = mergeGroups(remoteGroups, data.groups ?? [], pending.groups)
+    const groupsAt =
+      mergedGroups.map((group) => group.updatedAt ?? '').sort().at(-1) || at
+    const groupsPayload = JSON.stringify(mergedGroups)
+    const groupRows = [
+      {
+        id: groupsId,
+        home_id: homeId,
+        name: groupsPayload,
+        category_id: 'other',
+        updated_at: groupsAt,
+      },
+    ]
+    // Legacy только если строка наша или её ещё нет — иначе RLS валит весь upsert.
+    if (!legacyGroupsRow || legacyGroupsRow.home_id === homeId) {
+      groupRows.push({
+        id: GROUPS_CATALOG_ID,
+        home_id: homeId,
+        name: groupsPayload,
+        category_id: 'other',
+        updated_at: groupsAt,
+      })
     }
+    const { error: groupsError } = await client.from('catalog').upsert(groupRows)
+    if (groupsError) throw groupsError
+  } catch (groupsError) {
+    // Списки уже в облаке; группы попробуем снова на следующем тике.
+    restoreDeletes(pending)
+    throw groupsError
   }
-  // Старый глобальный id мог перехватываться другими домами — убираем свою копию.
-  if (legacyGroupsRow) {
-    await client.from('catalog').delete().eq('id', GROUPS_CATALOG_ID).eq('home_id', homeId)
-  }
+
   try {
     if (pending.clearedItems.length > 0) {
       const { error } = await client.from('items').delete().in('id', pending.clearedItems)
@@ -462,14 +494,9 @@ export async function pushLocal(
       const { error } = await client.from('categories').delete().in('id', pending.categories)
       if (error) throw error
     }
-    if (pending.catalog.length > 0) {
-      const { error } = await client
-        .from('catalog')
-        .delete()
-        .in(
-          'id',
-          pending.catalog.filter((id) => !isGroupsCatalogId(id)),
-        )
+    const catalogDeletes = pending.catalog.filter((id) => !isGroupsCatalogId(id))
+    if (catalogDeletes.length > 0) {
+      const { error } = await client.from('catalog').delete().in('id', catalogDeletes)
       if (error) throw error
     }
   } catch (error) {

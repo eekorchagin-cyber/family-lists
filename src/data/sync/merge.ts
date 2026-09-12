@@ -104,7 +104,9 @@ export function visibleStoreUpdates(before: AppData, after: AppData): string[] {
 
   for (const store of after.stores) {
     const prev = beforeStores.get(store.id)
-    if (!prev || prev.name !== store.name) ids.add(store.id)
+    if (!prev || prev.name !== store.name || prev.groupId !== store.groupId) {
+      ids.add(store.id)
+    }
   }
 
   const group = (items: Item[]) => {
