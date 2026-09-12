@@ -547,7 +547,6 @@ export function ListSettingsScreen({
                         type="button"
                         className="category-mark-button"
                         aria-label={`Цвет и значок категории ${categoryName(category, store)}`}
-                        onPointerDown={(event) => event.stopPropagation()}
                         onClick={() => guardedClick(() => setStyling(category))}
                       >
                         <CategoryMark category={category} />
@@ -556,10 +555,6 @@ export function ListSettingsScreen({
                         type="button"
                         className={`input category-name-input${isLocalToStore(category, store) ? ' category-name-input--custom' : ''}`}
                         aria-label={`Тип категории ${categoryName(category, store)}`}
-                        onPointerDown={(event) => {
-                          if (!custom) return
-                          event.stopPropagation()
-                        }}
                         onClick={() => guardedClick(() => setEditingScope(category))}
                       >
                         {names[category.id] ?? categoryName(category, store)}
@@ -569,7 +564,10 @@ export function ListSettingsScreen({
                         className="qty-button"
                         aria-label={`Убрать категорию ${categoryName(category, store)}`}
                         onPointerDown={(event) => event.stopPropagation()}
-                        onClick={() => guardedClick(() => setRemoving(category))}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          guardedClick(() => setRemoving(category))
+                        }}
                       >
                         ×
                       </button>
