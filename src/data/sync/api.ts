@@ -328,6 +328,7 @@ export async function pullRemote(): Promise<AppData> {
   })
   // Имена групп дублируем в списках: если catalog пуст, второй телефон
   // всё равно соберёт группы из метаданных списков.
+  // Catalog — приоритетнее заглушек из списков (см. mergeGroups).
   const groups = mergeGroups(catalogGroups, groupsFromStores(storesList, groupNames), [])
 
   return {
@@ -360,10 +361,36 @@ export async function pushLocal(
 
   // Метаданные списка (в т.ч. groupId + имя группы) пушит только владелец,
   // иначе другой телефон без групп затирает вложенность в облаке.
+  const ownedStores = data.stores.filter(
+    (store) => (store.ownerId ?? ownerId) === ownerId,
+  )
   const groupNameById = new Map((data.groups ?? []).map((group) => [group.id, group.name]))
-  const storeRows = data.stores
-    .filter((store) => (store.ownerId ?? ownerId) === ownerId)
-    .map((store) => ({
+  const remoteMarkers = new Map<string, { groupId?: string; groupName?: string }>()
+  if (ownedStores.length > 0) {
+    const { data: existingRows } = await client
+      .from('stores')
+      .select('id, category_names')
+      .in(
+        'id',
+        ownedStores.map((store) => store.id),
+      )
+    for (const row of existingRows ?? []) {
+      const marked = stripGroupMarker(
+        ((row as { category_names?: Record<string, string> }).category_names ?? {}),
+      )
+      remoteMarkers.set(row.id as string, {
+        ...(marked.groupId ? { groupId: marked.groupId } : {}),
+        ...(marked.groupName ? { groupName: marked.groupName } : {}),
+      })
+    }
+  }
+  const storeRows = ownedStores.map((store) => {
+    const remote = remoteMarkers.get(store.id)
+    const groupId = store.groupId ?? remote?.groupId
+    const groupName =
+      (groupId ? groupNameById.get(groupId) : undefined) ??
+      (store.groupId ? undefined : remote?.groupName)
+    return {
       id: store.id,
       home_id: homeId,
       owner_id: store.ownerId ?? ownerId,
@@ -371,14 +398,11 @@ export async function pushLocal(
       visibility: store.visibility ?? 'private',
       category_sort: store.categorySort,
       category_order: store.categoryOrder,
-      category_names: withGroupMarker(
-        store.categoryNames,
-        store.groupId,
-        store.groupId ? groupNameById.get(store.groupId) : undefined,
-      ),
+      category_names: withGroupMarker(store.categoryNames, groupId, groupName),
       templates: store.templates ?? [],
       updated_at: store.updatedAt ?? at,
-    }))
+    }
+  })
   if (storeRows.length > 0) {
     const { error } = await client.from('stores').upsert(storeRows)
     if (error) throw error

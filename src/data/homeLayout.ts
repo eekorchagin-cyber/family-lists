@@ -209,6 +209,10 @@ export function groupsFromStores(
 }
 
 
+function isPlaceholderGroupName(name: string): boolean {
+  return name.trim() === '' || name.trim() === 'Группа'
+}
+
 export function mergeGroups(
   remote: StoreGroup[],
   local: StoreGroup[],
@@ -223,7 +227,19 @@ export function mergeGroups(
   for (const group of local) {
     if (deleted.has(group.id)) continue
     const current = byId.get(group.id)
-    if (!current || (group.updatedAt ?? '') >= (current.updatedAt ?? '')) {
+    if (!current) {
+      byId.set(group.id, group)
+      continue
+    }
+    // Заглушка «Группа» из списков не должна перебивать имя из catalog.
+    if (isPlaceholderGroupName(group.name) && !isPlaceholderGroupName(current.name)) {
+      continue
+    }
+    if (isPlaceholderGroupName(current.name) && !isPlaceholderGroupName(group.name)) {
+      byId.set(group.id, group)
+      continue
+    }
+    if ((group.updatedAt ?? '') >= (current.updatedAt ?? '')) {
       byId.set(group.id, group)
     }
   }

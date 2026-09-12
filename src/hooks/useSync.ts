@@ -17,7 +17,7 @@ import {
   signUpDevice,
 } from '../data/sync/api'
 import { supabaseConfigured } from '../data/sync/client'
-import { isLocalHost, isStandaloneApp, kindFromCode } from '../data/sync/codes'
+import { kindFromCode } from '../data/sync/codes'
 import { DIRTY_EVENT } from '../data/sync/dirty'
 import { deletedItemIds, peekDeletes } from '../data/sync/deletes'
 import { syncErrorMessage } from '../data/sync/errors'
@@ -34,6 +34,7 @@ import {
   loadUpdatedStoreIds,
   saveSession,
   saveUpdatedStoreIds,
+  shouldReplaceWithCloud,
   type HomeMember,
   type SyncSession,
 } from '../data/sync/session'
@@ -85,7 +86,8 @@ export function useSync(
     if (loadSession()?.password) return
     void recoverSessionFromAuth()
       .then((recovered) => {
-        if (!recovered?.homeId) return
+        // Без пароля loadSession потом вернёт null — не сохраняем «пустую» сессию.
+        if (!recovered?.homeId || !recovered.password) return
         saveSession(recovered)
         setSession(recovered)
       })
@@ -108,6 +110,9 @@ export function useSync(
       const profile = await loadMyProfile()
       if (!profile?.homeId) {
         if (!current.frozen) freeze(current)
+        setError(
+          'Синхронизация остановлена: этот телефон не в семье. Откройте Настройки → Семья.',
+        )
         return
       }
       if (
@@ -147,18 +152,13 @@ export function useSync(
         localStorage.setItem(SHARE_LISTS_KEY, userId)
       }
       // Раз за сессию принудительно пушим локальное — лечит «есть у меня, нет в облаке».
-      if (sessionStorage.getItem('pokupki-force-push') !== '3') {
+      if (sessionStorage.getItem('pokupki-force-push') !== '4') {
         dirtyRef.current = true
-        sessionStorage.setItem('pokupki-force-push', '3')
+        sessionStorage.setItem('pokupki-force-push', '4')
       }
-      const onLocalhost = isLocalHost(window.location.hostname)
-      // Раньше adopt-cloud полностью затирал локальные данные облаком при каждом
-      // новом sessionStorage — незапушенные группы/списки пропадали и не уходили семье.
-      // Если локально уже есть данные — только merge, без return.
-      if (
-        (isStandaloneApp() || onLocalhost) &&
-        sessionStorage.getItem('pokupki-adopt-cloud') !== '1'
-      ) {
+      // Backup-сид и полностью чужой набор id — берём облако целиком (иначе 2-й iPhone
+      // навсегда сидит на демо-списках без групп и без подсветки обновлений).
+      if (sessionStorage.getItem('pokupki-adopt-cloud') !== '2') {
         const cloud = await pullRemote()
         if (cloud.stores.length > 0 || cloud.items.length > 0) {
           const before = dataRef.current
@@ -169,9 +169,14 @@ export function useSync(
             settings: before.settings,
             stores: cloud.stores.filter((store) => !pending.stores.includes(store.id)),
             items: cloud.items.filter((item) => !gone.includes(item.id)),
+            groups: cloud.groups,
           }
-          sessionStorage.setItem('pokupki-adopt-cloud', '1')
-          if (dataLooksPopulated(before)) {
+          sessionStorage.setItem('pokupki-adopt-cloud', '2')
+          if (shouldReplaceWithCloud(before, incoming) || !dataLooksPopulated(before)) {
+            markStoresUpdated(incoming.stores.map((store) => store.id))
+            replaceRef.current(incoming, { takeCloudOrder: true })
+            dirtyRef.current = true
+          } else {
             const merged = mergePulledData(before, incoming, {
               lastPulledAt: current.lastPulledAt,
               userId: current.userId,
@@ -187,12 +192,12 @@ export function useSync(
               replaceRef.current(merged.next)
             }
             dirtyRef.current = true
-          } else {
-            replaceRef.current(incoming, { takeCloudOrder: onLocalhost })
-            dirtyRef.current = true
           }
         } else {
-          sessionStorage.setItem('pokupki-adopt-cloud', '1')
+          sessionStorage.setItem('pokupki-adopt-cloud', '2')
+          setError(
+            'В облаке пока нет списков. Откройте телефон, где списки на месте, на 15 секунд — затем повторите здесь.',
+          )
         }
       }
       const remote = await pullRemote()
@@ -225,6 +230,7 @@ export function useSync(
       const saved = { ...current, lastPulledAt: nowIso(), displayName: profile.displayName }
       saveSession(saved)
       setSession(saved)
+      setError(null)
     } catch (caught) {
       setError(syncErrorMessage(caught))
     } finally {
@@ -295,14 +301,18 @@ export function useSync(
     async (nextSession: SyncSession, mode: MergeMode | 'auto') => {
       const local = dataRef.current
       const remote = await pullRemote()
-      if (mode === 'auto' && dataLooksPopulated(local) && dataLooksPopulated(remote)) {
+      let resolved: MergeMode | 'auto' = mode
+      if (resolved === 'auto' && shouldReplaceWithCloud(local, remote)) {
+        resolved = 'cloud'
+      }
+      if (resolved === 'auto' && dataLooksPopulated(local) && dataLooksPopulated(remote)) {
         setMergePending({ session: nextSession, local, remote })
         return
       }
       let next = local
-      if (mode === 'cloud') next = { ...remote, settings: local.settings }
-      else if (mode === 'device') next = adoptLocalStores(local, nextSession.userId, 'private')
-      else if (mode === 'merge') next = mergeByStoreName(local, remote)
+      if (resolved === 'cloud') next = { ...remote, settings: local.settings }
+      else if (resolved === 'device') next = adoptLocalStores(local, nextSession.userId, 'private')
+      else if (resolved === 'merge') next = mergeByStoreName(local, remote)
       else if (!dataLooksPopulated(remote)) {
         next = adoptLocalStores(local, nextSession.userId, 'private')
       } else {

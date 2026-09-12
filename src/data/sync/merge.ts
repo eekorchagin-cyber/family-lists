@@ -48,7 +48,10 @@ function mergeStore(local: Store, remote: Store, userId?: string): Store {
   const localAt = local.updatedAt ?? ''
   const remoteAt = remote.updatedAt ?? ''
   if (remoteAt > localAt) return remote
-  if (localAt > remoteAt) return local
+  if (localAt > remoteAt) {
+    if (remote.groupId && !local.groupId) return { ...local, groupId: remote.groupId }
+    return local
+  }
   if (remote.groupId && !local.groupId) return { ...local, groupId: remote.groupId }
   return local
 }
