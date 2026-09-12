@@ -129,6 +129,34 @@ export function HomeScreen({
     setHomeOrder(ensureHomeOrder(stores, groups, loadHomeOrder()))
   }, [groups, stores])
 
+  // Если внутри свёрнутой группы обновился список — раскроем группу,
+  // чтобы была видна и подсветка списка, и подсветка самой группы.
+  useEffect(() => {
+    if (updatedStoreIds.length === 0) return
+    setCollapsed((current) => {
+      let changed = false
+      const next = { ...current }
+      for (const store of stores) {
+        if (!store.groupId || !updatedStoreIds.includes(store.id)) continue
+        if (!next[store.groupId]) continue
+        next[store.groupId] = false
+        changed = true
+      }
+      if (!changed) return current
+      saveCollapsedGroups(next)
+      return next
+    })
+  }, [stores, updatedStoreIds])
+
+  const updatedGroupIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const store of stores) {
+      if (!store.groupId || !updatedStoreIds.includes(store.id)) continue
+      ids.add(store.groupId)
+    }
+    return ids
+  }, [stores, updatedStoreIds])
+
   useEffect(
     () => () => {
       window.clearTimeout(holdTimer.current)
@@ -423,6 +451,7 @@ export function HomeScreen({
                 const nestedCount = stores.filter((store) => store.groupId === row.group.id).length
                 const isCollapsed = Boolean(collapsed[row.group.id])
                 const homeKey = groupHomeKey(row.group.id)
+                const groupUpdated = updatedGroupIds.has(row.group.id)
                 return (
                   <li
                     key={row.key}
@@ -439,11 +468,19 @@ export function HomeScreen({
                       className={[
                         draggingKey === homeKey ? 'store-row dragging' : 'store-row',
                         'store-row--group',
-                      ].join(' ')}
+                        groupUpdated ? 'store-row--updated' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                       onPointerDown={(event) => onPointerDown(event, row)}
                       onClick={() => onGroupClick(row.group.id)}
                       onContextMenu={(event) => event.preventDefault()}
                       aria-expanded={!isCollapsed}
+                      aria-label={
+                        groupUpdated
+                          ? `${row.group.name}, в группе есть обновления`
+                          : undefined
+                      }
                     >
                       <span className="store-handle" aria-hidden="true">
                         <span />

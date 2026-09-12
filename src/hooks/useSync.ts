@@ -181,10 +181,8 @@ export function useSync(
               deletedGroupIds: pending.groups,
             })
             if (merged.changed) {
-              markStoresUpdated([
-                ...visibleStoreUpdates(before, merged.next),
-                ...merged.changedStoreIds,
-              ])
+              // Только видимые изменения (имя / группа / товары), не meta категорий.
+              markStoresUpdated(visibleStoreUpdates(before, merged.next))
               replaceRef.current(merged.next)
             }
             dirtyRef.current = true
@@ -199,7 +197,7 @@ export function useSync(
       const remote = await pullRemote()
       local = dataRef.current
       const pending = peekDeletes()
-      const { next, changed, changedStoreIds } = mergePulledData(local, remote, {
+      const { next, changed } = mergePulledData(local, remote, {
         lastPulledAt: current.lastPulledAt,
         userId: current.userId,
         deletedItemIds: deletedItemIds(pending),
@@ -207,10 +205,9 @@ export function useSync(
         deletedGroupIds: pending.groups,
       })
       if (changed) {
-        markStoresUpdated([
-          ...visibleStoreUpdates(local, next),
-          ...changedStoreIds,
-        ])
+        // Только видимые изменения (имя / группа / товары), не meta категорий —
+        // иначе списки «мигают» без реальных правок товаров.
+        markStoresUpdated(visibleStoreUpdates(local, next))
         replaceRef.current(next)
       }
       const toPush = changed ? next : dataRef.current
