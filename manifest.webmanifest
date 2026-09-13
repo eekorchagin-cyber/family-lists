@@ -1,7 +1,7 @@
 {
   "name": "Покупки",
   "short_name": "Покупки",
-  "start_url": "./?v=20260913-0234",
+  "start_url": "./?v=20260913-0235",
   "scope": "./",
   "display": "standalone",
   "background_color": "#209055",
