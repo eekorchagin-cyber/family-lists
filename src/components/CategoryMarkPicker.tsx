@@ -41,13 +41,25 @@ export function CategoryMarkPicker({
             type="button"
             className={icon === item.id ? 'icon-swatch active' : 'icon-swatch'}
             aria-label={
-              item.id === 'westie'
-                ? 'Вест-хайленд-уайт-терьер'
-                : item.id === 'cheese'
-                  ? 'Сыр'
-                  : item.id === 'sausage'
-                    ? 'Колбаса'
-                    : `Значок ${item.id}`
+              (
+                {
+                  westie: 'Вест-хайленд-уайт-терьер',
+                  cheese: 'Сыр',
+                  sausage: 'Колбаса',
+                  fan: 'Вентилятор',
+                  faucet: 'Водопроводный кран',
+                  painting: 'Картина',
+                  carpet: 'Ковёр',
+                  paintbrush: 'Малярная кисть',
+                  tile: 'Кафель',
+                  wallpaper: 'Обои',
+                  chandelier: 'Люстра',
+                  hinge: 'Дверная петля',
+                  door: 'Дверь',
+                  insulation: 'Утеплитель',
+                  shelf: 'Стеллаж',
+                } as Record<string, string>
+              )[item.id] ?? `Значок ${item.id}`
             }
             onClick={() => onIcon(item.id)}
           >
