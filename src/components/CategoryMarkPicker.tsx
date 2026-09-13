@@ -72,6 +72,18 @@ export function CategoryMarkPicker({
                   sports: 'Спорт',
                   flowers: 'Цветы',
                   gift: 'Подарки',
+                  fan: 'Вентилятор',
+                  faucet: 'Водопроводный кран',
+                  painting: 'Картина',
+                  carpet: 'Ковёр',
+                  paintbrush: 'Малярная кисть',
+                  tile: 'Кафель',
+                  wallpaper: 'Обои',
+                  chandelier: 'Люстра',
+                  hinge: 'Дверная петля',
+                  door: 'Дверь',
+                  insulation: 'Утеплитель',
+                  shelf: 'Стеллаж',
                 } as Record<string, string>
               )[item.id] ?? `Значок ${item.id}`
             }
