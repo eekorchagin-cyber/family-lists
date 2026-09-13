@@ -1,5 +1,8 @@
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '../data/categories'
-import { WestieIcon } from './WestieIcon'
+import {
+  CategorySpecialIcon,
+  hasCategorySpecialIcon,
+} from './CategorySpecialIcons'
 
 type CategoryMarkPickerProps = {
   color: string
@@ -89,7 +92,11 @@ export function CategoryMarkPicker({
             }
             onClick={() => onIcon(item.id)}
           >
-            {item.id === 'westie' ? <WestieIcon /> : item.glyph}
+            {hasCategorySpecialIcon(item.id) ? (
+              <CategorySpecialIcon id={item.id} />
+            ) : (
+              item.glyph
+            )}
           </button>
         ))}
       </div>
