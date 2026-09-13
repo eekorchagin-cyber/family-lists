@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   appendCategoryToStores,
   categoriesForStore,
+  categoryName,
   ensureCategoryOrder,
   iconIdFromName,
   withCategoriesEnabled,
@@ -422,6 +423,114 @@ export function useAppState() {
       return persist(
         patchStore(current, storeId, { categorySort: 'custom', categoryOrder: swapped }),
       )
+    })
+  }, [])
+
+  const reorderCategories = useCallback((storeId: string, orderedIds: string[]) => {
+    setData((current) => {
+      const store = current.stores.find((item) => item.id === storeId)
+      if (!store) return current
+      const cats = categoriesForStore(current.categories, store)
+      const valid = new Set(cats.map((category) => category.id))
+      if (orderedIds.length !== cats.length) return current
+      if (!orderedIds.every((id) => valid.has(id))) return current
+      return persist(
+        patchStore(current, storeId, { categorySort: 'custom', categoryOrder: orderedIds }),
+      )
+    })
+  }, [])
+
+  const copyCategories = useCallback((fromStoreId: string, toStoreId: string) => {
+    if (fromStoreId === toStoreId) return
+    setData((current) => {
+      const fromStore = current.stores.find((store) => store.id === fromStoreId)
+      const toStore = current.stores.find((store) => store.id === toStoreId)
+      if (!fromStore || !toStore) return current
+
+      const sourceCats = categoriesForStore(current.categories, fromStore)
+      let categories = [...current.categories]
+      const enableIds: string[] = []
+      const nameOverrides: Record<string, string> = { ...(toStore.categoryNames ?? {}) }
+      const draftTarget: Pick<Store, 'id' | 'categoryOrder' | 'categoryNames'> = {
+        id: toStoreId,
+        categoryOrder: [...(toStore.categoryOrder ?? [])],
+        categoryNames: nameOverrides,
+      }
+
+      for (const category of sourceCats) {
+        const displayName = categoryName(category, fromStore).trim()
+        if (!displayName) continue
+
+        if (!category.storeId) {
+          enableIds.push(category.id)
+          const override = fromStore.categoryNames?.[category.id]
+          if (override?.trim()) nameOverrides[category.id] = override.trim()
+          continue
+        }
+
+        const existing = categoriesForStore(categories, draftTarget).find(
+          (item) =>
+            categoryName(item, draftTarget as Store).toLowerCase() === displayName.toLowerCase(),
+        )
+        if (existing) {
+          enableIds.push(existing.id)
+          continue
+        }
+
+        const byGlobalName = categories.find(
+          (item) =>
+            !item.storeId && item.name.trim().toLowerCase() === displayName.toLowerCase(),
+        )
+        if (byGlobalName) {
+          enableIds.push(byGlobalName.id)
+          continue
+        }
+
+        const id = newId()
+        categories = [
+          ...categories,
+          {
+            id,
+            name: displayName,
+            color: category.color,
+            icon: category.icon || iconIdFromName(displayName),
+            storeId: toStoreId,
+            updatedAt: nowIso(),
+          },
+        ]
+        draftTarget.categoryOrder = [...draftTarget.categoryOrder, id]
+        enableIds.push(id)
+      }
+
+      if (enableIds.length === 0) return current
+
+      const enabled = withCategoriesEnabled(
+        { ...toStore, categoryNames: nameOverrides },
+        enableIds,
+        categories,
+      )
+      const present = new Set(enabled.categoryOrder ?? [])
+      const nextOrder = [...(enabled.categoryOrder ?? [])]
+      for (const id of enableIds) {
+        if (!present.has(id)) {
+          nextOrder.push(id)
+          present.add(id)
+        }
+      }
+
+      return persist({
+        ...current,
+        categories,
+        stores: current.stores.map((store) =>
+          store.id === toStoreId
+            ? {
+                ...enabled,
+                categoryOrder: nextOrder,
+                categoryNames: nameOverrides,
+              }
+            : store,
+        ),
+      })
     })
   }, [])
 
@@ -1006,6 +1115,8 @@ export function useAppState() {
     setCategoryScope,
     setCategorySort,
     moveCategory,
+    reorderCategories,
+    copyCategories,
     updateItem,
     markBought,
     unmarkBought,
