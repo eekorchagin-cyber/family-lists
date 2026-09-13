@@ -38,6 +38,7 @@ type HomeScreenProps = {
   syncConfigured?: boolean
   displayName?: string
   frozen?: boolean
+  localCopyHint?: boolean
   syncError?: string | null
   syncBusy?: boolean
   updatedStoreIds?: string[]
@@ -84,6 +85,7 @@ export function HomeScreen({
   syncConfigured = true,
   displayName,
   frozen = false,
+  localCopyHint = false,
   syncError = null,
   syncBusy = false,
   updatedStoreIds = [],
@@ -444,6 +446,12 @@ export function HomeScreen({
           <p className="hint">
             Синхронизация остановлена. Списки остались на этом телефоне. Откройте Настройки → Семья,
             чтобы вернуться в дом.
+          </p>
+        ) : null}
+        {localCopyHint ? (
+          <p className="hint">
+            Это копия на этом устройстве. Списки с ярлыка сюда сами не переезжают. Настройки →
+            Семья → «У меня есть код»: возьмите код T там, где в шапке ваше имя и списки верные.
           </p>
         ) : null}
         {syncError ? (

@@ -1,10 +1,12 @@
-import { useState, type KeyboardEvent } from 'react'
-import { editCode } from '../data/sync/codes'
+import { useState, type KeyboardEvent, type ReactNode } from 'react'
+import { editCode, kindFromCode } from '../data/sync/codes'
 import { canAutofocus } from '../data/viewport'
+import { ConnectSteps } from './ConnectSteps'
 
 type CodeJoinDialogProps = {
   title: string
   text?: string
+  steps?: ReactNode
   codeLabel: string
   nameLabel?: string
   initialCode?: string
@@ -18,6 +20,7 @@ type CodeJoinDialogProps = {
 export function CodeJoinDialog({
   title,
   text,
+  steps,
   codeLabel,
   nameLabel,
   initialCode = '',
@@ -53,6 +56,7 @@ export function CodeJoinDialog({
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
         <h2>{title}</h2>
         {text ? <p className="hint">{text}</p> : null}
+        {steps ?? <ConnectSteps forKind={kindFromCode(code)} />}
         {error ? <p className="hint sync-error">{error}</p> : null}
         {nameLabel ? (
           <>

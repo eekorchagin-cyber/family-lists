@@ -1,5 +1,9 @@
 export function syncErrorMessage(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error)
+  if (/user limit/i.test(text)) {
+    return 'Набор новых людей закрыт: лимит заполнен.'
+  }
+  if (/need name/i.test(text)) return 'Укажите имя'
   if (/invalid code|Неверный/i.test(text)) return 'Неверный или устаревший код'
   if (/already in a home/i.test(text)) return 'Этот человек уже в другом доме'
   if (/name taken/i.test(text)) {

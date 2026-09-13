@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AccessScreen } from './components/AccessScreen'
 import { MergeDialog } from './components/MergeDialog'
 import { UpdateBanner } from './components/UpdateBanner'
 import { categoriesForStore, knownCategoriesForStore, sortCategories, unusedGlobalCategories } from './data/categories'
-import { clearStoredEnterCode, consumeEnterCode } from './data/sync/codes'
+import { clearStoredEnterCode, consumeEnterCode, isLocalHost } from './data/sync/codes'
 import { useAppState } from './hooks/useAppState'
 import { useAppUpdate } from './hooks/useAppUpdate'
 import { useSync } from './hooks/useSync'
+import { loadSession } from './data/sync/session'
 import { HomeScreen } from './screens/HomeScreen'
 import { NewStoreScreen } from './screens/NewStoreScreen'
 import { StoreScreen } from './screens/StoreScreen'
@@ -59,13 +61,13 @@ function App() {
   const appUpdate = useAppUpdate()
   const [screen, setScreen] = useState<Screen>({ name: 'home' })
   const [enterCode, setEnterCode] = useState<string | null>(null)
+  const hadSession = useRef(Boolean(loadSession()))
 
   useEffect(() => {
     const code = consumeEnterCode()
-    if (code) {
-      setEnterCode(code)
-      setScreen({ name: 'settings' })
-    }
+    if (!code) return
+    setEnterCode(code)
+    if (hadSession.current) setScreen({ name: 'settings' })
   }, [])
 
   const allNames = useMemo(() => {
@@ -84,6 +86,10 @@ function App() {
     syncEnabled,
     syncConfigured: sync.configured,
     frozen: Boolean(sync.session?.frozen),
+    localCopyHint:
+      !sync.session &&
+      typeof window !== 'undefined' &&
+      isLocalHost(window.location.hostname),
     displayName: sync.session?.displayName,
     syncError: sync.error,
     syncBusy: sync.busy,
@@ -123,6 +129,27 @@ function App() {
     </>
   )
 
+  const needsAccess =
+    sync.configured &&
+    !sync.session &&
+    typeof window !== 'undefined' &&
+    !isLocalHost(window.location.hostname)
+
+  if (needsAccess) {
+    return (
+      <>
+        <AccessScreen
+          busy={sync.busy}
+          error={sync.error}
+          initialCode={enterCode}
+          onConnect={(code, name) => sync.connectWithCode(code, name)}
+          onClearError={sync.clearError}
+        />
+        {overlay}
+      </>
+    )
+  }
+
   if (screen.name === 'settings') {
     return (
       <>
@@ -151,12 +178,13 @@ function App() {
             members: sync.members,
             inviteCode: sync.inviteCode,
             pairingCode: sync.pairingCode,
+            accessInfo: sync.accessInfo,
             busy: sync.busy,
             error: sync.error,
             initialCode: enterCode,
-            onEnable: (name) => void sync.enableHome(name),
             onConnect: (code, name) => sync.connectWithCode(code, name),
             onCreateInvite: () => void sync.createInvite(),
+            onCreateAccess: () => void sync.createAccess(),
             onCreatePairing: () => void sync.createPairing(),
             onExclude: (userId) => void sync.exclude(userId),
             onReclaim: () => void sync.reclaim(),

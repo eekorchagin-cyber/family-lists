@@ -8,6 +8,7 @@ import { BackIcon } from '../components/NavIcons'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { SyncPanel } from '../components/SyncPanel'
 import { SyncPhoneGuide } from '../components/SyncPhoneGuide'
+import { UserGuide } from '../components/UserGuide'
 import { globalCategories, groupCatalog, sortCatalog } from '../data/catalog'
 import { isGroupsCatalogId } from '../data/homeLayout'
 import {
@@ -15,20 +16,22 @@ import {
   importSummaryText,
   readCatalogXlsx,
 } from '../data/catalogExcel'
+import type { AccessInfo } from '../data/sync/api'
 import type { HomeMember, SyncSession } from '../data/sync/session'
 import type { CatalogEntry, Category, FontSize, Settings, Store, Theme } from '../types'
 
-type SettingsSection = 'appearance' | 'categories' | 'catalog' | 'sync' | 'transfer'
+type SettingsSection = 'guide' | 'appearance' | 'categories' | 'catalog' | 'sync' | 'transfer'
 
-const SECTIONS: { id: SettingsSection; title: string; hint: string }[] = [
+const SECTIONS: { id: Exclude<SettingsSection, 'guide'>; title: string; hint: string }[] = [
   { id: 'appearance', title: 'Оформление', hint: 'Тема и размер шрифта' },
-  { id: 'sync', title: 'Семья', hint: 'Коды, ярлык и инструкция' },
+  { id: 'sync', title: 'Семья', hint: 'Коды, облако и приглашения' },
   { id: 'categories', title: 'Категории', hint: 'Общие — добавить в любой список' },
   { id: 'catalog', title: 'Товары', hint: 'Справочник' },
   { id: 'transfer', title: 'Экспорт / импорт', hint: 'Наименования в таблице Excel' },
 ]
 
 const SECTION_TITLES: Record<SettingsSection, string> = {
+  guide: 'Как пользоваться',
   appearance: 'Оформление',
   sync: 'Семья',
   categories: 'Категории',
@@ -61,12 +64,13 @@ type SettingsScreenProps = {
     members: HomeMember[]
     inviteCode: string | null
     pairingCode: string | null
+    accessInfo: AccessInfo | null
     busy: boolean
     error: string | null
     initialCode?: string | null
-    onEnable: (name: string) => void
     onConnect: (code: string, name?: string) => Promise<'need-name' | 'error' | 'already' | void>
     onCreateInvite: () => void
+    onCreateAccess: () => void
     onCreatePairing: () => void
     onExclude: (userId: string) => void
     onReclaim: () => void
@@ -194,7 +198,9 @@ export function SettingsScreen({
           ) : undefined
         }
         help={
-          section === 'categories' ? (
+          section === null ? (
+            <UserGuide />
+          ) : section === 'categories' ? (
               <p>Порядок отделов задаётся в каждом списке отдельно. Новая общая категория не появится в списках сама — её нужно добавить.</p>
           ) : section === 'catalog' ? (
             <p>
@@ -210,7 +216,13 @@ export function SettingsScreen({
             </p>
           ) : undefined
         }
-        helpTitle={section === 'sync' ? 'Семья на телефоне' : undefined}
+        helpTitle={
+          section === null
+            ? 'Как пользоваться'
+            : section === 'sync'
+              ? 'Семья на телефоне'
+              : undefined
+        }
       />
       <main className="content">
         {section === null && (
@@ -220,6 +232,21 @@ export function SettingsScreen({
               <span className="settings-user-name">{deviceName}</span>
             </p>
             <ul className="store-list">
+              <li>
+                <button
+                  type="button"
+                  className="settings-nav-row"
+                  onClick={() => setSection('guide')}
+                >
+                  <span className="settings-nav-text">
+                    <span className="settings-nav-title">Как пользоваться</span>
+                    <span className="settings-nav-hint">Инструкция к программе</span>
+                  </span>
+                  <span className="settings-nav-chevron" aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+              </li>
               {SECTIONS.map((item) => (
                 <li key={item.id}>
                   <button
@@ -241,6 +268,12 @@ export function SettingsScreen({
           </>
         )}
 
+        {section === 'guide' && (
+          <section className="settings-block">
+            <UserGuide />
+          </section>
+        )}
+
         {section === 'sync' && (
           <SyncPanel
             configured={sync.configured}
@@ -248,12 +281,13 @@ export function SettingsScreen({
             members={sync.members}
             inviteCode={sync.inviteCode}
             pairingCode={sync.pairingCode}
+            accessInfo={sync.accessInfo}
             busy={sync.busy}
             error={sync.error}
             initialCode={sync.initialCode}
-            onEnable={sync.onEnable}
             onConnect={sync.onConnect}
             onCreateInvite={sync.onCreateInvite}
+            onCreateAccess={sync.onCreateAccess}
             onCreatePairing={sync.onCreatePairing}
             onExclude={sync.onExclude}
             onReclaim={sync.onReclaim}

@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppData } from '../types'
 import {
   completePairing,
+  createAccessCode,
   createInviteCode,
   createPairingCode,
   excludeMember,
   joinHome,
+  loadAccessInfo,
   reclaimHome,
   loadInviteCode,
   loadMembers,
@@ -13,8 +15,10 @@ import {
   pullRemote,
   pushLocal,
   recoverSessionFromAuth,
+  redeemAccess,
   restoreSession,
   signUpDevice,
+  type AccessInfo,
 } from '../data/sync/api'
 import { supabaseConfigured } from '../data/sync/client'
 import { kindFromCode } from '../data/sync/codes'
@@ -67,6 +71,7 @@ export function useSync(
   const [members, setMembers] = useState<HomeMember[]>([])
   const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [pairingCode, setPairingCode] = useState<string | null>(null)
+  const [accessInfo, setAccessInfo] = useState<AccessInfo | null>(null)
   const [updatedStoreIds, setUpdatedStoreIds] = useState<string[]>(() => loadUpdatedStoreIds())
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -120,12 +125,14 @@ export function useSync(
       if (
         current.frozen ||
         current.homeId !== profile.homeId ||
-        current.isCreator !== profile.isCreator
+        current.isCreator !== profile.isCreator ||
+        current.isAppAdmin !== profile.isAppAdmin
       ) {
         current = {
           ...current,
           homeId: profile.homeId,
           isCreator: profile.isCreator,
+          isAppAdmin: profile.isAppAdmin,
           displayName: profile.displayName || current.displayName,
           frozen: false,
         }
@@ -383,16 +390,24 @@ export function useSync(
       const existing = loadSession()
       if (existing && !existing.frozen) return 'already'
       const kind = kindFromCode(code)
-      if (existing?.frozen && kind === 'invite') {
+      if (existing?.frozen && (kind === 'invite' || kind === 'access')) {
         setError(
-          'Этот телефон уже был в семье. Нужен код на T (Мой второй телефон), а не приглашение на D.',
+          'Этот телефон уже был в семье. Нужен код на T (Мой второй телефон), а не приглашение на D и не код на P.',
         )
         return 'error'
       }
       if (kind === 'invite' && !displayName?.trim()) return 'need-name'
+      if (kind === 'access' && !displayName?.trim()) return 'need-name'
       setBusy(true)
       setError(null)
       try {
+        if (kind === 'access') {
+          const nextSession = await redeemAccess(code, displayName ?? '')
+          saveSession(nextSession)
+          setSession(nextSession)
+          await finishConnect(nextSession, 'auto')
+          return
+        }
         if (kind === 'pairing') {
           const nextSession = await completePairing(code)
           saveSession(nextSession)
@@ -480,6 +495,41 @@ export function useSync(
     void loadInvite()
   }, [loadInvite, session])
 
+  const refreshAccess = useCallback(async () => {
+    const current = loadSession()
+    if (!current?.isAppAdmin || current.frozen) {
+      setAccessInfo(null)
+      return
+    }
+    try {
+      setAccessInfo(await loadAccessInfo())
+    } catch {
+      setAccessInfo(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshAccess()
+  }, [refreshAccess, session?.isAppAdmin, session?.frozen])
+
+  const createAccess = useCallback(async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const code = await createAccessCode()
+      setAccessInfo((current) =>
+        current
+          ? { ...current, codes: [code, ...current.codes.filter((item) => item !== code)] }
+          : { used: 0, max: 20, codes: [code] },
+      )
+      await refreshAccess()
+    } catch (caught) {
+      setError(syncErrorMessage(caught))
+    } finally {
+      setBusy(false)
+    }
+  }, [refreshAccess])
+
   const createPairing = useCallback(async () => {
     const current = loadSession()
     if (!current) return
@@ -559,6 +609,7 @@ export function useSync(
     members,
     inviteCode,
     pairingCode,
+    accessInfo,
     updatedStoreIds,
     dismissStoreUpdate: (storeId?: string) => {
       setUpdatedStoreIds((current) =>
@@ -572,6 +623,7 @@ export function useSync(
     connectWithCode,
     resolveMerge,
     createInvite,
+    createAccess,
     createPairing,
     exclude,
     reclaim,

@@ -9,6 +9,7 @@ export type SyncSession = {
   homeId: string
   displayName: string
   isCreator: boolean
+  isAppAdmin?: boolean
   frozen: boolean
   lastPulledAt: string | null
 }
@@ -36,6 +37,7 @@ export function loadSession(): SyncSession | null {
       homeId,
       displayName: value.displayName ?? '',
       isCreator: Boolean(value.isCreator),
+      isAppAdmin: Boolean(value.isAppAdmin),
       frozen: Boolean(value.frozen) || !homeId,
       lastPulledAt: value.lastPulledAt ?? null,
     }

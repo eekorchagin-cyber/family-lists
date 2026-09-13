@@ -1,6 +1,6 @@
 import type { AppData, CatalogEntry, Category, Item, Store } from '../../types'
 import { getSupabase } from './client'
-import { deviceCode, inviteCode, kindFromCode, localAuthEmail, randomPassword } from './codes'
+import { accessCode, deviceCode, inviteCode, kindFromCode, localAuthEmail, randomPassword } from './codes'
 import { restoreDeletes, takeDeletes } from './deletes'
 import {
   GROUPS_CATALOG_ID,
@@ -98,6 +98,7 @@ export async function signUpDevice(displayName: string): Promise<SyncSession> {
     homeId: home.id,
     displayName: displayName.trim(),
     isCreator: true,
+    isAppAdmin: false,
     frozen: false,
     lastPulledAt: null,
   }
@@ -133,6 +134,37 @@ export async function joinHome(code: string, displayName: string): Promise<SyncS
     homeId: String(homeId),
     displayName: displayName.trim(),
     isCreator: false,
+    isAppAdmin: false,
+    frozen: false,
+    lastPulledAt: null,
+  }
+}
+
+export async function redeemAccess(code: string, displayName: string): Promise<SyncSession> {
+  const client = requireClient()
+  const userId = crypto.randomUUID()
+  const email = localAuthEmail(userId)
+  const password = randomPassword()
+  const { error } = await client.auth.signUp({ email, password })
+  if (error) throw error
+  const { error: signInError } = await client.auth.signInWithPassword({ email, password })
+  if (signInError) throw signInError
+  const { error: redeemError, data: homeId } = await client.rpc('redeem_access', {
+    p_code: code,
+    p_name: displayName.trim(),
+  })
+  if (redeemError || !homeId) throw redeemError ?? new Error('Неверный код')
+  const { data: userData } = await client.auth.getUser()
+  const uid = userData.user?.id
+  if (!uid) throw new Error('Нет пользователя')
+  return {
+    email,
+    password,
+    userId: uid,
+    homeId: String(homeId),
+    displayName: displayName.trim(),
+    isCreator: true,
+    isAppAdmin: false,
     frozen: false,
     lastPulledAt: null,
   }
@@ -166,6 +198,7 @@ export async function recoverSessionFromAuth(): Promise<SyncSession | null> {
     homeId: profile.homeId,
     displayName: profile.displayName,
     isCreator: profile.isCreator,
+    isAppAdmin: profile.isAppAdmin,
     frozen: false,
     lastPulledAt: existing?.lastPulledAt ?? null,
   }
@@ -205,6 +238,35 @@ export async function createInviteCode(): Promise<string> {
     if (!error) return code
   }
   throw new Error('Не удалось создать код')
+}
+
+export type AccessInfo = {
+  used: number
+  max: number
+  codes: string[]
+}
+
+export async function createAccessCode(): Promise<string> {
+  const client = requireClient()
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = accessCode()
+    const { error } = await client.rpc('create_access_code', { p_code: code })
+    if (!error) return code
+  }
+  throw new Error('Не удалось создать код')
+}
+
+export async function loadAccessInfo(): Promise<AccessInfo> {
+  const client = requireClient()
+  const { data, error } = await client.rpc('load_access_info')
+  if (error) throw error
+  const raw = typeof data === 'string' ? (JSON.parse(data) as unknown) : data
+  const value = raw as { used?: number; max?: number; codes?: string[] } | null
+  return {
+    used: value?.used ?? 0,
+    max: value?.max ?? 20,
+    codes: Array.isArray(value?.codes) ? value.codes.filter((code) => typeof code === 'string') : [],
+  }
 }
 
 export async function loadInviteCode(): Promise<string | null> {
@@ -257,6 +319,7 @@ export async function loadMyProfile(): Promise<{
   homeId: string | null
   displayName: string
   isCreator: boolean
+  isAppAdmin: boolean
 } | null> {
   const client = requireClient()
   const uid =
@@ -265,16 +328,32 @@ export async function loadMyProfile(): Promise<{
   if (!uid) return null
   const { data, error } = await client
     .from('profiles')
-    .select('id, home_id, display_name, is_creator')
+    .select('id, home_id, display_name, is_creator, is_app_admin')
     .eq('id', uid)
     .maybeSingle()
-  if (error) throw error
+  if (error) {
+    const fallback = await client
+      .from('profiles')
+      .select('id, home_id, display_name, is_creator')
+      .eq('id', uid)
+      .maybeSingle()
+    if (fallback.error) throw fallback.error
+    if (!fallback.data) return null
+    return {
+      id: fallback.data.id,
+      homeId: fallback.data.home_id,
+      displayName: fallback.data.display_name,
+      isCreator: fallback.data.is_creator,
+      isAppAdmin: false,
+    }
+  }
   if (!data) return null
   return {
     id: data.id,
     homeId: data.home_id,
     displayName: data.display_name,
     isCreator: data.is_creator,
+    isAppAdmin: Boolean(data.is_app_admin),
   }
 }
 
@@ -290,6 +369,7 @@ export async function completePairing(code: string): Promise<SyncSession> {
     homeId: profile.homeId,
     displayName: profile.displayName,
     isCreator: profile.isCreator,
+    isAppAdmin: profile.isAppAdmin,
     frozen: false,
     lastPulledAt: null,
   }

@@ -199,6 +199,23 @@ ul {
   margin: 8px 0 0;
 }
 
+.sync-guide-body ul {
+  margin: 0 0 4px;
+  padding-left: 1.25em;
+}
+
+.connect-steps {
+  margin: 0 0 12px;
+  padding-left: 1.25em;
+  color: var(--muted);
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.connect-steps li + li {
+  margin-top: 8px;
+}
+
 .dialog-actions-single {
   grid-template-columns: 1fr;
 }
@@ -247,6 +264,10 @@ ul {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
+}
+
+.access-content {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
 
 .empty,

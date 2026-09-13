@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import type { AccessInfo } from '../data/sync/api'
 import { formatCode, joinUrl, kindFromCode, pairUrl } from '../data/sync/codes'
 import { saveSupabaseConfig } from '../data/sync/client'
 import type { HomeMember, SyncSession } from '../data/sync/session'
 import { CodeJoinDialog } from './CodeJoinDialog'
 import { ConfirmDialog } from './ConfirmDialog'
+import { ConnectSteps } from './ConnectSteps'
 import { NameDialog } from './NameDialog'
 import { QrImage } from './QrImage'
 import { SyncPhoneGuide } from './SyncPhoneGuide'
@@ -14,12 +16,13 @@ type SyncPanelProps = {
   members: HomeMember[]
   inviteCode: string | null
   pairingCode: string | null
+  accessInfo: AccessInfo | null
   busy: boolean
   error: string | null
   initialCode?: string | null
-  onEnable: (name: string) => void
   onConnect: (code: string, name?: string) => Promise<'need-name' | 'error' | 'already' | void>
   onCreateInvite: () => void
+  onCreateAccess: () => void
   onCreatePairing: () => void
   onExclude: (userId: string) => void
   onReclaim: () => void
@@ -34,12 +37,13 @@ export function SyncPanel({
   members,
   inviteCode,
   pairingCode,
+  accessInfo,
   busy,
   error,
   initialCode,
-  onEnable,
   onConnect,
   onCreateInvite,
+  onCreateAccess,
   onCreatePairing,
   onExclude,
   onReclaim,
@@ -47,7 +51,6 @@ export function SyncPanel({
   onClearCode,
   onClearError,
 }: SyncPanelProps) {
-  const [enabling, setEnabling] = useState(false)
   const [entering, setEntering] = useState(Boolean(initialCode))
   const [excluding, setExcluding] = useState<HomeMember | null>(null)
   const [copied, setCopied] = useState<'code' | 'link' | 'pair' | null>(null)
@@ -137,11 +140,10 @@ export function SyncPanel({
             </p>
           ) : (
             <p className="hint">
-              Этот браузер отключён от дома. Списки на устройстве на месте. Организатор нажимает
-              «Вернуться в дом». Чтобы вернуть этот телефон, нужен код на T (Мой второй телефон).
-              Код на D приглашает нового человека и спросит имя — его здесь вводить не нужно.
+              Этот браузер отключён от дома. Списки на устройстве на месте.
             </p>
           )}
+          <ConnectSteps role="rejoin" />
           <button
             type="button"
             className="button-primary add-category"
@@ -200,12 +202,9 @@ export function SyncPanel({
               </button>
             </p>
           ) : (
-            <p className="hint">
-              Этот браузер ещё не в семье. Если дом уже есть на другом устройстве — откройте там
-              Семья → Мой второй телефон и введите код здесь. Не включайте синхронизацию заново:
-              так появится второй дом.
-            </p>
+            <p className="hint">Этот браузер ещё не в облаке. Введите код с ярлыка.</p>
           )}
+          <ConnectSteps />
           <button
             type="button"
             className="button-primary add-category"
@@ -214,27 +213,6 @@ export function SyncPanel({
           >
             У меня есть код
           </button>
-          <button
-            type="button"
-            className="button-secondary add-category"
-            disabled={busy}
-            onClick={() => setEnabling(true)}
-          >
-            Включить синхронизацию
-          </button>
-          {enabling && (
-            <NameDialog
-              title="Как вас зовут"
-              label="Имя"
-              placeholder="Например, Маша"
-              confirmLabel="Включить"
-              onClose={() => setEnabling(false)}
-              onConfirm={(name) => {
-                onEnable(name)
-                setEnabling(false)
-              }}
-            />
-          )}
           {entering && (
             <EnterCodeDialog
               initialCode={initialCode ?? ''}
@@ -258,13 +236,14 @@ export function SyncPanel({
   }
 
   const inviteLink = inviteCode ? joinUrl(inviteCode) : null
+  const hasFamily = members.length > 1 || Boolean(inviteCode)
 
   return (
     <>
       <section className="settings-block">
         <p className="hint">
           {session.displayName}
-          {session.isCreator ? ' · организатор дома' : ''}
+          {session.isCreator ? ' · организатор' : ''}
         </p>
         {error ? (
           <p className="hint sync-error">
@@ -276,9 +255,56 @@ export function SyncPanel({
         ) : null}
       </section>
 
+      {session.isAppAdmin && accessInfo ? (
+        <section className="settings-block">
+          <h2>Доступ к программе</h2>
+          <p className="hint">
+            Занято {accessInfo.used} из {accessInfo.max} человек. Второй iPhone одного человека слот
+            не занимает.
+          </p>
+          <ConnectSteps role="give-access" />
+          {accessInfo.codes.length > 0 ? (
+            <ul className="member-list">
+              {accessInfo.codes.map((item) => (
+                <li key={item} className="member-row">
+                  <span className="sync-code">{formatCode(item)}</span>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => void copy(formatCode(item), 'code')}
+                  >
+                    {copied === 'code' ? 'Скопирован' : 'Копировать'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="hint">Нет неиспользованных кодов P.</p>
+          )}
+          <button
+            type="button"
+            className="button-secondary add-category"
+            disabled={busy || accessInfo.used >= accessInfo.max}
+            onClick={onCreateAccess}
+          >
+            Создать код P
+          </button>
+        </section>
+      ) : null}
+
       {session.isCreator && (
         <section className="settings-block">
-          <h2>Пригласить в семью</h2>
+          <h2>{hasFamily ? 'Пригласить в семью' : 'Семья'}</h2>
+          {hasFamily ? null : (
+            <p className="hint">Списки в облаке. Семьи пока нет — вы одни.</p>
+          )}
+          {inviteCode ? <ConnectSteps role="give-family" /> : (
+            <p className="hint">
+              {hasFamily
+                ? 'Создайте новый код D, чтобы пригласить человека.'
+                : 'Чтобы пригласить других, нажмите «Создать семью» — появится код D.'}
+            </p>
+          )}
           {inviteCode && inviteLink ? (
             <>
               <p className="sync-code">{formatCode(inviteCode)}</p>
@@ -298,25 +324,25 @@ export function SyncPanel({
                 {copied === 'link' ? 'Ссылка скопирована' : 'Скопировать ссылку'}
               </button>
             </>
-          ) : (
+          ) : hasFamily ? (
             <p className="hint">Кода пока нет.</p>
-          )}
+          ) : null}
           <button
             type="button"
             className="button-secondary add-category"
             disabled={busy}
             onClick={onCreateInvite}
           >
-            {inviteCode ? 'Новый код' : 'Создать код'}
+            {inviteCode ? 'Новый код D' : hasFamily ? 'Создать код D' : 'Создать семью'}
           </button>
         </section>
       )}
 
       <section className="settings-block">
         <h2>Мой второй телефон</h2>
-        <p className="hint">Покажите этот код на другом своём устройстве. Действует 15 минут.</p>
         {pairingCode ? (
           <>
+            <ConnectSteps role="give-phone" />
             <p className="sync-code">{formatCode(pairingCode)}</p>
             <QrImage value={pairUrl(pairingCode)} label="QR-код второго телефона" />
             <button
@@ -327,7 +353,9 @@ export function SyncPanel({
               {copied === 'pair' ? 'Код скопирован' : 'Скопировать код'}
             </button>
           </>
-        ) : null}
+        ) : (
+          <ConnectSteps role="start-phone" />
+        )}
         <button
           type="button"
           className="button-secondary add-category"
@@ -340,7 +368,7 @@ export function SyncPanel({
 
       <section className="settings-block">
         <h2>Кто в доме</h2>
-        {members.length === 0 ? (
+        {members.length <= 1 ? (
           <p className="hint">Пока только вы.</p>
         ) : (
           <ul className="member-list">
@@ -438,7 +466,7 @@ function PhoneGuideBlock({
       {open ? (
         <div className="overlay" role="presentation" onClick={onClose}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>Семья на телефоне</h2>
+            <h2>Коды на телефоне</h2>
             <div className="help-text">
               <SyncPhoneGuide />
             </div>
@@ -458,7 +486,7 @@ function AlreadyConnectedDialog({ name, onClose }: { name: string; onClose: () =
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <h2>Вы уже в семье</h2>
+        <h2>Вы уже внутри</h2>
         <p className="hint">Вы уже подключены как {name}.</p>
         <div className="dialog-actions">
           <button type="button" className="button-primary" onClick={onClose}>
@@ -490,7 +518,7 @@ function EnterCodeDialog({
   useEffect(() => {
     if (!initialCode || started.current || autoAppliedCodes.has(initialCode)) return
     started.current = true
-    if (kindFromCode(initialCode) === 'invite') {
+    if (kindFromCode(initialCode) === 'invite' || kindFromCode(initialCode) === 'access') {
       setPendingNameFor(initialCode)
       return
     }
@@ -532,7 +560,6 @@ function EnterCodeDialog({
   return (
     <CodeJoinDialog
       title="Ввести код"
-      text="Код на T — этот же человек на другом телефоне. Код на D — новый человек в семье."
       codeLabel="Код"
       confirmLabel="Продолжить"
       busy={busy}
