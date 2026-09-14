@@ -314,6 +314,15 @@ export async function reclaimHome(): Promise<string> {
   return data
 }
 
+/** Выйти из семьи и стать самостоятельным (свой дом). Не для организатора. */
+export async function leaveHome(): Promise<string> {
+  const client = requireClient()
+  const { data, error } = await client.rpc('leave_home')
+  if (error) throw error
+  if (typeof data !== 'string' || !data) throw new Error('Не удалось выйти из семьи')
+  return data
+}
+
 export async function loadMyProfile(): Promise<{
   id: string
   homeId: string | null

@@ -7,6 +7,7 @@ import {
   createPairingCode,
   excludeMember,
   joinHome,
+  leaveHome,
   loadAccessInfo,
   reclaimHome,
   loadInviteCode,
@@ -598,6 +599,46 @@ export function useSync(
     }
   }, [finishConnect])
 
+  const leave = useCallback(async () => {
+    const current = loadSession()
+    if (!current) return
+    setBusy(true)
+    setError(null)
+    try {
+      await restoreSession(current)
+      await leaveHome()
+      const profile = await loadMyProfile()
+      if (!profile?.homeId) throw new Error('Не удалось выйти из семьи')
+      const next = {
+        ...current,
+        homeId: profile.homeId,
+        isCreator: profile.isCreator,
+        displayName: profile.displayName || current.displayName,
+        frozen: false,
+      }
+      saveSession(next)
+      setSession(next)
+      // Свои списки с телефона уходят в новый пустой дом; общие семейные в облаке остаются у семьи.
+      const demoted = {
+        ...dataRef.current,
+        stores: dataRef.current.stores.map((store) => ({
+          ...store,
+          ownerId: next.userId,
+          visibility: 'private' as const,
+        })),
+      }
+      replaceRef.current(demoted)
+      dirtyRef.current = true
+      sessionStorage.removeItem('pokupki-adopt-cloud')
+      sessionStorage.setItem('pokupki-force-push', '6')
+      await finishConnect(next, 'device')
+    } catch (caught) {
+      setError(syncErrorMessage(caught))
+    } finally {
+      setBusy(false)
+    }
+  }, [finishConnect])
+
   const retry = useCallback(async () => {
     setError(null)
     await tick()
@@ -627,6 +668,7 @@ export function useSync(
     createPairing,
     exclude,
     reclaim,
+    leave,
     retry,
     clearError: () => setError(null),
   }

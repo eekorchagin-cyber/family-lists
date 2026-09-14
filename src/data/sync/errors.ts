@@ -16,6 +16,12 @@ export function syncErrorMessage(error: unknown): string {
   if (/no home/i.test(text)) {
     return 'Вернуться в дом может только организатор. Остальным нужен код.'
   }
+  if (/creator cannot leave/i.test(text)) {
+    return 'Организатор не может выйти из семьи. Сначала исключите остальных или останьтесь в доме.'
+  }
+  if (/not in a home/i.test(text)) {
+    return 'Вы сейчас не в семье.'
+  }
   if (/Failed to fetch|NetworkError|network/i.test(text)) {
     return 'Нет сети. Изменения останутся на этом телефоне.'
   }

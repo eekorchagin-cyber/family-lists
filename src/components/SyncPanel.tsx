@@ -26,6 +26,7 @@ type SyncPanelProps = {
   onCreatePairing: () => void
   onExclude: (userId: string) => void
   onReclaim: () => void
+  onLeave: () => void
   onRetry: () => void
   onClearCode: () => void
   onClearError: () => void
@@ -47,12 +48,14 @@ export function SyncPanel({
   onCreatePairing,
   onExclude,
   onReclaim,
+  onLeave,
   onRetry,
   onClearCode,
   onClearError,
 }: SyncPanelProps) {
   const [entering, setEntering] = useState(Boolean(initialCode))
   const [excluding, setExcluding] = useState<HomeMember | null>(null)
+  const [leaving, setLeaving] = useState(false)
   const [copied, setCopied] = useState<'code' | 'link' | 'pair' | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
   const [cloudUrl, setCloudUrl] = useState('')
@@ -409,6 +412,32 @@ export function SyncPanel({
         )}
       </section>
 
+      {!session.isCreator ? (
+        <section className="settings-block">
+          <h2>Самостоятельный доступ</h2>
+          <p className="hint">
+            Выйти из этой семьи и вести свои списки отдельно. Общие списки семьи на этом телефоне
+            останутся копией; дальше они не будут обновляться из семьи.
+          </p>
+          <button
+            type="button"
+            className="button-secondary add-category"
+            disabled={busy}
+            onClick={() => setLeaving(true)}
+          >
+            Выйти из семьи
+          </button>
+        </section>
+      ) : (
+        <section className="settings-block">
+          <h2>Самостоятельный доступ</h2>
+          <p className="hint">
+            Организатор не может выйти из семьи. Чтобы разойтись, исключите участников или договоритесь
+            о новом организаторе заранее.
+          </p>
+        </section>
+      )}
+
       <PhoneGuideBlock
         open={guideOpen}
         onOpen={() => setGuideOpen(true)}
@@ -433,6 +462,18 @@ export function SyncPanel({
           onConfirm={() => {
             onExclude(excluding.id)
             setExcluding(null)
+          }}
+        />
+      )}
+      {leaving && (
+        <ConfirmDialog
+          title="Выйти из семьи?"
+          text="Вы станете самостоятельным пользователем со своим домом. Списки семьи перестанут обновляться на этом телефоне. Слот доступа останется за вами."
+          confirmLabel="Выйти"
+          onClose={() => setLeaving(false)}
+          onConfirm={() => {
+            setLeaving(false)
+            onLeave()
           }}
         />
       )}
