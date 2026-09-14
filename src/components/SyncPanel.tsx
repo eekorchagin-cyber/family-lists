@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AccessInfo } from '../data/sync/api'
-import { formatCode, joinUrl, kindFromCode, pairUrl } from '../data/sync/codes'
+import {
+  accessInviteMessage,
+  formatCode,
+  joinUrl,
+  kindFromCode,
+  pairUrl,
+} from '../data/sync/codes'
 import { saveSupabaseConfig } from '../data/sync/client'
 import type { HomeMember, SyncSession } from '../data/sync/session'
 import { CodeJoinDialog } from './CodeJoinDialog'
@@ -22,7 +28,7 @@ type SyncPanelProps = {
   initialCode?: string | null
   onConnect: (code: string, name?: string) => Promise<'need-name' | 'error' | 'already' | void>
   onCreateInvite: () => void
-  onCreateAccess: () => void
+  onCreateAccess: () => Promise<string | null> | void
   onCreatePairing: () => void
   onExclude: (userId: string) => void
   onReclaim: () => void
@@ -53,18 +59,21 @@ export function SyncPanel({
 }: SyncPanelProps) {
   const [entering, setEntering] = useState(Boolean(initialCode))
   const [excluding, setExcluding] = useState<HomeMember | null>(null)
-  const [copied, setCopied] = useState<'code' | 'link' | 'pair' | null>(null)
+  const [copied, setCopied] = useState<'code' | 'link' | 'pair' | 'invite' | null>(null)
+  const [copiedInviteCode, setCopiedInviteCode] = useState<string | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
   const [cloudUrl, setCloudUrl] = useState('')
   const [cloudKey, setCloudKey] = useState('')
   const [cloudError, setCloudError] = useState<string | null>(null)
 
-  async function copy(text: string, kind: 'code' | 'link' | 'pair') {
+  async function copy(text: string, kind: 'code' | 'link' | 'pair' | 'invite', inviteCode?: string) {
     try {
       await navigator.clipboard.writeText(text)
       setCopied(kind)
+      setCopiedInviteCode(kind === 'invite' ? (inviteCode ?? null) : null)
     } catch {
       setCopied(null)
+      setCopiedInviteCode(null)
     }
   }
 
@@ -259,22 +268,38 @@ export function SyncPanel({
         <section className="settings-block">
           <h2>Доступ к программе</h2>
           <p className="hint">
-            Занято {accessInfo.used} из {accessInfo.max} человек. Второй iPhone одного человека слот
-            не занимает.
+            Занято {accessInfo.used} из {accessInfo.max} человек по всей программе (не только в вашей
+            семье). Считаются только люди с домом. Второй iPhone одного человека слот не занимает.
           </p>
+          {accessInfo.idle > 0 ? (
+            <p className="hint">
+              Ещё {accessInfo.idle} профилей без дома (исключённые) — слот не занимают.
+            </p>
+          ) : null}
           <ConnectSteps role="give-access" />
           {accessInfo.codes.length > 0 ? (
             <ul className="member-list">
               {accessInfo.codes.map((item) => (
-                <li key={item} className="member-row">
+                <li key={item} className="member-row access-code-row">
                   <span className="sync-code">{formatCode(item)}</span>
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    onClick={() => void copy(formatCode(item), 'code')}
-                  >
-                    {copied === 'code' ? 'Скопирован' : 'Копировать'}
-                  </button>
+                  <div className="access-code-actions">
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => void copy(formatCode(item), 'code')}
+                    >
+                      {copied === 'code' && copiedInviteCode === null ? 'Скопирован' : 'Код'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => void copy(accessInviteMessage(item), 'invite', item)}
+                    >
+                      {copied === 'invite' && copiedInviteCode === item
+                        ? 'Сообщение скопировано'
+                        : 'Скопировать сообщение'}
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -285,7 +310,14 @@ export function SyncPanel({
             type="button"
             className="button-secondary add-category"
             disabled={busy || accessInfo.used >= accessInfo.max}
-            onClick={onCreateAccess}
+            onClick={() => {
+              void (async () => {
+                const code = await onCreateAccess()
+                if (code) {
+                  await copy(accessInviteMessage(code), 'invite', code)
+                }
+              })()
+            }}
           >
             Создать код P
           </button>

@@ -243,6 +243,8 @@ export async function createInviteCode(): Promise<string> {
 export type AccessInfo = {
   used: number
   max: number
+  /** Профили без дома (исключённые) — слот не занимают. */
+  idle: number
   codes: string[]
 }
 
@@ -261,10 +263,11 @@ export async function loadAccessInfo(): Promise<AccessInfo> {
   const { data, error } = await client.rpc('load_access_info')
   if (error) throw error
   const raw = typeof data === 'string' ? (JSON.parse(data) as unknown) : data
-  const value = raw as { used?: number; max?: number; codes?: string[] } | null
+  const value = raw as { used?: number; max?: number; idle?: number; codes?: string[] } | null
   return {
     used: value?.used ?? 0,
     max: value?.max ?? 20,
+    idle: value?.idle ?? 0,
     codes: Array.isArray(value?.codes) ? value.codes.filter((code) => typeof code === 'string') : [],
   }
 }

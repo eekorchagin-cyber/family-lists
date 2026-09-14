@@ -90,6 +90,27 @@ export function joinUrl(code: string): string {
   return `${publicBase()}/?code=${encoded}#code=${encoded}`
 }
 
+/** Текст приглашения с кодом P — для копирования в мессенджер. */
+export function accessInviteMessage(code: string): string {
+  const formatted = formatCode(code)
+  const link = joinUrl(code)
+  return [
+    'Приглашение в программу «Покупки»',
+    '',
+    '1) Откройте ссылку в Safari (не в Chrome):',
+    link,
+    '',
+    '2) Нажмите «Поделиться» → «На экран Домой» — так ставится ярлык.',
+    '',
+    '3) Закройте вкладку Safari и откройте программу с ярлыка.',
+    '',
+    `4) Введите код ${formatted} и своё имя.`,
+    '',
+    'Код одноразовый. Если уже ставили ярлык раньше — откройте именно его и введите код там.',
+    'Ярлык не удаляйте: в нём хранятся вход и списки на телефоне.',
+  ].join('\n')
+}
+
 export function pairUrl(code: string): string {
   return joinUrl(code)
 }
