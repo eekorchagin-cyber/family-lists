@@ -512,7 +512,7 @@ export function useSync(
     void refreshAccess()
   }, [refreshAccess, session?.isAppAdmin, session?.frozen])
 
-  const createAccess = useCallback(async () => {
+  const createAccess = useCallback(async (): Promise<string | null> => {
     setBusy(true)
     setError(null)
     try {
@@ -520,11 +520,13 @@ export function useSync(
       setAccessInfo((current) =>
         current
           ? { ...current, codes: [code, ...current.codes.filter((item) => item !== code)] }
-          : { used: 0, max: 20, codes: [code] },
+          : { used: 0, max: 20, idle: 0, codes: [code] },
       )
       await refreshAccess()
+      return code
     } catch (caught) {
       setError(syncErrorMessage(caught))
+      return null
     } finally {
       setBusy(false)
     }

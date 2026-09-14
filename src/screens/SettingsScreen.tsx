@@ -70,7 +70,7 @@ type SettingsScreenProps = {
     initialCode?: string | null
     onConnect: (code: string, name?: string) => Promise<'need-name' | 'error' | 'already' | void>
     onCreateInvite: () => void
-    onCreateAccess: () => void
+    onCreateAccess: () => Promise<string | null>
     onCreatePairing: () => void
     onExclude: (userId: string) => void
     onReclaim: () => void
