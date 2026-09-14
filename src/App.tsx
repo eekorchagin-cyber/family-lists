@@ -3,7 +3,7 @@ import { AccessScreen } from './components/AccessScreen'
 import { MergeDialog } from './components/MergeDialog'
 import { UpdateBanner } from './components/UpdateBanner'
 import { categoriesForStore, knownCategoriesForStore, sortCategories, unusedGlobalCategories } from './data/categories'
-import { clearStoredEnterCode, consumeEnterCode, isLocalHost } from './data/sync/codes'
+import { clearStoredEnterCode, consumeEnterCode, isLocalHost, mustUseHomeScreenShortcut } from './data/sync/codes'
 import { useAppState } from './hooks/useAppState'
 import { useAppUpdate } from './hooks/useAppUpdate'
 import { useSync } from './hooks/useSync'
@@ -64,6 +64,7 @@ function App() {
   const hadSession = useRef(Boolean(loadSession()))
 
   useEffect(() => {
+    if (mustUseHomeScreenShortcut()) return
     const code = consumeEnterCode()
     if (!code) return
     setEnterCode(code)

@@ -2,10 +2,19 @@ import type { CodeKind } from '../data/sync/codes'
 
 type ConnectStepsProps = {
   forKind?: CodeKind | null
-  role?: 'enter' | 'give-access' | 'give-family' | 'give-phone' | 'start-phone' | 'rejoin'
+  role?: 'enter' | 'give-access' | 'give-family' | 'give-phone' | 'start-phone' | 'rejoin' | 'install'
 }
 
 export function ConnectSteps({ forKind = null, role = 'enter' }: ConnectStepsProps) {
+  if (role === 'install') {
+    return (
+      <ol className="connect-steps">
+        <li>Нажмите «Поделиться» внизу экрана (квадрат со стрелкой).</li>
+        <li>«На экран Домой» — добавьте ярлык.</li>
+        <li>Откройте программу с ярлыка. Код и имя вводятся только там.</li>
+      </ol>
+    )
+  }
   if (role === 'give-access') {
     return (
       <ol className="connect-steps">

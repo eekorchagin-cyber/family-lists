@@ -69,6 +69,18 @@ export function isStandaloneApp(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches
 }
 
+export function isAppleMobile(): boolean {
+  if (typeof navigator === 'undefined') return false
+  if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) return true
+  return /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+}
+
+export function mustUseHomeScreenShortcut(): boolean {
+  if (typeof window === 'undefined') return false
+  if (isLocalHost(window.location.hostname)) return false
+  return isAppleMobile() && !isStandaloneApp()
+}
+
 export function isLocalHost(host: string): boolean {
   return (
     host === 'localhost' ||

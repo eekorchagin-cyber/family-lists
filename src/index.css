@@ -885,8 +885,9 @@ ul {
   font-weight: 650;
 }
 
-.settings-user-delete {
-  margin-top: 14px;
+.button-danger.settings-user-delete {
+  margin-top: 28px;
+  margin-bottom: 8px;
 }
 
 .share-message {

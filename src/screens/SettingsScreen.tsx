@@ -234,14 +234,6 @@ export function SettingsScreen({
             <p className="settings-user">
               <span className="settings-user-label">Пользователь на этом устройстве</span>
               <span className="settings-user-name">{deviceName}</span>
-              <button
-                type="button"
-                className="button-danger add-category settings-user-delete"
-                disabled={sync.busy}
-                onClick={() => setDeletingAccount(true)}
-              >
-                Удалить мой аккаунт
-              </button>
             </p>
             <ul className="store-list">
               <li>
@@ -277,6 +269,14 @@ export function SettingsScreen({
                 </li>
               ))}
             </ul>
+            <button
+              type="button"
+              className="button-danger add-category settings-user-delete"
+              disabled={sync.busy}
+              onClick={() => setDeletingAccount(true)}
+            >
+              Удалить мой аккаунт
+            </button>
           </>
         )}
 
