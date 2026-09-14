@@ -94,6 +94,7 @@ function App() {
     displayName: sync.session?.displayName,
     syncError: sync.error,
     syncBusy: sync.busy,
+    familyConnected: sync.members.length > 1,
     updatedStoreIds: sync.updatedStoreIds,
     onDismissStoreUpdate: sync.dismissStoreUpdate,
     onRetrySync: () => {

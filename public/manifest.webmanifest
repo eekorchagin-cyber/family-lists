@@ -1,6 +1,6 @@
 {
-  "name": "Покупки",
-  "short_name": "Покупки",
+  "name": "Возьми",
+  "short_name": "Возьми",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

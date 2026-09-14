@@ -26,8 +26,11 @@ export function syncErrorMessage(error: unknown): string {
     return 'Нельзя удалить последний аккаунт администратора: иначе никто не выдаст код P.'
   }
   if (/Failed to fetch|NetworkError|network/i.test(text)) {
-    return 'Нет сети. Изменения останутся на этом телефоне.'
+    return 'Нет сети. Списки на этом телефоне уже можно вести — они уедут в облако, когда сеть появится.'
   }
-  if (/Supabase не настроен/i.test(text)) return 'Синхронизация на сайте ещё не включена'
-  return 'Не получилось. Попробуйте ещё раз.'
+  if (/Supabase не настроен/i.test(text)) return 'Облако на сайте ещё не включено'
+  if (/row-level security|JWT|not signed in|invalid claim|Auth session/i.test(text)) {
+    return 'Вход ещё чуть-чуть не дошёл. Нажмите «Обновить» через пару секунд.'
+  }
+  return 'Облако пока не ответило. Списки на этом телефоне уже можно вести. Нажмите «Обновить».'
 }

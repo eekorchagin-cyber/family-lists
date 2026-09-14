@@ -79,6 +79,8 @@ export function useSync(
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [mergePending, setMergePending] = useState<MergePending | null>(null)
+  const quietFailsRef = useRef(0)
+  const missingProfileRef = useRef(0)
 
   const configured = supabaseConfigured()
 
@@ -119,12 +121,15 @@ export function useSync(
       await restoreSession(current)
       const profile = await loadMyProfile()
       if (!profile?.homeId) {
+        missingProfileRef.current += 1
+        if (missingProfileRef.current < 4) return
         if (!current.frozen) freeze(current)
         setError(
-          'Синхронизация остановлена: этот телефон не в семье. Откройте Настройки → Семья.',
+          'Этот телефон пока не в доме. Откройте Настройки → Семья и войдите по коду.',
         )
         return
       }
+      missingProfileRef.current = 0
       if (
         current.frozen ||
         current.homeId !== profile.homeId ||
@@ -209,9 +214,11 @@ export function useSync(
           }
         } else {
           sessionStorage.setItem('pokupki-adopt-cloud', '3')
-          setError(
-            'В облаке пока нет списков. Откройте телефон, где списки на месте, на 15 секунд — затем повторите здесь.',
-          )
+          if (dataLooksPopulated(dataRef.current)) {
+            setError(
+              'Списки из облака ещё не пришли. Откройте телефон, где они уже есть, на несколько секунд — затем нажмите «Обновить».',
+            )
+          }
         }
       }
       const remote = await pullRemote()
@@ -243,8 +250,11 @@ export function useSync(
       const saved = { ...current, lastPulledAt: nowIso(), displayName: profile.displayName }
       saveSession(saved)
       setSession(saved)
+      quietFailsRef.current = 0
       setError(null)
     } catch (caught) {
+      quietFailsRef.current += 1
+      if (quietFailsRef.current < 3) return
       setError(syncErrorMessage(caught))
     } finally {
       busyRef.current = false
@@ -401,35 +411,33 @@ export function useSync(
       }
       if (kind === 'invite' && !displayName?.trim()) return 'need-name'
       if (kind === 'access' && !displayName?.trim()) return 'need-name'
+      busyRef.current = true
       setBusy(true)
       setError(null)
+      const enter = async (nextSession: SyncSession) => {
+        saveSession(nextSession)
+        setSession(nextSession)
+        try {
+          await finishConnect(nextSession, 'auto')
+        } catch {
+          quietFailsRef.current = 0
+        }
+      }
       try {
         if (kind === 'access') {
-          const nextSession = await redeemAccess(code, displayName ?? '')
-          saveSession(nextSession)
-          setSession(nextSession)
-          await finishConnect(nextSession, 'auto')
+          await enter(await redeemAccess(code, displayName ?? ''))
           return
         }
         if (kind === 'pairing') {
-          const nextSession = await completePairing(code)
-          saveSession(nextSession)
-          setSession(nextSession)
-          await finishConnect(nextSession, 'auto')
+          await enter(await completePairing(code))
           return
         }
         if (kind === 'invite') {
-          const nextSession = await joinHome(code, displayName ?? '')
-          saveSession(nextSession)
-          setSession(nextSession)
-          await finishConnect(nextSession, 'auto')
+          await enter(await joinHome(code, displayName ?? ''))
           return
         }
         try {
-          const nextSession = await completePairing(code)
-          saveSession(nextSession)
-          setSession(nextSession)
-          await finishConnect(nextSession, 'auto')
+          await enter(await completePairing(code))
           return
         } catch {
           if (existing?.frozen) {
@@ -439,15 +447,13 @@ export function useSync(
             return 'error'
           }
           if (!displayName?.trim()) return 'need-name'
-          const nextSession = await joinHome(code, displayName)
-          saveSession(nextSession)
-          setSession(nextSession)
-          await finishConnect(nextSession, 'auto')
+          await enter(await joinHome(code, displayName))
         }
       } catch (caught) {
         setError(syncErrorMessage(caught))
         return 'error'
       } finally {
+        busyRef.current = false
         setBusy(false)
       }
     },
@@ -661,6 +667,7 @@ export function useSync(
 
   const retry = useCallback(async () => {
     setError(null)
+    quietFailsRef.current = 2
     await tick()
   }, [tick])
 

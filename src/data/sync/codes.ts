@@ -105,7 +105,7 @@ export function joinUrl(code: string): string {
 export function accessWelcomeMessage(code: string): string {
   const formatted = formatCode(code)
   return [
-    'Списки покупок',
+    'Возьми',
     '',
     `1. Откройте в Safari: ${PUBLIC_APP_URL}`,
     '2. «Поделиться» → «На экран Домой».',

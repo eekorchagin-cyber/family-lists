@@ -41,6 +41,7 @@ type HomeScreenProps = {
   localCopyHint?: boolean
   syncError?: string | null
   syncBusy?: boolean
+  familyConnected?: boolean
   updatedStoreIds?: string[]
   onDismissStoreUpdate?: (storeId: string) => void
   onRetrySync?: () => void
@@ -88,6 +89,7 @@ export function HomeScreen({
   localCopyHint = false,
   syncError = null,
   syncBusy = false,
+  familyConnected = false,
   updatedStoreIds = [],
   onDismissStoreUpdate,
   onRetrySync,
@@ -456,17 +458,19 @@ export function HomeScreen({
         ) : null}
         {syncError ? (
           <div className="hint hint--error" style={{ display: 'grid', gap: 8 }}>
-            <span>Синхронизация не работает: {syncError}</span>
+            <span>{syncError}</span>
             {onRetrySync ? (
               <button type="button" className="qty-button" disabled={syncBusy} onClick={onRetrySync}>
-                {syncBusy ? 'Обновляем…' : 'Повторить синхронизацию'}
+                {syncBusy ? 'Обновляем…' : 'Обновить'}
               </button>
             ) : null}
           </div>
         ) : null}
         {syncConfigured && syncEnabled && !frozen && !syncError ? (
           <p className="hint" style={{ opacity: 0.75 }}>
-            Семья подключена{syncBusy ? ' · обновляем…' : ''}.
+            {familyConnected
+              ? `Семья подключена${syncBusy ? ' · обновляем…' : ''}.`
+              : `Списки сохраняются в облаке${syncBusy ? ' · обновляем…' : ''}.`}
           </p>
         ) : null}
         {empty ? (
