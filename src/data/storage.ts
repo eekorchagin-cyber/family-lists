@@ -13,6 +13,7 @@ import { catalogFromItems, mergeCatalogFromItems } from './catalog'
 import backup from './backup.json'
 import { isLocalHost } from './sync/codes'
 import { appendCategoryToStores } from './categories'
+import { markDirty } from './sync/dirty'
 import { groupsFromStores, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker } from './homeLayout'
 import {
   createDefaultData,
@@ -176,7 +177,17 @@ function normalizeSettings(value: unknown): Settings {
 function normalizeCategories(value: unknown): Category[] {
   if (!Array.isArray(value)) return DEFAULT_CATEGORIES
   const categories = value.filter(isCategory)
-  return categories.length > 0 ? categories : DEFAULT_CATEGORIES
+  if (categories.length === 0) return DEFAULT_CATEGORIES
+  const hasProducts = categories.some(
+    (category) =>
+      !category.storeId && category.name.trim().toLowerCase() === 'молочные продукты',
+  )
+  if (hasProducts) return categories
+  return categories.map((category) =>
+    !category.storeId && category.name.trim() === 'Молочное'
+      ? { ...category, name: 'Молочные продукты', updatedAt: new Date().toISOString() }
+      : category,
+  )
 }
 
 function isCatalogEntry(value: unknown): value is CatalogEntry {
@@ -249,6 +260,23 @@ export function migrate(raw: unknown): AppData {
   }
 }
 
+function hasGlobalCategoryName(categories: Category[], name: string): boolean {
+  const needle = name.trim().toLowerCase()
+  return categories.some(
+    (category) => !category.storeId && category.name.trim().toLowerCase() === needle,
+  )
+}
+
+function rawHasGlobalMoloch(raw: unknown): boolean {
+  if (!isRecord(raw) || !Array.isArray(raw.categories)) return false
+  return raw.categories.some(
+    (value) =>
+      isRecord(value) &&
+      value.name === 'Молочное' &&
+      (value.storeId === undefined || value.storeId === ''),
+  )
+}
+
 function isEmptyData(data: AppData): boolean {
   return (
     data.stores.length === 0 &&
@@ -277,10 +305,14 @@ export function loadData(): AppData {
     }
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      const data = migrate(JSON.parse(raw))
+      const parsed = JSON.parse(raw) as unknown
+      const data = migrate(parsed)
       if (!isEmptyData(data)) {
         try {
           saveData(data)
+          if (rawHasGlobalMoloch(parsed) && !hasGlobalCategoryName(data.categories, 'Молочное')) {
+            markDirty()
+          }
         } catch {
           // ignore quota / private mode
         }

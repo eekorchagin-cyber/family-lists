@@ -5,7 +5,7 @@ import { Header } from '../components/Header'
 import { BackIcon } from '../components/NavIcons'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { globalCategories } from '../data/catalog'
-import { DEFAULT_CATEGORIES } from '../data/defaults'
+import { DEFAULT_CATEGORIES, STARTER_CATEGORY_ORDER } from '../data/defaults'
 import type { Category } from '../types'
 
 type NewStoreScreenProps = {
@@ -16,23 +16,49 @@ type NewStoreScreenProps = {
   onAddCategory: (name: string, color: string, icon?: string) => string
 }
 
-function categoriesForNewStore(categories: Category[]): Category[] {
+function matchesStarter(categoryName: string, starter: string): boolean {
+  const name = categoryName.trim().toLowerCase()
+  const needle = starter.trim().toLowerCase()
+  return name === needle || name.startsWith(needle)
+}
+
+function pickStarter(
+  globals: Category[],
+  starter: string,
+  fallbackId: string | undefined,
+  used: Set<string>,
+): Category | undefined {
+  const unused = globals.filter((category) => !used.has(category.id))
+  return (
+    unused.find((category) => category.name.trim().toLowerCase() === starter.trim().toLowerCase()) ??
+    unused.find((category) => matchesStarter(category.name, starter)) ??
+    unused.find((category) => category.id === fallbackId)
+  )
+}
+
+function starterGlobals(categories: Category[]): { head: Category[]; rest: Category[] } {
   const globals = globalCategories(categories)
-  const defaultIds = DEFAULT_CATEGORIES.map((category) => category.id)
+  const used = new Set<string>()
   const head: Category[] = []
-  for (const id of defaultIds) {
-    const found = globals.find((category) => category.id === id)
-    if (found) head.push(found)
+  for (const [index, starter] of STARTER_CATEGORY_ORDER.entries()) {
+    const found = pickStarter(globals, starter, DEFAULT_CATEGORIES[index]?.id, used)
+    if (!found) continue
+    head.push(found)
+    used.add(found.id)
   }
   const rest = globals
-    .filter((category) => !defaultIds.includes(category.id))
+    .filter((category) => !used.has(category.id))
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  return { head, rest }
+}
+
+function categoriesForNewStore(categories: Category[]): Category[] {
+  const { head, rest } = starterGlobals(categories)
   return [...head, ...rest]
 }
 
 function defaultSelectedIds(categories: Category[]): string[] {
-  const known = new Set(globalCategories(categories).map((category) => category.id))
-  return DEFAULT_CATEGORIES.map((category) => category.id).filter((id) => known.has(id))
+  return starterGlobals(categories).head.map((category) => category.id)
 }
 
 export function NewStoreScreen({

@@ -6,11 +6,20 @@ export const STORE_ORDER_KEY = 'pokupki-store-order'
 export const CLEARED_STORES_KEY = 'pokupki-cleared-stores'
 export const FRESH_START_KEY = 'pokupki-fresh-start'
 
+export const STARTER_CATEGORY_ORDER = [
+  'Овощи',
+  'Бакалея',
+  'Мясные продукты',
+  'Молочные продукты',
+  'Бытовая химия',
+  'Другое',
+] as const
+
 export const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'dairy', name: 'Молочное', color: '#3b82f6' },
   { id: 'produce', name: 'Овощи и фрукты', color: '#22c55e' },
-  { id: 'meat', name: 'Мясо и рыба', color: '#ef4444' },
   { id: 'grocery', name: 'Бакалея', color: '#f59e0b' },
+  { id: 'meat', name: 'Мясо и рыба', color: '#ef4444' },
+  { id: 'dairy', name: 'Молочные продукты', color: '#3b82f6' },
   { id: 'household', name: 'Бытовая химия', color: '#8b5cf6' },
   { id: 'other', name: 'Другое', color: '#6b7280' },
 ]
