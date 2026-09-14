@@ -184,7 +184,7 @@ function App() {
             initialCode: enterCode,
             onConnect: (code, name) => sync.connectWithCode(code, name),
             onCreateInvite: () => void sync.createInvite(),
-            onCreateAccess: () => void sync.createAccess(),
+            onCreateAccess: () => sync.createAccess(),
             onCreatePairing: () => void sync.createPairing(),
             onExclude: (userId) => void sync.exclude(userId),
             onReclaim: () => void sync.reclaim(),
@@ -195,6 +195,7 @@ function App() {
               setEnterCode(null)
             },
             onClearError: sync.clearError,
+            onDeleteAccount: () => void sync.deleteAccount(),
           }}
         />
         {overlay}

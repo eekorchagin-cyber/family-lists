@@ -90,6 +90,20 @@ export function joinUrl(code: string): string {
   return `${publicBase()}/?code=${encoded}#code=${encoded}`
 }
 
+export function accessWelcomeMessage(code: string): string {
+  const formatted = formatCode(code)
+  return [
+    'Списки покупок',
+    '',
+    `1. Откройте в Safari: ${PUBLIC_APP_URL}`,
+    '2. «Поделиться» → «На экран Домой».',
+    '3. Откройте программу с ярлыка, не вкладку Safari.',
+    `4. Введите код ${formatted} и своё имя.`,
+    '',
+    'Код одноразовый.',
+  ].join('\n')
+}
+
 export function pairUrl(code: string): string {
   return joinUrl(code)
 }

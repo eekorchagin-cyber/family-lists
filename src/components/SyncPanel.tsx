@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AccessInfo } from '../data/sync/api'
-import { formatCode, joinUrl, kindFromCode, pairUrl } from '../data/sync/codes'
+import { accessWelcomeMessage, formatCode, joinUrl, kindFromCode, pairUrl } from '../data/sync/codes'
 import { saveSupabaseConfig } from '../data/sync/client'
 import type { HomeMember, SyncSession } from '../data/sync/session'
 import { CodeJoinDialog } from './CodeJoinDialog'
@@ -22,7 +22,7 @@ type SyncPanelProps = {
   initialCode?: string | null
   onConnect: (code: string, name?: string) => Promise<'need-name' | 'error' | 'already' | void>
   onCreateInvite: () => void
-  onCreateAccess: () => void
+  onCreateAccess: () => Promise<string | null | void>
   onCreatePairing: () => void
   onExclude: (userId: string) => void
   onReclaim: () => void
@@ -56,13 +56,13 @@ export function SyncPanel({
   const [entering, setEntering] = useState(Boolean(initialCode))
   const [excluding, setExcluding] = useState<HomeMember | null>(null)
   const [leaving, setLeaving] = useState(false)
-  const [copied, setCopied] = useState<'code' | 'link' | 'pair' | null>(null)
+  const [copied, setCopied] = useState<'code' | 'link' | 'pair' | 'message' | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
   const [cloudUrl, setCloudUrl] = useState('')
   const [cloudKey, setCloudKey] = useState('')
   const [cloudError, setCloudError] = useState<string | null>(null)
 
-  async function copy(text: string, kind: 'code' | 'link' | 'pair') {
+  async function copy(text: string, kind: 'code' | 'link' | 'pair' | 'message') {
     try {
       await navigator.clipboard.writeText(text)
       setCopied(kind)
@@ -240,6 +240,9 @@ export function SyncPanel({
 
   const inviteLink = inviteCode ? joinUrl(inviteCode) : null
   const hasFamily = members.length > 1 || Boolean(inviteCode)
+  const newestAccess = accessInfo?.codes[0] ?? null
+  const accessLink = newestAccess ? joinUrl(newestAccess) : null
+  const accessMessage = newestAccess ? accessWelcomeMessage(newestAccess) : null
 
   return (
     <>
@@ -266,21 +269,49 @@ export function SyncPanel({
             не занимает.
           </p>
           <ConnectSteps role="give-access" />
-          {accessInfo.codes.length > 0 ? (
-            <ul className="member-list">
-              {accessInfo.codes.map((item) => (
-                <li key={item} className="member-row">
-                  <span className="sync-code">{formatCode(item)}</span>
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    onClick={() => void copy(formatCode(item), 'code')}
-                  >
-                    {copied === 'code' ? 'Скопирован' : 'Копировать'}
-                  </button>
-                </li>
-              ))}
-            </ul>
+          {accessInfo.codes.length > 0 && newestAccess && accessLink && accessMessage ? (
+            <>
+              <p className="sync-code">{formatCode(newestAccess)}</p>
+              <QrImage value={accessLink} label="QR-код доступа" />
+              <pre className="share-message">{accessMessage}</pre>
+              <button
+                type="button"
+                className="button-secondary add-category"
+                onClick={() => void copy(accessMessage, 'message')}
+              >
+                {copied === 'message' ? 'Сообщение скопировано' : 'Скопировать сообщение'}
+              </button>
+              <button
+                type="button"
+                className="button-secondary add-category"
+                onClick={() => void copy(formatCode(newestAccess), 'code')}
+              >
+                {copied === 'code' ? 'Код скопирован' : 'Скопировать код'}
+              </button>
+              <button
+                type="button"
+                className="button-secondary add-category"
+                onClick={() => void copy(accessLink, 'link')}
+              >
+                {copied === 'link' ? 'Ссылка скопирована' : 'Скопировать ссылку'}
+              </button>
+              {accessInfo.codes.length > 1 ? (
+                <ul className="member-list">
+                  {accessInfo.codes.slice(1).map((item) => (
+                    <li key={item} className="member-row">
+                      <span className="sync-code">{formatCode(item)}</span>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => void copy(formatCode(item), 'code')}
+                      >
+                        {copied === 'code' ? 'Скопирован' : 'Копировать'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
           ) : (
             <p className="hint">Нет неиспользованных кодов P.</p>
           )}
@@ -288,7 +319,11 @@ export function SyncPanel({
             type="button"
             className="button-secondary add-category"
             disabled={busy || accessInfo.used >= accessInfo.max}
-            onClick={onCreateAccess}
+            onClick={() => {
+              void onCreateAccess().then((code) => {
+                if (code) void copy(accessWelcomeMessage(code), 'message')
+              })
+            }}
           >
             Создать код P
           </button>

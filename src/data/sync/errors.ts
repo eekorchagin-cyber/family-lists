@@ -22,6 +22,9 @@ export function syncErrorMessage(error: unknown): string {
   if (/not in a home/i.test(text)) {
     return 'Вы сейчас не в семье.'
   }
+  if (/last admin/i.test(text)) {
+    return 'Нельзя удалить последний аккаунт администратора: иначе никто не выдаст код P.'
+  }
   if (/Failed to fetch|NetworkError|network/i.test(text)) {
     return 'Нет сети. Изменения останутся на этом телефоне.'
   }

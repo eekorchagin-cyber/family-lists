@@ -10,8 +10,8 @@ export function ConnectSteps({ forKind = null, role = 'enter' }: ConnectStepsPro
     return (
       <ol className="connect-steps">
         <li>Нажмите «Создать код P».</li>
-        <li>Передайте код новому человеку. Код одноразовый.</li>
-        <li>Он ставит ярлык и вводит код P и имя.</li>
+        <li>Скопируйте сообщение и отправьте человеку.</li>
+        <li>Он ставит ярлык, вводит код P и имя. Код одноразовый.</li>
       </ol>
     )
   }

@@ -5,6 +5,7 @@ import {
   createAccessCode,
   createInviteCode,
   createPairingCode,
+  deleteMyAccount,
   excludeMember,
   joinHome,
   leaveHome,
@@ -22,6 +23,7 @@ import {
   type AccessInfo,
 } from '../data/sync/api'
 import { supabaseConfigured } from '../data/sync/client'
+import { wipeDeviceData } from '../data/storage'
 import { kindFromCode } from '../data/sync/codes'
 import { DIRTY_EVENT } from '../data/sync/dirty'
 import { deletedItemIds, peekDeletes } from '../data/sync/deletes'
@@ -524,12 +526,30 @@ export function useSync(
           : { used: 0, max: 20, codes: [code] },
       )
       await refreshAccess()
+      return code
     } catch (caught) {
       setError(syncErrorMessage(caught))
+      return null
     } finally {
       setBusy(false)
     }
   }, [refreshAccess])
+
+  const deleteAccount = useCallback(async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      if (configured && loadSession()) {
+        await deleteMyAccount()
+      }
+    } catch (caught) {
+      setError(syncErrorMessage(caught))
+      setBusy(false)
+      return
+    }
+    wipeDeviceData()
+    window.location.reload()
+  }, [configured])
 
   const createPairing = useCallback(async () => {
     const current = loadSession()
@@ -666,6 +686,7 @@ export function useSync(
     createInvite,
     createAccess,
     createPairing,
+    deleteAccount,
     exclude,
     reclaim,
     leave,

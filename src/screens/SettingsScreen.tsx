@@ -3,6 +3,7 @@ import { AddIconButton } from '../components/AddIconButton'
 import { CatalogDialog } from '../components/CatalogDialog'
 import { CategoryMark } from '../components/CategoryMark'
 import { CategoryStyleDialog } from '../components/CategoryStyleDialog'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
 import { BackIcon } from '../components/NavIcons'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
@@ -70,7 +71,7 @@ type SettingsScreenProps = {
     initialCode?: string | null
     onConnect: (code: string, name?: string) => Promise<'need-name' | 'error' | 'already' | void>
     onCreateInvite: () => void
-    onCreateAccess: () => void
+    onCreateAccess: () => Promise<string | null | void>
     onCreatePairing: () => void
     onExclude: (userId: string) => void
     onReclaim: () => void
@@ -78,6 +79,7 @@ type SettingsScreenProps = {
     onRetry: () => void
     onClearCode: () => void
     onClearError: () => void
+    onDeleteAccount: () => void
   }
 }
 
@@ -144,6 +146,7 @@ export function SettingsScreen({
   const [addingCategory, setAddingCategory] = useState(false)
   const [styling, setStyling] = useState<Category | null>(null)
   const [transferHint, setTransferHint] = useState<string | null>(null)
+  const [deletingAccount, setDeletingAccount] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const deviceName = sync.session?.displayName.trim() || 'Не задано'
 
@@ -231,6 +234,14 @@ export function SettingsScreen({
             <p className="settings-user">
               <span className="settings-user-label">Пользователь на этом устройстве</span>
               <span className="settings-user-name">{deviceName}</span>
+              <button
+                type="button"
+                className="button-danger add-category settings-user-delete"
+                disabled={sync.busy}
+                onClick={() => setDeletingAccount(true)}
+              >
+                Удалить мой аккаунт
+              </button>
             </p>
             <ul className="store-list">
               <li>
@@ -571,6 +582,18 @@ export function SettingsScreen({
             const id = onAddCategory(name, color, icon)
             if (id) rememberCategory(id, name)
             return id
+          }}
+        />
+      )}
+      {deletingAccount && (
+        <ConfirmDialog
+          title="Удалить аккаунт?"
+          text="С этого телефона сотрутся списки, вход и история. В облаке ваш аккаунт тоже удалится. Чтобы снова пользоваться программой, поставьте ярлык и введите новый код P — установка будет с чистого листа."
+          confirmLabel="Удалить"
+          onClose={() => setDeletingAccount(false)}
+          onConfirm={() => {
+            setDeletingAccount(false)
+            sync.onDeleteAccount()
           }}
         />
       )}

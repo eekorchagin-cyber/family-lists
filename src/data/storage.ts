@@ -11,6 +11,7 @@ import type {
 } from '../types'
 import { catalogFromItems, mergeCatalogFromItems } from './catalog'
 import backup from './backup.json'
+import { isLocalHost } from './sync/codes'
 import { appendCategoryToStores } from './categories'
 import { groupsFromStores, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker } from './homeLayout'
 import {
@@ -20,6 +21,7 @@ import {
   emptyStoreFields,
   SCHEMA_VERSION,
   CLEARED_STORES_KEY,
+  FRESH_START_KEY,
   STORE_ORDER_KEY,
   STORAGE_KEY,
 } from './defaults'
@@ -252,6 +254,22 @@ function isEmptyData(data: AppData): boolean {
 
 export function loadData(): AppData {
   try {
+    if (localStorage.getItem(FRESH_START_KEY) === '1') {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const data = migrate(JSON.parse(raw))
+        if (!isEmptyData(data)) {
+          localStorage.removeItem(FRESH_START_KEY)
+          try {
+            saveData(data)
+          } catch {
+            /* ignore quota / private mode */
+          }
+          return data
+        }
+      }
+      return createDefaultData()
+    }
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const data = migrate(JSON.parse(raw))
@@ -265,16 +283,35 @@ export function loadData(): AppData {
       }
     }
   } catch {
-    // повреждённые данные — восстановим из резервной копии
+    // повреждённые данные — на компьютере восстановим из резервной копии
   }
 
-  const recovered = migrate(backup)
-  try {
-    if (!isEmptyData(recovered)) saveData(recovered)
-  } catch {
-    // ignore quota / private mode
+  if (typeof window !== 'undefined' && isLocalHost(window.location.hostname)) {
+    const recovered = migrate(backup)
+    try {
+      if (!isEmptyData(recovered)) saveData(recovered)
+    } catch {
+      // ignore quota / private mode
+    }
+    return recovered
   }
-  return recovered
+
+  return createDefaultData()
+}
+
+export function wipeDeviceData(): void {
+  const keys: string[] = []
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index)
+    if (key && (key.startsWith('pokupki-') || key.startsWith('sb-'))) keys.push(key)
+  }
+  for (const key of keys) localStorage.removeItem(key)
+  try {
+    sessionStorage.clear()
+  } catch {
+    /* ignore */
+  }
+  localStorage.setItem(FRESH_START_KEY, '1')
 }
 
 export function saveData(data: AppData): void {

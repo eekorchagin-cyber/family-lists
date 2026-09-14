@@ -306,6 +306,13 @@ export async function excludeMember(userId: string): Promise<void> {
   if (error) throw error
 }
 
+export async function deleteMyAccount(): Promise<void> {
+  const client = requireClient()
+  const { error } = await client.rpc('delete_my_account')
+  if (error) throw error
+  await client.auth.signOut()
+}
+
 export async function reclaimHome(): Promise<string> {
   const client = requireClient()
   const { data, error } = await client.rpc('reclaim_home')
