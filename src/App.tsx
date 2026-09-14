@@ -188,6 +188,7 @@ function App() {
             onCreatePairing: () => void sync.createPairing(),
             onExclude: (userId) => void sync.exclude(userId),
             onReclaim: () => void sync.reclaim(),
+            onLeave: () => void sync.leave(),
             onRetry: () => void sync.retry(),
             onClearCode: () => {
               clearStoredEnterCode()
