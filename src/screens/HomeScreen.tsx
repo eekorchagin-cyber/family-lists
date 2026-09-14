@@ -45,6 +45,9 @@ type HomeScreenProps = {
   updatedStoreIds?: string[]
   onDismissStoreUpdate?: (storeId: string) => void
   onRetrySync?: () => void
+  badgePrompt?: boolean
+  onAllowBadge?: () => void
+  onSkipBadge?: () => void
 }
 
 const LONG_PRESS_MS = 450
@@ -93,6 +96,9 @@ export function HomeScreen({
   updatedStoreIds = [],
   onDismissStoreUpdate,
   onRetrySync,
+  badgePrompt = false,
+  onAllowBadge,
+  onSkipBadge,
 }: HomeScreenProps) {
   const [managing, setManaging] = useState<Managing | null>(null)
   const [movingStore, setMovingStore] = useState<Store | null>(null)
@@ -455,6 +461,20 @@ export function HomeScreen({
             Это копия на этом устройстве. Списки с ярлыка сюда сами не переезжают. Настройки →
             Семья → «У меня есть код»: возьмите код T там, где в шапке ваше имя и списки верные.
           </p>
+        ) : null}
+        {badgePrompt ? (
+          <div className="hint" style={{ display: 'grid', gap: 8 }}>
+            <span>
+              На ярлыке можно показать, сколько ещё купить. iPhone спросит про уведомления — сами
+              уведомления присылать не будем.
+            </span>
+            <button type="button" className="button-primary add-category" onClick={onAllowBadge}>
+              Показать на ярлыке
+            </button>
+            <button type="button" className="text-button" onClick={onSkipBadge}>
+              Не сейчас
+            </button>
+          </div>
         ) : null}
         {syncError ? (
           <div className="hint hint--error" style={{ display: 'grid', gap: 8 }}>

@@ -70,6 +70,10 @@ export type CatalogEntry = {
 export type Settings = {
   theme: Theme
   fontSize: FontSize
+  /** Списки, которые не входят в число на ярлыке. Пусто — считаются все. */
+  badgeExcludedStoreIds?: string[]
+  /** Новые списки сразу входят в число на ярлыке. По умолчанию да. */
+  badgeIncludeNew?: boolean
 }
 
 export type AppData = {

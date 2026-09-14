@@ -11,6 +11,10 @@ import { applyCatalogImport, mergeCatalogFromItems, upsertCatalog } from '../dat
 import { emptyStoreFields } from '../data/defaults'
 import { applyAppearance, loadClearedStoreIds, loadData, loadStoreOrder, saveClearedStoreIds, saveData, saveStoreOrder } from '../data/storage'
 import {
+  badgeIncludeNewStores,
+  withBadgeStore,
+} from '../data/appBadge'
+import {
   ensureHomeOrder,
   groupHomeKey,
   loadHomeOrder,
@@ -126,7 +130,7 @@ export function useAppState() {
     applyAppearance(data.settings)
   }, [data.settings])
 
-  const addStore = useCallback((name: string, categoryIds?: string[]) => {
+  const addStore = useCallback((name: string, categoryIds?: string[], countInBadge?: boolean) => {
     const trimmed = name.trim()
     if (!trimmed) return undefined
     const id = newId()
@@ -138,6 +142,7 @@ export function useAppState() {
         categoryIds !== undefined
           ? categoryIds.filter((categoryId) => known.has(categoryId))
           : undefined
+      const included = countInBadge ?? badgeIncludeNewStores(current.settings)
       return persist({
         ...current,
         stores: [
@@ -151,6 +156,7 @@ export function useAppState() {
             updatedAt: nowIso(),
           },
         ],
+        settings: included ? current.settings : withBadgeStore(current.settings, id, false),
       })
     })
     return id
@@ -182,6 +188,7 @@ export function useAppState() {
         stores: current.stores.filter((store) => store.id !== storeId),
         items: current.items.filter((item) => item.storeId !== storeId),
         categories: current.categories.filter((category) => category.storeId !== storeId),
+        settings: withBadgeStore(current.settings, storeId, true),
       })
     })
   }, [forgetCleared])
@@ -962,6 +969,19 @@ export function useAppState() {
     [updateSettings],
   )
 
+  const setStoreInBadge = useCallback((storeId: string, included: boolean) => {
+    setData((current) => {
+      const next = withBadgeStore(current.settings, storeId, included)
+      if (next === current.settings) return current
+      return persist({ ...current, settings: next }, 'local')
+    })
+  }, [])
+
+  const setBadgeIncludeNew = useCallback(
+    (include: boolean) => updateSettings({ badgeIncludeNew: include }),
+    [updateSettings],
+  )
+
   const setStoreVisibility = useCallback((storeId: string, visibility: StoreVisibility) => {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
@@ -1023,6 +1043,8 @@ export function useAppState() {
     setStoreGroup,
     setTheme,
     setFontSize,
+    setStoreInBadge,
+    setBadgeIncludeNew,
     setStoreVisibility,
   }
 }

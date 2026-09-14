@@ -11,7 +11,13 @@ import { SyncPanel } from '../components/SyncPanel'
 import { SyncPhoneGuide } from '../components/SyncPhoneGuide'
 import { UserGuide } from '../components/UserGuide'
 import { globalCategories, groupCatalog, sortCatalog } from '../data/catalog'
-import { isGroupsCatalogId } from '../data/homeLayout'
+import {
+  badgeIncludeNewStores,
+  canUseAppBadge,
+  isStoreInBadge,
+} from '../data/appBadge'
+import { buildHomeRows, isGroupsCatalogId, loadHomeOrder } from '../data/homeLayout'
+import { isStandaloneApp } from '../data/sync/codes'
 import {
   downloadCatalogXlsx,
   importSummaryText,
@@ -19,12 +25,12 @@ import {
 } from '../data/catalogExcel'
 import type { AccessInfo } from '../data/sync/api'
 import type { HomeMember, SyncSession } from '../data/sync/session'
-import type { CatalogEntry, Category, FontSize, Settings, Store, Theme } from '../types'
+import type { CatalogEntry, Category, FontSize, Settings, Store, StoreGroup, Theme } from '../types'
 
 type SettingsSection = 'guide' | 'appearance' | 'categories' | 'catalog' | 'sync' | 'transfer'
 
 const SECTIONS: { id: Exclude<SettingsSection, 'guide'>; title: string; hint: string }[] = [
-  { id: 'appearance', title: 'Оформление', hint: 'Тема и размер шрифта' },
+  { id: 'appearance', title: 'Оформление', hint: 'Тема, шрифт и число на ярлыке' },
   { id: 'sync', title: 'Семья', hint: 'Коды, облако и приглашения' },
   { id: 'categories', title: 'Категории', hint: 'Общие — добавить в любой список' },
   { id: 'catalog', title: 'Товары', hint: 'Справочник' },
@@ -44,10 +50,14 @@ type SettingsScreenProps = {
   settings: Settings
   categories: Category[]
   stores: Store[]
+  groups: StoreGroup[]
   catalog: CatalogEntry[]
   onBack: () => void
   onTheme: (theme: Theme) => void
   onFontSize: (fontSize: FontSize) => void
+  onStoreInBadge: (storeId: string, included: boolean) => void
+  onBadgeIncludeNew: (include: boolean) => void
+  onAllowBadge: () => void | Promise<void>
   onAddCategory: (name: string, color: string, icon?: string) => string
   onRenameCategory: (categoryId: string, name: string) => void
   onStyleCategory: (categoryId: string, color: string, icon: string) => void
@@ -88,10 +98,14 @@ export function SettingsScreen({
   settings,
   categories,
   stores,
+  groups,
   catalog,
   onBack,
   onTheme,
   onFontSize,
+  onStoreInBadge,
+  onBadgeIncludeNew,
+  onAllowBadge,
   onAddCategory,
   onRenameCategory,
   onStyleCategory,
@@ -121,6 +135,32 @@ export function SettingsScreen({
     () => sortCatalog(catalog.filter((entry) => !isGroupsCatalogId(entry.id))),
     [catalog],
   )
+  const badgeStores = useMemo(() => {
+    const groupName = new Map(groups.map((group) => [group.id, group.name]))
+    const rows = buildHomeRows(stores, groups, loadHomeOrder(), {})
+    const listed: { store: Store; groupName?: string }[] = []
+    const seen = new Set<string>()
+    for (const row of rows) {
+      if (row.kind !== 'store') continue
+      seen.add(row.store.id)
+      listed.push({
+        store: row.store,
+        ...(row.store.groupId && groupName.has(row.store.groupId)
+          ? { groupName: groupName.get(row.store.groupId) }
+          : {}),
+      })
+    }
+    for (const store of stores) {
+      if (seen.has(store.id)) continue
+      listed.push({
+        store,
+        ...(store.groupId && groupName.has(store.groupId)
+          ? { groupName: groupName.get(store.groupId) }
+          : {}),
+      })
+    }
+    return listed
+  }, [groups, stores])
 
   const [names, setNames] = useState<Record<string, string>>(() => {
     const next: Record<string, string> = {}
@@ -207,6 +247,11 @@ export function SettingsScreen({
             <UserGuide />
           ) : section === 'categories' ? (
               <p>Порядок отделов задаётся в каждом списке отдельно. Новая общая категория не появится в списках сама — её нужно добавить.</p>
+          ) : section === 'appearance' ? (
+            <p>
+              Тема и размер шрифта — на этом телефоне. Число на ярлыке — сумма некупленных из
+              отмеченных списков; тоже только этот телефон.
+            </p>
           ) : section === 'catalog' ? (
             <p>
               Если выбрать товар из справочника, он попадёт в свою категорию в любом списке.
@@ -354,6 +399,59 @@ export function SettingsScreen({
                   Крупный
                 </ChoiceButton>
               </div>
+            </section>
+
+            <section className="settings-block">
+              <h2>Число на ярлыке</h2>
+              <p className="hint">
+                На иконке — сколько ещё купить. По умолчанию считаются все списки. Это только этот
+                телефон.
+              </p>
+              <BadgePermissionBlock onAllow={onAllowBadge} />
+              <p className="field-label">Новый список</p>
+              <div className="choice-row">
+                <ChoiceButton
+                  active={badgeIncludeNewStores(settings)}
+                  onClick={() => onBadgeIncludeNew(true)}
+                >
+                  Включать в число
+                </ChoiceButton>
+                <ChoiceButton
+                  active={!badgeIncludeNewStores(settings)}
+                  onClick={() => onBadgeIncludeNew(false)}
+                >
+                  Не включать
+                </ChoiceButton>
+              </div>
+              <p className="hint" style={{ opacity: 0.75 }}>
+                Так будет отмечено при добавлении списка. На том экране можно сразу изменить.
+              </p>
+              <p className="field-label">Какие списки считать</p>
+              {badgeStores.length === 0 ? (
+                <p className="hint">Списков пока нет.</p>
+              ) : (
+                <div className="choice-row">
+                  {badgeStores.map(({ store, groupName }) => {
+                    const included = isStoreInBadge(store.id, settings)
+                    return (
+                      <button
+                        key={store.id}
+                        type="button"
+                        className={included ? 'choice active' : 'choice'}
+                        aria-pressed={included}
+                        onClick={() => onStoreInBadge(store.id, !included)}
+                      >
+                        <span className="settings-nav-text">
+                          <span className="settings-nav-title">{store.name}</span>
+                          {groupName ? (
+                            <span className="settings-nav-hint">{groupName}</span>
+                          ) : null}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </section>
           </>
         )}
@@ -650,6 +748,54 @@ function CatalogRow({
         ×
       </button>
     </li>
+  )
+}
+
+function BadgePermissionBlock({ onAllow }: { onAllow: () => void | Promise<void> }) {
+  const [, setTick] = useState(0)
+  const permission =
+    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
+
+  if (!isStandaloneApp()) {
+    return (
+      <p className="hint" style={{ opacity: 0.75 }}>
+        Число на иконке видно только с ярлыка на экране «Домой».
+      </p>
+    )
+  }
+  if (!canUseAppBadge()) {
+    return (
+      <p className="hint" style={{ opacity: 0.75 }}>
+        Этот iPhone не умеет число на ярлыке. Нужен iOS 16.4 или новее.
+      </p>
+    )
+  }
+  if (permission === 'granted') {
+    return <p className="hint">Число некупленных показывается на ярлыке.</p>
+  }
+  if (permission === 'denied') {
+    return (
+      <p className="hint">
+        iPhone запретил уведомления. Разрешите их для «Возьми» в настройках телефона — иначе числа
+        на ярлыке не будет.
+      </p>
+    )
+  }
+  return (
+    <>
+      <p className="hint">
+        Чтобы показать число, iPhone спросит про уведомления. Писем программа не шлёт.
+      </p>
+      <button
+        type="button"
+        className="button-primary add-category"
+        onClick={() => {
+          void Promise.resolve(onAllow()).finally(() => setTick((value) => value + 1))
+        }}
+      >
+        Показать на ярлыке
+      </button>
+    </>
   )
 }
 

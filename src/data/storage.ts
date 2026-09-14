@@ -161,10 +161,15 @@ function normalizeGroup(value: unknown): StoreGroup | null {
 
 function normalizeSettings(value: unknown): Settings {
   if (!isRecord(value)) return { ...DEFAULT_SETTINGS }
+  const excluded = Array.isArray(value.badgeExcludedStoreIds)
+    ? [...new Set(value.badgeExcludedStoreIds.filter((id): id is string => typeof id === 'string' && id.trim() !== ''))]
+    : []
   return {
     theme: value.theme === 'dark' ? 'dark' : 'light',
     fontSize:
       value.fontSize === 's' || value.fontSize === 'l' ? value.fontSize : 'm',
+    ...(excluded.length > 0 ? { badgeExcludedStoreIds: excluded } : {}),
+    ...(value.badgeIncludeNew === false ? { badgeIncludeNew: false } : {}),
   }
 }
 

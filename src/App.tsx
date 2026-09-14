@@ -4,6 +4,7 @@ import { MergeDialog } from './components/MergeDialog'
 import { UpdateBanner } from './components/UpdateBanner'
 import { categoriesForStore, knownCategoriesForStore, sortCategories, unusedGlobalCategories } from './data/categories'
 import { clearStoredEnterCode, consumeEnterCode, isLocalHost, mustUseHomeScreenShortcut } from './data/sync/codes'
+import { useAppBadge } from './hooks/useAppBadge'
 import { useAppState } from './hooks/useAppState'
 import { useAppUpdate } from './hooks/useAppUpdate'
 import { useSync } from './hooks/useSync'
@@ -55,6 +56,8 @@ function App() {
     setStoreGroup,
     setTheme,
     setFontSize,
+    setStoreInBadge,
+    setBadgeIncludeNew,
     setStoreVisibility,
   } = useAppState()
   const sync = useSync(data, replaceData)
@@ -79,6 +82,12 @@ function App() {
   }, [data.catalog, data.items])
 
   const syncEnabled = Boolean(sync.configured && sync.session && !sync.session.frozen)
+  const needsAccess =
+    sync.configured &&
+    !sync.session &&
+    typeof window !== 'undefined' &&
+    !isLocalHost(window.location.hostname)
+  const badge = useAppBadge(data.items, data.stores, data.settings, !needsAccess)
   const homeProps = {
     stores: data.stores,
     groups: data.groups ?? [],
@@ -101,6 +110,9 @@ function App() {
       sync.clearError()
       void sync.retry()
     },
+    badgePrompt: badge.prompt,
+    onAllowBadge: () => void badge.allow(),
+    onSkipBadge: badge.skip,
     onOpenSettings: () => setScreen({ name: 'settings' as const }),
     onOpenStore: (storeId: string) => setScreen({ name: 'store' as const, storeId }),
     onStartAddStore: () => setScreen({ name: 'newStore' as const }),
@@ -131,12 +143,6 @@ function App() {
     </>
   )
 
-  const needsAccess =
-    sync.configured &&
-    !sync.session &&
-    typeof window !== 'undefined' &&
-    !isLocalHost(window.location.hostname)
-
   if (needsAccess) {
     return (
       <>
@@ -159,6 +165,7 @@ function App() {
           settings={data.settings}
           categories={data.categories}
           stores={data.stores}
+          groups={data.groups ?? []}
           catalog={data.catalog ?? []}
           onBack={() => {
             clearStoredEnterCode()
@@ -167,6 +174,9 @@ function App() {
           }}
           onTheme={setTheme}
           onFontSize={setFontSize}
+          onStoreInBadge={setStoreInBadge}
+          onBadgeIncludeNew={setBadgeIncludeNew}
+          onAllowBadge={() => badge.allow()}
           onAddCategory={addGlobalCategory}
           onRenameCategory={renameGlobalCategory}
           onStyleCategory={setCategoryStyle}
@@ -339,9 +349,10 @@ function App() {
       <>
         <NewStoreScreen
           categories={data.categories}
+          includeInBadgeDefault={data.settings.badgeIncludeNew !== false}
           onBack={() => setScreen({ name: 'home' })}
-          onAdd={(name, categoryIds) => {
-            const id = addStore(name, categoryIds)
+          onAdd={(name, categoryIds, countInBadge) => {
+            const id = addStore(name, categoryIds, countInBadge)
             if (id) setScreen({ name: 'store', storeId: id })
             else setScreen({ name: 'home' })
           }}

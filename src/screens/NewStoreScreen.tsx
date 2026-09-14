@@ -10,8 +10,9 @@ import type { Category } from '../types'
 
 type NewStoreScreenProps = {
   categories: Category[]
+  includeInBadgeDefault?: boolean
   onBack: () => void
-  onAdd: (name: string, categoryIds: string[]) => void
+  onAdd: (name: string, categoryIds: string[], countInBadge: boolean) => void
   onAddCategory: (name: string, color: string, icon?: string) => string
 }
 
@@ -36,12 +37,14 @@ function defaultSelectedIds(categories: Category[]): string[] {
 
 export function NewStoreScreen({
   categories,
+  includeInBadgeDefault = true,
   onBack,
   onAdd,
   onAddCategory,
 }: NewStoreScreenProps) {
   const options = useMemo(() => categoriesForNewStore(categories), [categories])
   const [name, setName] = useState('')
+  const [countInBadge, setCountInBadge] = useState(includeInBadgeDefault)
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(defaultSelectedIds(categories)),
   )
@@ -63,7 +66,7 @@ export function NewStoreScreen({
     const categoryIds = options
       .filter((category) => selected.has(category.id))
       .map((category) => category.id)
-    onAdd(trimmed, categoryIds)
+    onAdd(trimmed, categoryIds, countInBadge)
   }
 
   return (
@@ -91,6 +94,15 @@ export function NewStoreScreen({
           autoComplete="off"
           autoCorrect="off"
         />
+        <p className="field-label">Число на ярлыке</p>
+        <button
+          type="button"
+          className={countInBadge ? 'choice active' : 'choice'}
+          aria-pressed={countInBadge}
+          onClick={() => setCountInBadge((current) => !current)}
+        >
+          Считать некупленные этого списка
+        </button>
         <p className="hint">
           Отметьте отделы этого магазина. Товары из справочника попадут в категорию сами, только
           если она отмечена здесь.
