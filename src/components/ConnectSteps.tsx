@@ -2,7 +2,7 @@ import type { CodeKind } from '../data/sync/codes'
 
 type ConnectStepsProps = {
   forKind?: CodeKind | null
-  role?: 'enter' | 'give-access' | 'give-family' | 'give-phone' | 'start-phone' | 'rejoin' | 'install'
+  role?: 'enter' | 'give-access' | 'give-family' | 'give-phone' | 'start-phone' | 'rejoin' | 'install' | 'take-over'
 }
 
 export function ConnectSteps({ forKind = null, role = 'enter' }: ConnectStepsProps) {
@@ -55,6 +55,15 @@ export function ConnectSteps({ forKind = null, role = 'enter' }: ConnectStepsPro
     )
   }
 
+  if (role === 'take-over') {
+    return (
+      <ol className="connect-steps">
+        <li>Если организатор потерял телефон и его нет, нажмите «Принять дом».</li>
+        <li>Вы станете организатором: код D и исключение людей.</li>
+        <li>Прежний организатор останется в семье. Если найдёт телефон — будет обычным участником.</li>
+      </ol>
+    )
+  }
   if (role === 'rejoin') {
     return (
       <ol className="connect-steps">

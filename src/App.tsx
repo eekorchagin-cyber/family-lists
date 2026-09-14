@@ -191,6 +191,7 @@ function App() {
             onExclude: (userId) => void sync.exclude(userId),
             onReclaim: () => void sync.reclaim(),
             onLeave: () => void sync.leave(),
+            onTakeOver: () => void sync.takeOver(),
             onRetry: () => void sync.retry(),
             onClearCode: () => {
               clearStoredEnterCode()

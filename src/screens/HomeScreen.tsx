@@ -460,7 +460,12 @@ export function HomeScreen({
           <div className="hint hint--error" style={{ display: 'grid', gap: 8 }}>
             <span>{syncError}</span>
             {onRetrySync ? (
-              <button type="button" className="qty-button" disabled={syncBusy} onClick={onRetrySync}>
+              <button
+                type="button"
+                className="button-secondary add-category"
+                disabled={syncBusy}
+                onClick={onRetrySync}
+              >
                 {syncBusy ? 'Обновляем…' : 'Обновить'}
               </button>
             ) : null}

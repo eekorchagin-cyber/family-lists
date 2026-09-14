@@ -52,13 +52,14 @@ create table if not exists public.store_access (
 );
 
 create table if not exists public.categories (
-  id text primary key,
+  id text not null,
   home_id uuid not null references public.homes (id) on delete cascade,
   store_id text,
   name text not null,
   color text not null,
   icon text,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (home_id, id)
 );
 
 create table if not exists public.items (
@@ -76,12 +77,18 @@ create table if not exists public.items (
 );
 
 create table if not exists public.catalog (
-  id text primary key,
+  id text not null,
   home_id uuid not null references public.homes (id) on delete cascade,
   name text not null,
   category_id text not null,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (home_id, id)
 );
+
+alter table public.categories drop constraint if exists categories_pkey;
+alter table public.categories add primary key (home_id, id);
+alter table public.catalog drop constraint if exists catalog_pkey;
+alter table public.catalog add primary key (home_id, id);
 
 create table if not exists public.app_meta (
   id int primary key default 1 check (id = 1),
@@ -519,6 +526,54 @@ begin
 end;
 $$;
 
+create or replace function public.take_over_home()
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_home uuid;
+  v_old uuid;
+begin
+  if v_uid is null then
+    raise exception 'not signed in';
+  end if;
+
+  select home_id into v_home from public.profiles where id = v_uid;
+  if v_home is null then
+    raise exception 'not in a home';
+  end if;
+
+  select created_by into v_old from public.homes where id = v_home;
+  if v_old = v_uid then
+    return v_home;
+  end if;
+
+  if not exists (
+    select 1 from public.profiles where home_id = v_home and id <> v_uid
+  ) then
+    raise exception 'no other members';
+  end if;
+
+  update public.homes set created_by = v_uid where id = v_home;
+
+  update public.profiles
+  set is_creator = (id = v_uid)
+  where home_id = v_home;
+
+  if exists (select 1 from public.profiles where id = v_old and is_app_admin)
+     and not exists (select 1 from public.profiles where is_app_admin and id <> v_old)
+  then
+    update public.profiles set is_app_admin = true where id = v_uid;
+    update public.profiles set is_app_admin = false where id = v_old;
+  end if;
+
+  return v_home;
+end;
+$$;
+
 create or replace function public.delete_my_account()
 returns void
 language plpgsql
@@ -579,6 +634,7 @@ grant execute on function public.create_pairing(text, text, text) to authenticat
 grant execute on function public.redeem_pairing(text) to anon, authenticated;
 grant execute on function public.reclaim_home() to authenticated;
 grant execute on function public.leave_home() to authenticated;
+grant execute on function public.take_over_home() to authenticated;
 grant execute on function public.is_app_admin() to authenticated;
 grant execute on function public.redeem_access(text, text) to authenticated;
 grant execute on function public.create_access_code(text) to authenticated;

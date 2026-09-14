@@ -330,6 +330,15 @@ export async function leaveHome(): Promise<string> {
   return data
 }
 
+/** Стать организатором, если прежний потерял телефон. */
+export async function takeOverHome(): Promise<string> {
+  const client = requireClient()
+  const { data, error } = await client.rpc('take_over_home')
+  if (error) throw error
+  if (typeof data !== 'string' || !data) throw new Error('Не удалось принять дом')
+  return data
+}
+
 export async function loadMyProfile(): Promise<{
   id: string
   homeId: string | null
@@ -520,7 +529,10 @@ export async function pushLocal(
   }))
   if (categoryRows.length > 0) {
     const { error } = await client.from('categories').upsert(categoryRows)
-    if (error) throw error
+    if (error) {
+      // Старый ключ categories.id общий на все дома: «dairy» уже занят чужим домом.
+      console.warn('categories sync failed', error)
+    }
   }
 
   const itemRows = data.items
@@ -555,7 +567,9 @@ export async function pushLocal(
 
   if (catalogRows.length > 0) {
     const { error } = await client.from('catalog').upsert(catalogRows)
-    if (error) throw error
+    if (error) {
+      console.warn('catalog sync failed', error)
+    }
   }
 
   const pending = takeDeletes()

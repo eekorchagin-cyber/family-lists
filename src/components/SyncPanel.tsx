@@ -27,6 +27,7 @@ type SyncPanelProps = {
   onExclude: (userId: string) => void
   onReclaim: () => void
   onLeave: () => void
+  onTakeOver: () => void
   onRetry: () => void
   onClearCode: () => void
   onClearError: () => void
@@ -49,6 +50,7 @@ export function SyncPanel({
   onExclude,
   onReclaim,
   onLeave,
+  onTakeOver,
   onRetry,
   onClearCode,
   onClearError,
@@ -56,6 +58,7 @@ export function SyncPanel({
   const [entering, setEntering] = useState(Boolean(initialCode))
   const [excluding, setExcluding] = useState<HomeMember | null>(null)
   const [leaving, setLeaving] = useState(false)
+  const [takingOver, setTakingOver] = useState(false)
   const [copied, setCopied] = useState<'code' | 'link' | 'pair' | 'message' | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
   const [cloudUrl, setCloudUrl] = useState('')
@@ -135,12 +138,7 @@ export function SyncPanel({
       <>
         <section className="settings-block">
           {error ? (
-            <p className="hint sync-error">
-              {error}{' '}
-              <button type="button" className="text-button" onClick={onClearError}>
-                Скрыть
-              </button>
-            </p>
+            <SyncIssue error={error} busy={busy} onRetry={onRetry} onHide={onClearError} />
           ) : (
             <p className="hint">
               Этот браузер отключён от дома. Списки на устройстве на месте.
@@ -198,12 +196,7 @@ export function SyncPanel({
       <>
         <section className="settings-block">
           {error ? (
-            <p className="hint sync-error">
-              {error}{' '}
-              <button type="button" className="text-button" onClick={onClearError}>
-                Скрыть
-              </button>
-            </p>
+            <SyncIssue error={error} busy={busy} onRetry={onRetry} onHide={onClearError} />
           ) : (
             <p className="hint">Этот браузер ещё не в облаке. Введите код с ярлыка.</p>
           )}
@@ -252,12 +245,7 @@ export function SyncPanel({
           {session.isCreator ? ' · организатор' : ''}
         </p>
         {error ? (
-          <p className="hint sync-error">
-            {error}{' '}
-            <button type="button" className="text-button" onClick={onClearError}>
-              Скрыть
-            </button>
-          </p>
+          <SyncIssue error={error} busy={busy} onRetry={onRetry} onHide={onClearError} />
         ) : null}
       </section>
 
@@ -447,6 +435,21 @@ export function SyncPanel({
         )}
       </section>
 
+      {!session.isCreator && hasFamily ? (
+        <section className="settings-block">
+          <h2>Организатор потерял телефон</h2>
+          <ConnectSteps role="take-over" />
+          <button
+            type="button"
+            className="button-secondary add-category"
+            disabled={busy}
+            onClick={() => setTakingOver(true)}
+          >
+            Принять дом
+          </button>
+        </section>
+      ) : null}
+
       {!session.isCreator ? (
         <section className="settings-block">
           <h2>Самостоятельный доступ</h2>
@@ -467,8 +470,8 @@ export function SyncPanel({
         <section className="settings-block">
           <h2>Самостоятельный доступ</h2>
           <p className="hint">
-            Организатор не может выйти из семьи. Чтобы разойтись, исключите участников или договоритесь
-            о новом организаторе заранее.
+            Организатор не может выйти из семьи. Если потеряете телефон — другой человек в семье
+            нажмёт «Принять дом». Чтобы разойтись заранее, исключите участников.
           </p>
         </section>
       )}
@@ -509,6 +512,18 @@ export function SyncPanel({
           onConfirm={() => {
             setLeaving(false)
             onLeave()
+          }}
+        />
+      )}
+      {takingOver && (
+        <ConfirmDialog
+          title="Принять дом?"
+          text="Вы станете организатором: сможете приглашать по коду D и исключать людей. Прежний организатор останется в семье обычным участником. Если он был единственным администратором программы, коды P тоже перейдут к вам."
+          confirmLabel="Принять"
+          onClose={() => setTakingOver(false)}
+          onConfirm={() => {
+            setTakingOver(false)
+            onTakeOver()
           }}
         />
       )}
@@ -649,5 +664,34 @@ function EnterCodeDialog({
         })
       }}
     />
+  )
+}
+
+function SyncIssue({
+  error,
+  busy,
+  onRetry,
+  onHide,
+}: {
+  error: string
+  busy: boolean
+  onRetry: () => void
+  onHide: () => void
+}) {
+  return (
+    <div className="hint hint--error" style={{ display: 'grid', gap: 8 }}>
+      <span>{error}</span>
+      <button
+        type="button"
+        className="button-secondary add-category"
+        disabled={busy}
+        onClick={onRetry}
+      >
+        {busy ? 'Обновляем…' : 'Обновить'}
+      </button>
+      <button type="button" className="text-button" onClick={onHide}>
+        Скрыть
+      </button>
+    </div>
   )
 }

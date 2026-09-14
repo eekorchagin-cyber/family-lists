@@ -1,5 +1,5 @@
 export function syncErrorMessage(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
+  const text = rawErrorText(error)
   if (/user limit/i.test(text)) {
     return 'Набор новых людей закрыт: лимит заполнен.'
   }
@@ -13,6 +13,9 @@ export function syncErrorMessage(error: unknown): string {
     return 'Этот телефон уже был в семье. Нужен код на T (Мой второй телефон), а не приглашение на D.'
   }
   if (/forbidden/i.test(text)) return 'Это может сделать только организатор дома'
+  if (/no other members/i.test(text)) {
+    return 'Принять дом можно, только если в семье есть ещё люди.'
+  }
   if (/no home/i.test(text)) {
     return 'Вернуться в дом может только организатор. Остальным нужен код.'
   }
@@ -30,7 +33,34 @@ export function syncErrorMessage(error: unknown): string {
   }
   if (/Supabase не настроен/i.test(text)) return 'Облако на сайте ещё не включено'
   if (/row-level security|JWT|not signed in|invalid claim|Auth session/i.test(text)) {
-    return 'Вход ещё чуть-чуть не дошёл. Нажмите «Обновить» через пару секунд.'
+    return 'Вход ещё чуть-чуть не дошёл. Можно вести списки — облако догонит само.'
   }
-  return 'Облако пока не ответило. Списки на этом телефоне уже можно вести. Нажмите «Обновить».'
+  return 'Облако пока не отвечает. Списки на этом телефоне уже можно вести.'
+}
+
+export function isQuietSyncFailure(error: unknown): boolean {
+  const text = rawErrorText(error)
+  if (/Failed to fetch|NetworkError|network/i.test(text)) return true
+  if (/row-level security|JWT|not signed in|invalid claim|Auth session/i.test(text)) return true
+  if (/duplicate key|unique constraint|23505/i.test(text)) return true
+  if (/Supabase не настроен/i.test(text)) return true
+  return isQuietSyncMessage(syncErrorMessage(error))
+}
+
+export function isQuietSyncMessage(message: string | null | undefined): boolean {
+  if (!message) return false
+  return (
+    message.startsWith('Облако пока') ||
+    message.startsWith('Нет сети.') ||
+    message.startsWith('Вход ещё чуть-чуть') ||
+    /Нажмите «Обновить»/i.test(message)
+  )
+}
+
+function rawErrorText(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return String(error)
 }

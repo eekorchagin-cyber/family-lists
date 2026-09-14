@@ -9,6 +9,7 @@ import {
   excludeMember,
   joinHome,
   leaveHome,
+  takeOverHome,
   loadAccessInfo,
   reclaimHome,
   loadInviteCode,
@@ -27,7 +28,7 @@ import { wipeDeviceData } from '../data/storage'
 import { kindFromCode } from '../data/sync/codes'
 import { DIRTY_EVENT } from '../data/sync/dirty'
 import { deletedItemIds, peekDeletes } from '../data/sync/deletes'
-import { syncErrorMessage } from '../data/sync/errors'
+import { isQuietSyncFailure, isQuietSyncMessage, syncErrorMessage } from '../data/sync/errors'
 import {
   adoptLocalStores,
   mergeByStoreName,
@@ -81,6 +82,9 @@ export function useSync(
   const [mergePending, setMergePending] = useState<MergePending | null>(null)
   const quietFailsRef = useRef(0)
   const missingProfileRef = useRef(0)
+  const errorRef = useRef<string | null>(null)
+  const dismissedErrorRef = useRef<string | null>(null)
+  errorRef.current = error
 
   const configured = supabaseConfigured()
 
@@ -216,7 +220,7 @@ export function useSync(
           sessionStorage.setItem('pokupki-adopt-cloud', '3')
           if (dataLooksPopulated(dataRef.current)) {
             setError(
-              'Списки из облака ещё не пришли. Откройте телефон, где они уже есть, на несколько секунд — затем нажмите «Обновить».',
+              'Списки из облака ещё не пришли. Откройте телефон, где они уже есть, на несколько секунд.',
             )
           }
         }
@@ -251,11 +255,19 @@ export function useSync(
       saveSession(saved)
       setSession(saved)
       quietFailsRef.current = 0
+      dismissedErrorRef.current = null
       setError(null)
     } catch (caught) {
+      if (isQuietSyncFailure(caught) || !dataLooksPopulated(dataRef.current)) {
+        quietFailsRef.current = 0
+        if (isQuietSyncMessage(errorRef.current)) setError(null)
+        return
+      }
+      const message = syncErrorMessage(caught)
+      if (dismissedErrorRef.current === message) return
       quietFailsRef.current += 1
       if (quietFailsRef.current < 3) return
-      setError(syncErrorMessage(caught))
+      setError(message)
     } finally {
       busyRef.current = false
     }
@@ -665,9 +677,39 @@ export function useSync(
     }
   }, [finishConnect])
 
-  const retry = useCallback(async () => {
+  const takeOver = useCallback(async () => {
+    const current = loadSession()
+    if (!current) return
+    setBusy(true)
     setError(null)
-    quietFailsRef.current = 2
+    try {
+      await restoreSession(current)
+      await takeOverHome()
+      const profile = await loadMyProfile()
+      if (!profile?.homeId) throw new Error('Не удалось принять дом')
+      const next = {
+        ...current,
+        homeId: profile.homeId,
+        isCreator: profile.isCreator,
+        isAppAdmin: profile.isAppAdmin,
+        displayName: profile.displayName || current.displayName,
+        frozen: false,
+      }
+      saveSession(next)
+      setSession(next)
+      await refreshMembers()
+      await refreshAccess()
+    } catch (caught) {
+      setError(syncErrorMessage(caught))
+    } finally {
+      setBusy(false)
+    }
+  }, [refreshAccess, refreshMembers])
+
+  const retry = useCallback(async () => {
+    dismissedErrorRef.current = null
+    setError(null)
+    quietFailsRef.current = 0
     await tick()
   }, [tick])
 
@@ -697,7 +739,11 @@ export function useSync(
     exclude,
     reclaim,
     leave,
+    takeOver,
     retry,
-    clearError: () => setError(null),
+    clearError: () => {
+      dismissedErrorRef.current = errorRef.current
+      setError(null)
+    },
   }
 }

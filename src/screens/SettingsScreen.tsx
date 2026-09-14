@@ -76,6 +76,7 @@ type SettingsScreenProps = {
     onExclude: (userId: string) => void
     onReclaim: () => void
     onLeave: () => void
+    onTakeOver: () => void
     onRetry: () => void
     onClearCode: () => void
     onClearError: () => void
@@ -304,6 +305,7 @@ export function SettingsScreen({
             onExclude={sync.onExclude}
             onReclaim={sync.onReclaim}
             onLeave={sync.onLeave}
+            onTakeOver={sync.onTakeOver}
             onRetry={sync.onRetry}
             onClearCode={sync.onClearCode}
             onClearError={sync.onClearError}
