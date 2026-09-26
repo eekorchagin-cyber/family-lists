@@ -8,8 +8,10 @@ import {
 } from '../data/loyalty'
 import { isAppleMobile } from '../data/sync/codes'
 import {
+  isCustomAppScheme,
   isLatinShortcutName,
   loyaltyAppError,
+  loyaltyAppHref,
   openInstalledAppsList,
   openLoyaltyApp,
   parseShortcutName,
@@ -58,7 +60,15 @@ export function LoyaltyCardEditor({
   const canDetect = canDetectBarcode()
 
   function applyAppValue(raw: string) {
-    const shortcut = parseShortcutName(raw) || (isLatinShortcutName(raw) ? raw.trim() : '')
+    const href = loyaltyAppHref(raw)
+    if (isCustomAppScheme(raw) || (href && isCustomAppScheme(href))) {
+      setLinkMode('url')
+      setShortcutName('')
+      setValue(href || raw.trim())
+      setScanError('')
+      return
+    }
+    const shortcut = parseShortcutName(raw) || parseShortcutName(href) || (isLatinShortcutName(raw) ? raw.trim() : '')
     if (shortcut) {
       setLinkMode('shortcut')
       setShortcutName(shortcut)
@@ -67,12 +77,16 @@ export function LoyaltyCardEditor({
     }
     setLinkMode('url')
     setShortcutName('')
-    setValue(raw)
+    setValue(href || raw)
   }
 
   function setShortcutNameFromInput(name: string) {
-    setShortcutName(name)
     const trimmed = name.trim()
+    if (trimmed.includes(':')) {
+      applyAppValue(name)
+      return
+    }
+    setShortcutName(name)
     if (!trimmed) {
       setValue('')
       setScanError('')
@@ -96,11 +110,12 @@ export function LoyaltyCardEditor({
     setScanError('Взяли ссылку из приложения на телефоне.')
   }, [])
 
+  const appValue = kind === 'app' ? loyaltyAppHref(value) || value.trim() : value.trim()
   const card: LoyaltyCard | undefined =
-    value.trim() || (kind !== 'app' && image)
+    appValue || (kind !== 'app' && image)
       ? {
           kind,
-          value: value.trim(),
+          value: appValue,
           ...(format.trim() ? { format: format.trim() } : {}),
           ...(label.trim() ? { label: label.trim() } : {}),
           ...(kind !== 'app' && image ? { image } : {}),
@@ -270,7 +285,7 @@ export function LoyaltyCardEditor({
                   className="input"
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
-                  placeholder="https://…"
+                  placeholder="OZON:// или https://…"
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck={false}
@@ -301,7 +316,7 @@ export function LoyaltyCardEditor({
             <p className="hint">
               {linkMode === 'shortcut'
                 ? 'В «Командах» назовите быструю команду латиницей. Сюда впишите только это имя — строка shortcuts://run-shortcut?name= подставится сама.'
-                : 'Либо вставьте https:// из «Поделиться», если программа его отдаёт.'}
+                : 'Можно схему приложения, например OZON://, или https:// из «Поделиться».'}
             </p>
           </>
         ) : (

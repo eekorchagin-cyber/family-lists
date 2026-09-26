@@ -164,6 +164,7 @@ ul {
   justify-content: flex-end;
   min-width: 56px;
   gap: 0;
+  flex-wrap: nowrap;
 }
 
 .help-text {

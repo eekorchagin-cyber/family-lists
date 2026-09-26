@@ -20,6 +20,7 @@ import {
   loadHomeOrder,
   saveHomeOrder,
 } from '../data/homeLayout'
+import { withLoyaltyMarker } from '../data/loyalty'
 import { queueDeleted } from '../data/sync/deletes'
 import { markDirty } from '../data/sync/dirty'
 import { applyStoreOrder, nowIso, withUpdatedAt } from '../data/sync/merge'
@@ -973,9 +974,18 @@ export function useAppState() {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       if (!store) return current
-      const next = card ? { loyaltyCard: card } : { loyaltyCard: undefined }
       if (!card && !store.loyaltyCard) return current
-      return persist(patchStore(current, storeId, next))
+      const stores = current.stores.map((item) => {
+        if (item.id !== storeId) return item
+        const next = withUpdatedAt({
+          ...item,
+          loyaltyCard: card,
+          categoryNames: withLoyaltyMarker(item.categoryNames, card),
+        })
+        if (!card) delete next.loyaltyCard
+        return next
+      })
+      return persist({ ...current, stores })
     })
   }, [])
 

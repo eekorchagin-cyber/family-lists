@@ -57,16 +57,22 @@ export function withLoyaltyMarker(
   return { ...clean, [LOYALTY_KEY]: JSON.stringify(card) }
 }
 
+export function hasLoyaltyCard(card: LoyaltyCard | undefined): boolean {
+  if (!card) return false
+  if (card.kind === 'app') return Boolean(card.value.trim())
+  return Boolean(card.value.trim() || card.image)
+}
+
 export function resolveLoyaltyCard(
   store: Store,
   groups: StoreGroup[],
 ): { card: LoyaltyCard; source: 'store' | 'group' } | null {
-  if (store.loyaltyCard?.value.trim() || store.loyaltyCard?.image) {
+  if (store.loyaltyCard && hasLoyaltyCard(store.loyaltyCard)) {
     return { card: store.loyaltyCard, source: 'store' }
   }
   if (!store.groupId) return null
   const group = groups.find((item) => item.id === store.groupId)
-  if (group?.loyaltyCard?.value.trim() || group?.loyaltyCard?.image) {
+  if (group?.loyaltyCard && hasLoyaltyCard(group.loyaltyCard)) {
     return { card: group.loyaltyCard, source: 'group' }
   }
   return null
@@ -81,7 +87,7 @@ export function loyaltyKindFromFormat(format: string): LoyaltyKind {
 }
 
 export function looksLikeUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value.trim())
+  return /^(https?:\/\/|[a-z][a-z0-9+.-]*:\/\/)/i.test(value.trim())
 }
 
 type BarcodeDetectorCtor = new (options?: { formats?: string[] }) => {

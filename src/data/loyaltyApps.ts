@@ -38,7 +38,16 @@ export function parseShortcutName(value: string): string {
 }
 
 export function isLatinShortcutName(value: string): boolean {
-  return /^[A-Za-z][A-Za-z0-9 ._-]{0,63}$/.test(value.trim())
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.includes(':')) return false
+  return /^[A-Za-z][A-Za-z0-9 ._-]{0,63}$/.test(trimmed)
+}
+
+export function isCustomAppScheme(value: string): boolean {
+  const trimmed = value.trim()
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return false
+  if (/^(https?|intent|shortcuts):/i.test(trimmed)) return false
+  return true
 }
 
 export function loyaltyAppHref(value: string): string {
@@ -51,6 +60,10 @@ export function loyaltyAppHref(value: string): string {
   }
   const shortcutName = parseShortcutName(trimmed)
   if (shortcutName) return shortcutOpenHref(shortcutName)
+  if (isCustomAppScheme(trimmed)) {
+    if (/^[a-z][a-z0-9+.-]*:$/i.test(trimmed)) return `${trimmed}//`
+    return trimmed
+  }
   if (isLatinShortcutName(trimmed)) return shortcutOpenHref(trimmed)
   if (ASCII_SCHEME.test(trimmed)) {
     if (/^[a-z][a-z0-9+.-]*:$/i.test(trimmed)) return `${trimmed}//`
