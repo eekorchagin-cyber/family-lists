@@ -843,6 +843,10 @@ ul {
   margin-top: 20px;
 }
 
+.dialog-actions--loyalty .dialog-actions-remove {
+  grid-column: 1 / -1;
+}
+
 .settings-nav-row {
   display: flex;
   align-items: center;

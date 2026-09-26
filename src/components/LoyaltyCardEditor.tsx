@@ -267,15 +267,14 @@ export function LoyaltyCardEditor({
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPick} />
         {scanError ? <p className="hint">{scanError}</p> : null}
         {card ? <LoyaltyCardView card={card} /> : null}
-        <div className="dialog-actions">
+        <div
+          className={
+            initial || card ? 'dialog-actions dialog-actions--loyalty' : 'dialog-actions'
+          }
+        >
           <button type="button" className="button-secondary" onClick={onClose}>
             Отмена
           </button>
-          {initial || card ? (
-            <button type="button" className="button-danger" onClick={() => onSave(undefined)}>
-              Убрать
-            </button>
-          ) : null}
           <button
             type="button"
             className="button-primary"
@@ -286,6 +285,15 @@ export function LoyaltyCardEditor({
           >
             Сохранить
           </button>
+          {initial || card ? (
+            <button
+              type="button"
+              className="button-danger dialog-actions-remove"
+              onClick={() => onSave(undefined)}
+            >
+              Убрать
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

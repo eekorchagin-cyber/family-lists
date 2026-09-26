@@ -132,6 +132,7 @@ function App() {
     onSetGroupIcon: setGroupIcon,
     onSetStoreIcon: setStoreIcon,
     onSetGroupLoyalty: setGroupLoyalty,
+    onSetStoreLoyalty: setStoreLoyalty,
     onDeleteGroup: deleteGroup,
     onSetStoreGroup: setStoreGroup,
     onReorderStores: reorderStores,

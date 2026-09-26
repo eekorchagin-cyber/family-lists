@@ -19,6 +19,7 @@ import {
   saveHomeOrder,
   type HomeRow,
 } from '../data/homeLayout'
+import { resolveLoyaltyCard } from '../data/loyalty'
 import { APP_VERSION } from '../data/version'
 import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup } from '../types'
 
@@ -38,6 +39,7 @@ type HomeScreenProps = {
   onSetGroupIcon: (groupId: string, icon: string | undefined) => void
   onSetStoreIcon: (storeId: string, icon: string | undefined) => void
   onSetGroupLoyalty: (groupId: string, card: LoyaltyCard | undefined) => void
+  onSetStoreLoyalty: (storeId: string, card: LoyaltyCard | undefined) => void
   onSetStoreGroup: (storeId: string, groupId: string | null) => void
   onReorderStores: (orderedIds: string[]) => void
   onReorderHome: (orderedKeys: string[]) => void
@@ -77,6 +79,12 @@ type Managing =
   | { kind: 'store'; store: Store }
   | { kind: 'group'; group: StoreGroup }
 
+function inheritedGroupCard(store: Store, groups: StoreGroup[]) {
+  if (store.loyaltyCard) return undefined
+  const resolved = resolveLoyaltyCard(store, groups)
+  return resolved?.source === 'group' ? resolved.card : undefined
+}
+
 export function HomeScreen({
   stores,
   groups,
@@ -93,6 +101,7 @@ export function HomeScreen({
   onSetGroupIcon,
   onSetStoreIcon,
   onSetGroupLoyalty,
+  onSetStoreLoyalty,
   onSetStoreGroup,
   onReorderStores,
   onReorderHome,
@@ -122,6 +131,7 @@ export function HomeScreen({
   const [pickingGroupIcon, setPickingGroupIcon] = useState<StoreGroup | null>(null)
   const [pickingStoreIcon, setPickingStoreIcon] = useState<Store | null>(null)
   const [editingGroupCard, setEditingGroupCard] = useState<StoreGroup | null>(null)
+  const [editingStoreCard, setEditingStoreCard] = useState<Store | null>(null)
   const [addingMenu, setAddingMenu] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => loadCollapsedGroups())
   const [homeOrder, setHomeOrder] = useState(() => ensureHomeOrder(stores, groups, loadHomeOrder()))
@@ -754,6 +764,16 @@ export function HomeScreen({
                 type="button"
                 className="button-secondary"
                 onClick={() => {
+                  setEditingStoreCard(managing.store)
+                  setManaging(null)
+                }}
+              >
+                Бонусная карта
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
                   setMovingStore(managing.store)
                   setManaging(null)
                 }}
@@ -997,6 +1017,20 @@ export function HomeScreen({
           onSave={(card) => {
             onSetGroupLoyalty(editingGroupCard.id, card)
             setEditingGroupCard(null)
+          }}
+        />
+      ) : null}
+
+      {editingStoreCard ? (
+        <LoyaltyCardEditor
+          title={`Карта: ${editingStoreCard.name}`}
+          initial={editingStoreCard.loyaltyCard}
+          inherited={inheritedGroupCard(editingStoreCard, groups)}
+          inheritedLabel="группы"
+          onClose={() => setEditingStoreCard(null)}
+          onSave={(card) => {
+            onSetStoreLoyalty(editingStoreCard.id, card)
+            setEditingStoreCard(null)
           }}
         />
       ) : null}
