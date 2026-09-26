@@ -1,4 +1,4 @@
-import { CATEGORY_COLORS, CATEGORY_ICONS } from '../data/categories'
+import { CATEGORY_COLORS, CATEGORY_ICONS, GROUP_ICONS } from '../data/categories'
 import {
   CategorySpecialIcon,
   hasCategorySpecialIcon,
@@ -51,6 +51,21 @@ const ICON_LABELS: Record<string, string> = {
   sink: 'Раковина',
   computer: 'Компьютер',
   deskLamp: 'Настольная лампа',
+  lenta: 'Лента',
+  perekrestok: 'Перекрёсток',
+  krasnoeBeloe: 'Красное и Белое',
+  auchan: 'Ашан',
+  metro: 'METRO',
+  komandor: 'Командор',
+  pyaterochka: 'Пятёрочка',
+  lemanapro: 'Лемана ПРО',
+  baton: 'Батон',
+  ozon: 'OZON',
+  redsale: 'RedSale',
+  kumtigey: 'Кум-Тигей',
+  businessTrip: 'Командировка',
+  seaVacation: 'Отпуск на море',
+  mountainVacation: 'Отпуск в горах',
 }
 
 type CategoryMarkPickerProps = {
@@ -95,7 +110,7 @@ export function CategoryMarkPicker({
       )}
       <p className="field-label">Значок</p>
       <div className="icon-pick">
-        {CATEGORY_ICONS.map((item) => (
+        {(iconsOnly ? [...GROUP_ICONS, ...CATEGORY_ICONS] : CATEGORY_ICONS).map((item) => (
           <button
             key={item.id}
             type="button"

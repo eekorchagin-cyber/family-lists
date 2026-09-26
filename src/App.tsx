@@ -283,8 +283,8 @@ function App() {
               applyTemplate(store.id, templateId)
               setScreen({ name: 'store', storeId: store.id })
             }}
-            onRenameTemplate={(templateId, name) => renameTemplate(store.id, templateId, name)}
-            onDeleteTemplate={(templateId) => deleteTemplate(store.id, templateId)}
+            onRenameTemplate={(templateId, name) => renameTemplate(templateId, name)}
+            onDeleteTemplate={(templateId) => deleteTemplate(templateId)}
             onSaveTemplate={(name) => saveTemplate(store.id, name)}
             onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
             onMoveToStore={(storeId) => transferItems(store.id, storeId, 'move')}

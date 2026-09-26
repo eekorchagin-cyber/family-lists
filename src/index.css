@@ -1264,6 +1264,26 @@ button.category-name-input {
   text-decoration: none;
 }
 
+.loyalty-photo {
+  display: block;
+  width: min(280px, 80vw);
+  height: auto;
+  margin: 0 auto;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.template-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.template-copy .input {
+  width: 100%;
+}
+
 .barcode-svg {
   display: block;
   width: 100%;

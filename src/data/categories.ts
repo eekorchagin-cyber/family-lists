@@ -24,6 +24,24 @@ export const CATEGORY_COLORS = [
   '#111827',
 ]
 
+export const GROUP_ICONS = [
+  { id: 'lenta', glyph: '', keywords: ['лента'] },
+  { id: 'perekrestok', glyph: '', keywords: ['перекрест', 'перекрёст'] },
+  { id: 'krasnoeBeloe', glyph: '', keywords: ['красное и белое', 'красное&белое', 'киб'] },
+  { id: 'auchan', glyph: '', keywords: ['ашан', 'auchan'] },
+  { id: 'metro', glyph: '', keywords: ['метро', 'metro'] },
+  { id: 'komandor', glyph: '', keywords: ['командор'] },
+  { id: 'pyaterochka', glyph: '', keywords: ['пятёроч', 'пятероч', '5ка', '5-ка'] },
+  { id: 'lemanapro', glyph: '', keywords: ['лемана', 'леруа', 'leman'] },
+  { id: 'baton', glyph: '', keywords: ['батон'] },
+  { id: 'ozon', glyph: '', keywords: ['ozon', 'озон'] },
+  { id: 'redsale', glyph: '', keywords: ['redsale', 'red sale', 'redsail', 'редсейл'] },
+  { id: 'kumtigey', glyph: '', keywords: ['кум-тигей', 'кум тигей', 'кумтигей'] },
+  { id: 'seaVacation', glyph: '', keywords: ['отпуск на море', 'на море', 'пляж'] },
+  { id: 'mountainVacation', glyph: '', keywords: ['отпуск в горах', 'в горах'] },
+  { id: 'businessTrip', glyph: '', keywords: ['командиров'] },
+] as const
+
 export const CATEGORY_ICONS = [
   { id: 'dairy', glyph: '🥛', keywords: ['молок', 'кефир', 'йогурт', 'творог', 'сливк'] },
   { id: 'cheese', glyph: '🧀', keywords: ['сыр'] },
@@ -103,26 +121,36 @@ export const CATEGORY_ICONS = [
   { id: 'other', glyph: '📦', keywords: ['друго'] },
 ] as const
 
-export type CategoryIconId = (typeof CATEGORY_ICONS)[number]['id']
+export const ALL_ICONS = [...GROUP_ICONS, ...CATEGORY_ICONS]
+
+export type CategoryIconId = (typeof ALL_ICONS)[number]['id']
 
 export function isCategoryIconId(value: string): value is CategoryIconId {
-  return CATEGORY_ICONS.some((icon) => icon.id === value)
+  return ALL_ICONS.some((icon) => icon.id === value)
 }
 
 export function iconIdFromName(name: string): CategoryIconId {
-  const needle = name.trim().toLowerCase()
-  for (const icon of CATEGORY_ICONS) {
-    if (icon.keywords.some((keyword) => needle.includes(keyword))) return icon.id
+  const needle = name.trim().toLowerCase().replace(/ё/g, 'е')
+  for (const icon of ALL_ICONS) {
+    if (icon.keywords.some((keyword) => needle.includes(keyword.replace(/ё/g, 'е')))) {
+      return icon.id
+    }
   }
   return 'other'
 }
 
+export function resolvedGroupIcon(group: { name: string; icon?: string }): CategoryIconId | undefined {
+  if (group.icon && isCategoryIconId(group.icon)) return group.icon
+  const inferred = iconIdFromName(group.name)
+  return inferred === 'other' ? undefined : inferred
+}
+
 export function categoryGlyph(category: Pick<Category, 'name' | 'icon'>): string {
   if (category.icon && isCategoryIconId(category.icon)) {
-    const match = CATEGORY_ICONS.find((icon) => icon.id === category.icon)
+    const match = ALL_ICONS.find((icon) => icon.id === category.icon)
     if (match) return match.glyph
   }
-  const inferred = CATEGORY_ICONS.find((icon) => icon.id === iconIdFromName(category.name))
+  const inferred = ALL_ICONS.find((icon) => icon.id === iconIdFromName(category.name))
   return inferred?.glyph ?? '📦'
 }
 

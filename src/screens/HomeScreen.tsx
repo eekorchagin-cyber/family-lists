@@ -8,7 +8,7 @@ import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
 import { NameDialog } from '../components/NameDialog'
 import { SettingsIcon } from '../components/SettingsIcon'
 import { isStoreInBadge } from '../data/appBadge'
-import { storeHasLocalCategories } from '../data/categories'
+import { resolvedGroupIcon, storeHasLocalCategories } from '../data/categories'
 import {
   buildHomeRows,
   ensureHomeOrder,
@@ -563,13 +563,13 @@ export function HomeScreen({
                         <span className="store-group-chevron" aria-hidden="true">
                           {isCollapsed ? '▸' : '▾'}
                         </span>
-                        {row.group.icon ? (
+                        {resolvedGroupIcon(row.group) ? (
                           <CategoryMark
                             className="category-mark-sm"
                             category={{
                               name: row.group.name,
                               color: 'none',
-                              icon: row.group.icon,
+                              icon: resolvedGroupIcon(row.group),
                             }}
                           />
                         ) : null}
@@ -896,14 +896,14 @@ export function HomeScreen({
             <CategoryMarkPicker
               iconsOnly
               color="none"
-              icon={pickingGroupIcon.icon ?? ''}
+              icon={resolvedGroupIcon(pickingGroupIcon) ?? ''}
               onColor={() => {}}
               onIcon={(icon) => {
                 onSetGroupIcon(pickingGroupIcon.id, icon)
                 setPickingGroupIcon(null)
               }}
             />
-            {pickingGroupIcon.icon ? (
+            {resolvedGroupIcon(pickingGroupIcon) ? (
               <button
                 type="button"
                 className="button-secondary"

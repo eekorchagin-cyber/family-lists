@@ -2,9 +2,11 @@ import { useRef, useState, type ChangeEvent } from 'react'
 import {
   canDetectBarcode,
   detectCodeFromFile,
+  fileToLoyaltyImage,
   looksLikeUrl,
   loyaltyKindFromFormat,
 } from '../data/loyalty'
+import { LOYALTY_APPS } from '../data/loyaltyApps'
 import type { LoyaltyCard, LoyaltyKind } from '../types'
 import { LoyaltyCardView } from './LoyaltyCardView'
 
@@ -35,40 +37,61 @@ export function LoyaltyCardEditor({
   const [value, setValue] = useState(initial?.value ?? '')
   const [label, setLabel] = useState(initial?.label ?? '')
   const [format, setFormat] = useState(initial?.format ?? '')
+  const [image, setImage] = useState(initial?.image ?? '')
   const [scanError, setScanError] = useState('')
   const cameraRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const canDetect = canDetectBarcode()
 
-  const card: LoyaltyCard | undefined = value.trim()
-    ? {
-        kind,
-        value: value.trim(),
-        ...(format.trim() ? { format: format.trim() } : {}),
-        ...(label.trim() ? { label: label.trim() } : {}),
-      }
-    : undefined
+  const card: LoyaltyCard | undefined =
+    value.trim() || (kind !== 'app' && image)
+      ? {
+          kind,
+          value: value.trim(),
+          ...(format.trim() ? { format: format.trim() } : {}),
+          ...(label.trim() ? { label: label.trim() } : {}),
+          ...(kind !== 'app' && image ? { image } : {}),
+        }
+      : undefined
 
   async function onPick(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
     setScanError('')
+    const snapshot = await fileToLoyaltyImage(file)
     try {
-      const found = await detectCodeFromFile(file)
-      if (!found) {
+      const found = canDetect ? await detectCodeFromFile(file) : null
+      if (found) {
+        const nextKind = looksLikeUrl(found.value) ? 'app' : loyaltyKindFromFormat(found.format)
+        setKind(nextKind)
+        setValue(found.value)
+        setFormat(found.format)
+        setImage('')
+        return
+      }
+      if (snapshot) {
+        if (kind === 'app') setKind('barcode')
+        setImage(snapshot)
         setScanError(
           canDetect
-            ? 'На фото не найден штрихкод или QR. Введите код вручную.'
-            : 'Этот телефон не умеет разбирать код с фото. Введите его вручную.',
+            ? 'Код с фото не разобрали — сохраним снимок карты.'
+            : 'Этот телефон не разбирает код с фото — сохраним снимок штрих-кода.',
         )
         return
       }
-      const nextKind = looksLikeUrl(found.value) ? 'app' : loyaltyKindFromFormat(found.format)
-      setKind(nextKind)
-      setValue(found.value)
-      setFormat(found.format)
+      setScanError(
+        canDetect
+          ? 'На фото не найден штрихкод или QR. Введите код вручную.'
+          : 'Не удалось сохранить снимок. Введите код вручную.',
+      )
     } catch {
+      if (snapshot) {
+        if (kind === 'app') setKind('barcode')
+        setImage(snapshot)
+        setScanError('Код не разобрали — сохраним снимок карты.')
+        return
+      }
       setScanError('Не удалось прочитать фото.')
     }
   }
@@ -95,15 +118,39 @@ export function LoyaltyCardEditor({
             </button>
           ))}
         </div>
-        <label className="field-label" htmlFor="loyalty-value">
-          {kind === 'app' ? 'Ссылка на приложение' : 'Код'}
-        </label>
+        {kind === 'app' ? (
+          <>
+            <p className="field-label">Приложение на телефоне</p>
+            <div className="choice-row">
+              {LOYALTY_APPS.map((app) => (
+                <button
+                  key={app.id}
+                  type="button"
+                  className={value === app.url ? 'choice active' : 'choice'}
+                  onClick={() => {
+                    setValue(app.url)
+                    if (!label.trim()) setLabel(app.name)
+                  }}
+                >
+                  {app.name}
+                </button>
+              ))}
+            </div>
+            <label className="field-label" htmlFor="loyalty-value">
+              Ссылка или схема приложения
+            </label>
+          </>
+        ) : (
+          <label className="field-label" htmlFor="loyalty-value">
+            Код
+          </label>
+        )}
         <input
           id="loyalty-value"
           className="input"
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder={kind === 'app' ? 'https://' : 'Номер с карты'}
+          placeholder={kind === 'app' ? 'pyaterochka:// или https://' : 'Номер с карты'}
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
@@ -118,22 +165,24 @@ export function LoyaltyCardEditor({
           onChange={(event) => setLabel(event.target.value)}
           placeholder="Например, Пятёрочка"
         />
-        <div className="choice-row">
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => cameraRef.current?.click()}
-          >
-            Сфотографировать
-          </button>
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => fileRef.current?.click()}
-          >
-            Из фото
-          </button>
-        </div>
+        {kind !== 'app' ? (
+          <div className="choice-row">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => cameraRef.current?.click()}
+            >
+              Сфотографировать
+            </button>
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => fileRef.current?.click()}
+            >
+              Из фото
+            </button>
+          </div>
+        ) : null}
         <input
           ref={cameraRef}
           type="file"
@@ -144,11 +193,6 @@ export function LoyaltyCardEditor({
         />
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPick} />
         {scanError ? <p className="hint">{scanError}</p> : null}
-        {!canDetect ? (
-          <p className="hint" style={{ opacity: 0.75 }}>
-            Разбор кода с фото есть не на всех телефонах. Код можно ввести руками.
-          </p>
-        ) : null}
         {card ? <LoyaltyCardView card={card} /> : null}
         <div className="dialog-actions">
           <button type="button" className="button-secondary" onClick={onClose}>

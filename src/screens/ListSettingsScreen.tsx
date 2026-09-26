@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AddIconButton } from '../components/AddIconButton'
 import { AddListCategoryDialog } from '../components/AddListCategoryDialog'
 import { CategoryMark } from '../components/CategoryMark'
@@ -12,6 +12,7 @@ import { BackIcon } from '../components/NavIcons'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { resolveLoyaltyCard } from '../data/loyalty'
+import { sharedTemplates } from '../data/templates'
 import type { Category, CategorySort, Item, LoyaltyCard, Store, StoreGroup, StoreVisibility } from '../types'
 
 type ListSettingsSection = 'list' | 'categories' | 'templates' | 'transfer'
@@ -19,7 +20,7 @@ type ListSettingsSection = 'list' | 'categories' | 'templates' | 'transfer'
 const SECTIONS: { id: ListSettingsSection; title: string; hint: string }[] = [
   { id: 'list', title: 'Список', hint: 'Название, кто видит и удаление' },
   { id: 'categories', title: 'Категории', hint: 'Отделы этого списка' },
-  { id: 'templates', title: 'Шаблоны', hint: 'Заполнить список' },
+  { id: 'templates', title: 'Шаблоны', hint: 'Из любого списка' },
   { id: 'transfer', title: 'В другой список', hint: 'Копирование и перенос' },
 ]
 
@@ -140,6 +141,10 @@ export function ListSettingsScreen({
   const custom = store.categorySort === 'custom'
   const title = section ? SECTION_TITLES[section] : 'Настройки'
   const goBack = section ? () => setSection(null) : onBack
+  const templates = useMemo(
+    () => sharedTemplates([store, ...otherStores]),
+    [otherStores, store],
+  )
 
   return (
     <div className="screen">
@@ -183,6 +188,11 @@ export function ListSettingsScreen({
                 сразу.
               </p>
             </>
+          ) : section === 'templates' ? (
+            <p>
+              Шаблон, сохранённый в любом списке или группе, можно подставить сюда. Категории
+              подбираются по названию отдела.
+            </p>
           ) : section === 'transfer' && otherStores.length > 0 ? (
             <p>
               Скопировать или перенести можно некупленные товары. Купленные остаются на
@@ -371,25 +381,30 @@ export function ListSettingsScreen({
 
         {section === 'templates' && (
           <section className="settings-block">
-            {(store.templates ?? []).length === 0 ? (
-              <p className="hint">Пока нет шаблонов</p>
+            {templates.length === 0 ? (
+              <p className="hint">Пока нет шаблонов ни в одном списке</p>
             ) : (
               <ul className="template-list">
-                {(store.templates ?? []).map((template) => (
+                {templates.map(({ storeId, storeName, template }) => (
                   <li key={template.id} className="template-row">
-                    <input
-                      className="input category-name-input"
-                      defaultValue={template.name}
-                      aria-label={`Название шаблона ${template.name}`}
-                      onBlur={(event) => {
-                        const next = event.target.value.trim()
-                        if (!next) {
-                          event.target.value = template.name
-                          return
-                        }
-                        onRenameTemplate(template.id, next)
-                      }}
-                    />
+                    <div className="template-copy">
+                      <input
+                        className="input category-name-input"
+                        defaultValue={template.name}
+                        aria-label={`Название шаблона ${template.name}`}
+                        onBlur={(event) => {
+                          const next = event.target.value.trim()
+                          if (!next) {
+                            event.target.value = template.name
+                            return
+                          }
+                          onRenameTemplate(template.id, next)
+                        }}
+                      />
+                      {storeId !== store.id ? (
+                        <span className="settings-nav-hint">из списка {storeName}</span>
+                      ) : null}
+                    </div>
                     <button
                       type="button"
                       className="button-secondary template-action"

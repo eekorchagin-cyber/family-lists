@@ -1,5 +1,6 @@
 import { BarcodeSvg } from './BarcodeSvg'
 import { QrImage } from './QrImage'
+import { openLoyaltyApp } from '../data/loyaltyApps'
 import type { LoyaltyCard } from '../types'
 
 export function LoyaltyCardView({
@@ -14,14 +15,26 @@ export function LoyaltyCardView({
     return (
       <div className={large ? 'loyalty-view loyalty-view--large' : 'loyalty-view'}>
         {card.label ? <p className="loyalty-view-label">{card.label}</p> : null}
-        <a className="button-primary loyalty-app-link" href={card.value} target="_blank" rel="noreferrer">
-          Открыть приложение магазина
-        </a>
+        <button
+          type="button"
+          className="button-primary loyalty-app-link"
+          onClick={() => openLoyaltyApp(card.value)}
+        >
+          Открыть приложение
+        </button>
         <p className="hint loyalty-view-url">{card.value}</p>
       </div>
     )
   }
-  if (card.kind === 'qr') {
+  if (card.image && !card.value.trim()) {
+    return (
+      <div className={large ? 'loyalty-view loyalty-view--large' : 'loyalty-view'}>
+        {card.label ? <p className="loyalty-view-label">{card.label}</p> : null}
+        <img className="loyalty-photo" src={card.image} alt={label || 'Штрихкод'} />
+      </div>
+    )
+  }
+  if (card.kind === 'qr' && card.value.trim()) {
     return (
       <div className={large ? 'loyalty-view loyalty-view--large' : 'loyalty-view'}>
         {card.label ? <p className="loyalty-view-label">{card.label}</p> : null}
@@ -29,12 +42,15 @@ export function LoyaltyCardView({
       </div>
     )
   }
-  return (
-    <div className={large ? 'loyalty-view loyalty-view--large' : 'loyalty-view'}>
-      {card.label ? <p className="loyalty-view-label">{card.label}</p> : null}
-      <BarcodeSvg value={card.value} format={card.format} label={label} />
-    </div>
-  )
+  if (card.value.trim()) {
+    return (
+      <div className={large ? 'loyalty-view loyalty-view--large' : 'loyalty-view'}>
+        {card.label ? <p className="loyalty-view-label">{card.label}</p> : null}
+        <BarcodeSvg value={card.value} format={card.format} label={label} />
+      </div>
+    )
+  }
+  return null
 }
 
 export function LoyaltyCardSheet({

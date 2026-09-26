@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { CategoryIconId } from '../data/categories'
+import { GROUP_SPECIAL_ICONS } from './GroupBrandIcons'
 import { WestieIcon } from './WestieIcon'
 
 function IconSvg({ children }: { children: ReactNode }) {
@@ -460,6 +461,7 @@ const SPECIAL_ICONS: Partial<Record<CategoryIconId, () => ReactNode>> = {
   sink: () => <SinkIcon />,
   computer: () => <ComputerIcon />,
   deskLamp: () => <DeskLampIcon />,
+  ...GROUP_SPECIAL_ICONS,
 }
 
 export function CategorySpecialIcon({ id }: { id: string }) {

@@ -24,6 +24,7 @@ import { queueDeleted } from '../data/sync/deletes'
 import { markDirty } from '../data/sync/dirty'
 import { applyStoreOrder, nowIso, withUpdatedAt } from '../data/sync/merge'
 import { loadSession } from '../data/sync/session'
+import { findSharedTemplate, mapTemplateCategoryId } from '../data/templates'
 import type {
   AppData,
   CatalogEntry,
@@ -646,8 +647,15 @@ export function useAppState() {
   const applyTemplate = useCallback((storeId: string, templateId: string) => {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
-      const template = store?.templates?.find((item) => item.id === templateId)
-      if (!template) return current
+      const found = findSharedTemplate(current.stores, templateId)
+      if (!store || !found) return current
+      const template = {
+        ...found.template,
+        items: found.template.items.map((entry) => ({
+          ...entry,
+          categoryId: mapTemplateCategoryId(entry, store, current.categories),
+        })),
+      }
       forgetCleared(storeId)
 
       let items = [...current.items]
@@ -692,14 +700,16 @@ export function useAppState() {
     })
   }, [forgetCleared])
 
-  const renameTemplate = useCallback((storeId: string, templateId: string, name: string) => {
+  const renameTemplate = useCallback((templateId: string, name: string) => {
     const trimmed = name.trim()
     if (!trimmed) return
     setData((current) => {
-      const store = current.stores.find((item) => item.id === storeId)
+      const found = findSharedTemplate(current.stores, templateId)
+      if (!found) return current
+      const store = current.stores.find((item) => item.id === found.storeId)
       if (!store) return current
       return persist(
-        patchStore(current, storeId, {
+        patchStore(current, found.storeId, {
           templates: (store.templates ?? []).map((item) =>
             item.id === templateId ? { ...item, name: trimmed } : item,
           ),
@@ -708,12 +718,14 @@ export function useAppState() {
     })
   }, [])
 
-  const deleteTemplate = useCallback((storeId: string, templateId: string) => {
+  const deleteTemplate = useCallback((templateId: string) => {
     setData((current) => {
-      const store = current.stores.find((item) => item.id === storeId)
+      const found = findSharedTemplate(current.stores, templateId)
+      if (!found) return current
+      const store = current.stores.find((item) => item.id === found.storeId)
       if (!store) return current
       return persist(
-        patchStore(current, storeId, {
+        patchStore(current, found.storeId, {
           templates: (store.templates ?? []).filter((item) => item.id !== templateId),
         }),
       )
@@ -884,7 +896,13 @@ export function useAppState() {
     if (!trimmed) return undefined
     const id = newId()
     setData((current) => {
-      const group: StoreGroup = { id, name: trimmed, updatedAt: nowIso() }
+      const inferred = iconIdFromName(trimmed)
+      const group: StoreGroup = {
+        id,
+        name: trimmed,
+        updatedAt: nowIso(),
+        ...(inferred !== 'other' ? { icon: inferred } : {}),
+      }
       const next = persist({ ...current, groups: [...(current.groups ?? []), group] })
       saveHomeOrder(ensureHomeOrder(next.stores, next.groups, [...loadHomeOrder(), groupHomeKey(id)]))
       return next
@@ -896,9 +914,16 @@ export function useAppState() {
     const trimmed = name.trim()
     if (!trimmed) return
     setData((current) => {
-      const groups = (current.groups ?? []).map((group) =>
-        group.id === groupId ? withUpdatedAt({ ...group, name: trimmed }) : group,
-      )
+      const groups = (current.groups ?? []).map((group) => {
+        if (group.id !== groupId) return group
+        const oldInferred = iconIdFromName(group.name)
+        const nextInferred = iconIdFromName(trimmed)
+        const keepCustom = group.icon && group.icon !== oldInferred
+        const icon = keepCustom ? group.icon : nextInferred === 'other' ? undefined : nextInferred
+        const next = withUpdatedAt({ ...group, name: trimmed, icon })
+        if (!icon) delete next.icon
+        return next
+      })
       if (groups.every((group, index) => group === (current.groups ?? [])[index])) return current
       return persist({ ...current, groups })
     })

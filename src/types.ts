@@ -34,6 +34,8 @@ export type LoyaltyCard = {
   value: string
   format?: string
   label?: string
+  /** Снимок штрих-кода, если телефон не разобрал код. */
+  image?: string
 }
 
 export type StoreGroup = {
