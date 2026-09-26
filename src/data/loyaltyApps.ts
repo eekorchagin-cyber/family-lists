@@ -1,3 +1,5 @@
+import { isAppleMobile } from './sync/codes'
+
 function isAndroid(): boolean {
   return typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
 }
@@ -9,6 +11,18 @@ function playPackage(value: string): string | null {
   return null
 }
 
+const ASCII_SCHEME = /^[a-z][a-z0-9+.-]*:/i
+
+function looksLikeDomain(value: string): boolean {
+  return /^(?:www\.)?[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:[/?#].*)?$/i.test(value)
+}
+
+export function shortcutOpenHref(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) return ''
+  return `shortcuts://run-shortcut?name=${encodeURIComponent(trimmed)}`
+}
+
 export function loyaltyAppHref(value: string): string {
   const trimmed = value.trim()
   if (!trimmed) return ''
@@ -17,23 +31,45 @@ export function loyaltyAppHref(value: string): string {
   if (pkg && isAndroid()) {
     return `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${pkg};end`
   }
-  return trimmed
+  if (ASCII_SCHEME.test(trimmed)) {
+    if (/^[a-z][a-z0-9+.-]*:$/i.test(trimmed)) return `${trimmed}//`
+    return trimmed
+  }
+  if (looksLikeDomain(trimmed)) return `https://${trimmed}`
+  return ''
+}
+
+export function loyaltyAppError(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return 'Вставьте ссылку, которой iPhone открывает программу.'
+  if (loyaltyAppHref(trimmed)) return ''
+  if (/[а-яё]/i.test(trimmed)) {
+    return 'Русское имя вроде «КопилкаДоставка://» Safari считает страницей сайта — GitHub отвечает «File not found». Название пишите в поле выше. В ссылку — https://…, латинскую схему myapp:// или shortcuts://run-shortcut?name=Kopilka'
+  }
+  return 'Нужна ссылка https://… или латинская схема myapp://. На iPhone надёжный способ: «Команды» → «Открыть приложение» и ссылка shortcuts://run-shortcut?name=ИмяКоманды'
 }
 
 /** Открыть программу. Без noreferrer — иначе iOS не отдаёт custom scheme установленному приложению. */
-export function openLoyaltyApp(value: string): void {
+export function openLoyaltyApp(value: string): boolean {
   const href = loyaltyAppHref(value)
-  if (!href) return
+  if (!href) return false
   window.location.assign(href)
+  return true
 }
 
-/** Системный список установленных приложений (Android). С веб-страницы выбрать пакет и вернуть его нельзя. */
+/** Android: список установленных. iPhone: приложение «Команды», оттуда открывают любую программу. */
 export function openInstalledAppsList(): boolean {
-  if (!isAndroid()) return false
-  window.location.assign(
-    'intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end',
-  )
-  return true
+  if (isAndroid()) {
+    window.location.assign(
+      'intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end',
+    )
+    return true
+  }
+  if (isAppleMobile()) {
+    window.location.assign('shortcuts://')
+    return true
+  }
+  return false
 }
 
 export async function readClipboardLink(): Promise<string> {
@@ -59,7 +95,7 @@ export function captureSharedAppFromLocation(): void {
   const params = new URLSearchParams(window.location.search)
   const url = (params.get('url') ?? params.get('text') ?? '').trim()
   if (!url) return
-  if (!/^(https?:|intent:|[a-z][a-z0-9+.-]*:)/i.test(url) && !playPackage(url)) return
+  if (!ASCII_SCHEME.test(url) && !playPackage(url) && !looksLikeDomain(url)) return
   try {
     sessionStorage.setItem('pokupki-shared-app', url)
     const title = (params.get('title') ?? '').trim()

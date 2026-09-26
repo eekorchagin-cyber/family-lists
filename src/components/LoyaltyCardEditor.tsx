@@ -6,7 +6,9 @@ import {
   looksLikeUrl,
   loyaltyKindFromFormat,
 } from '../data/loyalty'
+import { isAppleMobile } from '../data/sync/codes'
 import {
+  loyaltyAppError,
   openInstalledAppsList,
   openLoyaltyApp,
   readClipboardLink,
@@ -125,11 +127,14 @@ export function LoyaltyCardEditor({
   }
 
   function pickOnPhone() {
+    const ios = isAppleMobile()
     const opened = openInstalledAppsList()
     setScanError(
-      opened
-        ? 'Откройте нужную программу из списка установленных, скопируйте из неё ссылку (Поделиться) и вернитесь сюда — «Вставить ссылку».'
-        : 'Откройте нужную программу на телефоне и скопируйте ссылку (Поделиться). Затем «Вставить ссылку». Имя программы может быть любым.',
+      ios
+        ? 'Откроется «Команды». Новая команда → «Открыть приложение» → выберите программу. Назовите команду латиницей, например Kopilka. Сюда вставьте: shortcuts://run-shortcut?name=Kopilka'
+        : opened
+          ? 'Откройте нужную программу из списка установленных, скопируйте из неё ссылку (Поделиться) и вернитесь сюда — «Вставить ссылку».'
+          : 'Откройте нужную программу на телефоне и скопируйте ссылку (Поделиться). Затем «Вставить ссылку». Имя программы может быть любым.',
     )
   }
 
@@ -175,14 +180,14 @@ export function LoyaltyCardEditor({
               className="input"
               value={value}
               onChange={(event) => setValue(event.target.value)}
-              placeholder="Ссылка из приложения или Поделиться"
+              placeholder="https://… или shortcuts://run-shortcut?name=Kopilka"
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
             />
             <div className="choice-row">
               <button type="button" className="button-secondary" onClick={pickOnPhone}>
-                Выбрать приложение на телефоне
+                {isAppleMobile() ? 'Открыть «Команды»' : 'Выбрать приложение на телефоне'}
               </button>
               <button type="button" className="button-secondary" onClick={() => void pasteLink()}>
                 Вставить ссылку
@@ -191,16 +196,19 @@ export function LoyaltyCardEditor({
                 <button
                   type="button"
                   className="button-secondary"
-                  onClick={() => openLoyaltyApp(value)}
+                  onClick={() => {
+                    if (!openLoyaltyApp(value)) setScanError(loyaltyAppError(value))
+                  }}
                 >
                   Проверить открытие
                 </button>
               ) : null}
             </div>
             <p className="hint">
-              Со страницы нельзя показать весь список программ телефона. На Android кнопка открывает
-              установленные приложения. Дальше скопируйте ссылку из выбранной программы и вставьте
-              сюда. Можно поделиться ссылкой из приложения в «Возьми».
+              Название программы и ссылка — разные поля. Русское имя в ссылку ставить нельзя:
+              Safari примет его за страницу сайта. На iPhone: «Команды» → действие «Открыть
+              приложение» → ссылка shortcuts://run-shortcut?name=ИмяКоманды. Либо https:// из
+              «Поделиться», если программа его отдаёт.
             </p>
           </>
         ) : (

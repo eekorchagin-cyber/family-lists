@@ -1,6 +1,6 @@
 import { BarcodeSvg } from './BarcodeSvg'
 import { QrImage } from './QrImage'
-import { openLoyaltyApp } from '../data/loyaltyApps'
+import { loyaltyAppError, loyaltyAppHref, openLoyaltyApp } from '../data/loyaltyApps'
 import type { LoyaltyCard } from '../types'
 
 export function LoyaltyCardView({
@@ -23,6 +23,9 @@ export function LoyaltyCardView({
           Открыть приложение
         </button>
         <p className="hint loyalty-view-url">{card.value}</p>
+        {loyaltyAppHref(card.value) ? null : (
+          <p className="hint">{loyaltyAppError(card.value)}</p>
+        )}
       </div>
     )
   }
