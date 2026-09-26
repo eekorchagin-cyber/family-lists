@@ -1,12 +1,22 @@
 {
   "name": "Возьми",
   "short_name": "Возьми",
-  "start_url": "./?v=20260926-2034",
+  "start_url": "./?v=20260926-2233",
   "scope": "./",
   "display": "standalone",
   "background_color": "#209055",
   "theme_color": "#2a7a4f",
   "lang": "ru",
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
   "icons": [
     {
       "src": "icon-192.png",
