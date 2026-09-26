@@ -23,6 +23,24 @@ export function shortcutOpenHref(name: string): string {
   return `shortcuts://run-shortcut?name=${encodeURIComponent(trimmed)}`
 }
 
+export function parseShortcutName(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const query = /^(?:shortcuts:\/\/run-shortcut\?)(.+)$/i.exec(trimmed)
+  if (query) {
+    try {
+      return new URLSearchParams(query[1]).get('name')?.trim() ?? ''
+    } catch {
+      return ''
+    }
+  }
+  return ''
+}
+
+export function isLatinShortcutName(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9 ._-]{0,63}$/.test(value.trim())
+}
+
 export function loyaltyAppHref(value: string): string {
   const trimmed = value.trim()
   if (!trimmed) return ''
@@ -31,6 +49,9 @@ export function loyaltyAppHref(value: string): string {
   if (pkg && isAndroid()) {
     return `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${pkg};end`
   }
+  const shortcutName = parseShortcutName(trimmed)
+  if (shortcutName) return shortcutOpenHref(shortcutName)
+  if (isLatinShortcutName(trimmed)) return shortcutOpenHref(trimmed)
   if (ASCII_SCHEME.test(trimmed)) {
     if (/^[a-z][a-z0-9+.-]*:$/i.test(trimmed)) return `${trimmed}//`
     return trimmed
@@ -41,12 +62,12 @@ export function loyaltyAppHref(value: string): string {
 
 export function loyaltyAppError(value: string): string {
   const trimmed = value.trim()
-  if (!trimmed) return 'Вставьте ссылку, которой iPhone открывает программу.'
+  if (!trimmed) return 'Введите латинское имя быстрой команды или ссылку https://…'
   if (loyaltyAppHref(trimmed)) return ''
   if (/[а-яё]/i.test(trimmed)) {
-    return 'Русское имя вроде «КопилкаДоставка://» Safari считает страницей сайта — GitHub отвечает «File not found». Название пишите в поле выше. В ссылку — https://…, латинскую схему myapp:// или shortcuts://run-shortcut?name=Kopilka'
+    return 'Имя команды — латиницей, как в «Командах», например Kopilka. Русское имя Safari считает страницей сайта.'
   }
-  return 'Нужна ссылка https://… или латинская схема myapp://. На iPhone надёжный способ: «Команды» → «Открыть приложение» и ссылка shortcuts://run-shortcut?name=ИмяКоманды'
+  return 'Для «Команд» достаточно имени латиницей. Либо вставьте ссылку https://…'
 }
 
 /** Открыть программу. Без noreferrer — иначе iOS не отдаёт custom scheme установленному приложению. */
