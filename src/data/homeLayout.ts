@@ -4,6 +4,7 @@ import { parseLoyaltyCard } from './loyalty'
 export const HOME_ORDER_KEY = 'pokupki-home-order'
 export const GROUP_COLLAPSED_KEY = 'pokupki-group-collapsed'
 export const GROUPS_CATALOG_ID = '__pokupki_groups__'
+export const STORE_ICON_KEY = '__ic'
 export const GROUP_NAME_KEY = '__g'
 export const GROUP_TITLE_KEY = '__gn'
 
@@ -188,6 +189,28 @@ export function withGroupMarker(
     [GROUP_NAME_KEY]: groupId,
     ...(groupName?.trim() ? { [GROUP_TITLE_KEY]: groupName.trim() } : {}),
   }
+}
+
+export function stripStoreIcon(names: Record<string, string>): {
+  names: Record<string, string>
+  icon?: string
+} {
+  const next: Record<string, string> = {}
+  let icon: string | undefined
+  for (const [key, value] of Object.entries(names)) {
+    if (key === STORE_ICON_KEY) {
+      if (value.trim()) icon = value.trim()
+      continue
+    }
+    next[key] = value
+  }
+  return { names: next, ...(icon ? { icon } : {}) }
+}
+
+export function withStoreIcon(names: Record<string, string>, icon: string | undefined): Record<string, string> {
+  const { names: clean } = stripStoreIcon(names)
+  if (!icon?.trim()) return clean
+  return { ...clean, [STORE_ICON_KEY]: icon.trim() }
 }
 
 /** Собираем группы из метаданных списков — запасной канал, если catalog пуст. */

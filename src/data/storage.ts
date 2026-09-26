@@ -14,7 +14,7 @@ import backup from './backup.json'
 import { isLocalHost } from './sync/codes'
 import { appendCategoryToStores } from './categories'
 import { markDirty } from './sync/dirty'
-import { groupsFromStores, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker } from './homeLayout'
+import { groupsFromStores, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker, stripStoreIcon } from './homeLayout'
 import { parseLoyaltyCard, stripLoyaltyMarker } from './loyalty'
 import {
   createDefaultData,
@@ -128,12 +128,17 @@ function normalizeStore(value: unknown): Store | null {
 
   const defaults = emptyStoreFields()
   const marked = stripGroupMarker(normalizeCategoryNames(value.categoryNames))
-  const loyalty = stripLoyaltyMarker(marked.names)
+  const iconed = stripStoreIcon(marked.names)
+  const loyalty = stripLoyaltyMarker(iconed.names)
   const groupId =
     typeof value.groupId === 'string' && value.groupId.trim()
       ? value.groupId.trim()
       : marked.groupId
   const loyaltyCard = parseLoyaltyCard(value.loyaltyCard) ?? loyalty.card
+  const icon =
+    typeof value.icon === 'string' && value.icon.trim()
+      ? value.icon.trim()
+      : iconed.icon
   return {
     id: value.id,
     name: value.name,
@@ -146,6 +151,7 @@ function normalizeStore(value: unknown): Store | null {
     visibility: value.visibility === 'home' ? 'home' : 'private',
     ...(typeof value.ownerId === 'string' ? { ownerId: value.ownerId } : {}),
     ...(groupId ? { groupId } : {}),
+    ...(icon ? { icon } : {}),
     ...(loyaltyCard ? { loyaltyCard } : {}),
     ...(typeof value.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
   }

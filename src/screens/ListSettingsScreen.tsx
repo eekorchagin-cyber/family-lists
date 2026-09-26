@@ -281,7 +281,7 @@ export function ListSettingsScreen({
                     ? store.loyaltyCard.label || 'Своя карта этого списка'
                     : resolveLoyaltyCard(store, groups)?.source === 'group'
                       ? 'Как у группы — можно задать отдельную для списка'
-                      : 'Нет карты. Добавьте штрихкод, QR или ссылку на приложение магазина.'}
+                      : 'Нет карты. Добавьте штрихкод, QR или приложение с телефона.'}
                 </p>
                 <button
                   type="button"

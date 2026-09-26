@@ -20,6 +20,12 @@ export function isStoreInBadge(storeId: string, settings: Settings): boolean {
   return !excludedBadgeStoreIds(settings).includes(storeId)
 }
 
+export function isGroupInBadge(groupId: string, stores: Store[], settings: Settings): boolean {
+  const nested = stores.filter((store) => store.groupId === groupId)
+  if (nested.length === 0) return true
+  return nested.some((store) => isStoreInBadge(store.id, settings))
+}
+
 export function withBadgeStore(settings: Settings, storeId: string, included: boolean): Settings {
   const excluded = excludedBadgeStoreIds(settings)
   const isExcluded = excluded.includes(storeId)

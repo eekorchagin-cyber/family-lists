@@ -7,7 +7,7 @@ import { Header } from '../components/Header'
 import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
 import { NameDialog } from '../components/NameDialog'
 import { SettingsIcon } from '../components/SettingsIcon'
-import { isStoreInBadge } from '../data/appBadge'
+import { isGroupInBadge, isStoreInBadge } from '../data/appBadge'
 import { resolvedGroupIcon, storeHasLocalCategories } from '../data/categories'
 import {
   buildHomeRows,
@@ -36,6 +36,7 @@ type HomeScreenProps = {
   onRenameGroup: (groupId: string, name: string) => void
   onDeleteGroup: (groupId: string) => void
   onSetGroupIcon: (groupId: string, icon: string | undefined) => void
+  onSetStoreIcon: (storeId: string, icon: string | undefined) => void
   onSetGroupLoyalty: (groupId: string, card: LoyaltyCard | undefined) => void
   onSetStoreGroup: (storeId: string, groupId: string | null) => void
   onReorderStores: (orderedIds: string[]) => void
@@ -90,6 +91,7 @@ export function HomeScreen({
   onRenameGroup,
   onDeleteGroup,
   onSetGroupIcon,
+  onSetStoreIcon,
   onSetGroupLoyalty,
   onSetStoreGroup,
   onReorderStores,
@@ -118,6 +120,7 @@ export function HomeScreen({
   const [deletingGroup, setDeletingGroup] = useState<StoreGroup | null>(null)
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [pickingGroupIcon, setPickingGroupIcon] = useState<StoreGroup | null>(null)
+  const [pickingStoreIcon, setPickingStoreIcon] = useState<Store | null>(null)
   const [editingGroupCard, setEditingGroupCard] = useState<StoreGroup | null>(null)
   const [addingMenu, setAddingMenu] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => loadCollapsedGroups())
@@ -577,7 +580,14 @@ export function HomeScreen({
                         <span className="store-local-mark">{nestedCount}</span>
                       </span>
                       {(unboughtByGroupId.get(row.group.id) ?? 0) > 0 ? (
-                        <span className="store-unbought-count" aria-label="Некуплено">
+                        <span
+                          className={
+                            isGroupInBadge(row.group.id, stores, settings)
+                              ? 'store-unbought-count'
+                              : 'store-unbought-count store-unbought-count--outline'
+                          }
+                          aria-label="Некуплено"
+                        >
                           {unboughtByGroupId.get(row.group.id)}
                         </span>
                       ) : null}
@@ -635,6 +645,16 @@ export function HomeScreen({
                       <span />
                     </span>
                     <span className="store-name">
+                      {resolvedGroupIcon(store) ? (
+                        <CategoryMark
+                          className="category-mark-sm"
+                          category={{
+                            name: store.name,
+                            color: 'none',
+                            icon: resolvedGroupIcon(store),
+                          }}
+                        />
+                      ) : null}
                       <span className="store-name-text">{store.name}</span>
                       {storeHasLocalCategories(categories, store.id) ? (
                         <span className="store-local-mark">свои</span>
@@ -719,6 +739,16 @@ export function HomeScreen({
                 }}
               >
                 Переименовать
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  setPickingStoreIcon(managing.store)
+                  setManaging(null)
+                }}
+              >
+                Значок
               </button>
               <button
                 type="button"
@@ -917,6 +947,41 @@ export function HomeScreen({
             ) : null}
             <div className="dialog-actions">
               <button type="button" className="button-secondary" onClick={() => setPickingGroupIcon(null)}>
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pickingStoreIcon ? (
+        <div className="overlay overlay--capture" role="presentation" onClick={() => setPickingStoreIcon(null)}>
+          <div className="dialog" onClick={(event) => event.stopPropagation()}>
+            <h2>Значок списка</h2>
+            <CategoryMarkPicker
+              iconsOnly
+              color="none"
+              icon={resolvedGroupIcon(pickingStoreIcon) ?? ''}
+              onColor={() => {}}
+              onIcon={(icon) => {
+                onSetStoreIcon(pickingStoreIcon.id, icon)
+                setPickingStoreIcon(null)
+              }}
+            />
+            {resolvedGroupIcon(pickingStoreIcon) ? (
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  onSetStoreIcon(pickingStoreIcon.id, undefined)
+                  setPickingStoreIcon(null)
+                }}
+              >
+                Без значка
+              </button>
+            ) : null}
+            <div className="dialog-actions">
+              <button type="button" className="button-secondary" onClick={() => setPickingStoreIcon(null)}>
                 Отмена
               </button>
             </div>

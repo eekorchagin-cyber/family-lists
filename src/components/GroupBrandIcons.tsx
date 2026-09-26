@@ -218,13 +218,24 @@ export function KumTigeyIcon() {
   )
 }
 
-/** Командировка: портфель */
+/** Командировка: летящий самолёт */
 export function BusinessTripIcon() {
   return (
     <IconSvg>
-      <rect x="3.2" y="9" width="17.6" height="11.2" rx="2" fill="#78716c" stroke="#1c1917" strokeWidth="1.2" />
-      <path d="M8.4 9V7.2A2.2 2.2 0 0 1 10.6 5h2.8A2.2 2.2 0 0 1 15.6 7.2V9" fill="none" stroke="#1c1917" strokeWidth="1.2" />
-      <rect x="10.2" y="12.4" width="3.6" height="2.4" rx="0.6" fill="#e7e5e4" stroke="#1c1917" strokeWidth="0.95" />
+      <path
+        d="M2.8 14.6 13.6 9.8 20.4 6.4c.75-.4 1.5.35 1.05 1.05L17 14.6l-4.6 2.05 1.85 4.15c.22.5-.4.95-.82.62L10.7 18.7 7.15 20.3 5.9 17.35 3.05 16.1c-.55-.22-.5-.95-.25-1.5z"
+        fill="#64748b"
+        stroke="#1c1917"
+        strokeWidth="1.15"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8.4 13.8 15.1 9.2"
+        fill="none"
+        stroke="#f8fafc"
+        strokeWidth="1.05"
+        strokeLinecap="round"
+      />
     </IconSvg>
   )
 }

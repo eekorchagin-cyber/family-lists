@@ -18,6 +18,7 @@ import {
 } from '../data/appBadge'
 import { buildHomeRows, isGroupsCatalogId, loadHomeOrder } from '../data/homeLayout'
 import { isStandaloneApp } from '../data/sync/codes'
+import { changelogEntries } from '../data/changelog'
 import { APP_AUTHOR, copyrightLine, parseAppVersion } from '../data/version'
 import {
   downloadCatalogXlsx,
@@ -36,7 +37,7 @@ const SECTIONS: { id: Exclude<SettingsSection, 'guide'>; title: string; hint: st
   { id: 'categories', title: 'Категории', hint: 'Общие — добавить в любой список' },
   { id: 'catalog', title: 'Товары', hint: 'Справочник' },
   { id: 'transfer', title: 'Экспорт / импорт', hint: 'Наименования в таблице Excel' },
-  { id: 'about', title: 'О программе', hint: 'Автор, версия и дата сборки' },
+  { id: 'about', title: 'О программе', hint: 'Автор, версия и обновления' },
 ]
 
 const SECTION_TITLES: Record<SettingsSection, string> = {
@@ -121,6 +122,7 @@ export function SettingsScreen({
   const [section, setSection] = useState<SettingsSection | null>(
     sync.initialCode ? 'sync' : null,
   )
+  const [aboutUpdates, setAboutUpdates] = useState(false)
   const globals = useMemo(() => {
     const listed = globalCategories(categories)
     const source = listed.length > 0 ? listed : categories
@@ -233,9 +235,19 @@ export function SettingsScreen({
     setNames((current) => ({ ...current, [id]: name.trim() }))
   }
 
-  const title = section ? SECTION_TITLES[section] : 'Настройки'
+  const title =
+    section === 'about' && aboutUpdates ? 'Информация об обновлениях' : section ? SECTION_TITLES[section] : 'Настройки'
   const about = parseAppVersion()
-  const goBack = section ? () => setSection(null) : onBack
+  const goBack = section
+    ? () => {
+        if (section === 'about' && aboutUpdates) {
+          setAboutUpdates(false)
+          return
+        }
+        setAboutUpdates(false)
+        setSection(null)
+      }
+    : onBack
 
   return (
     <div className="screen">
@@ -276,7 +288,11 @@ export function SettingsScreen({
               справочник.
             </p>
           ) : section === 'about' ? (
-            <p>Автор, знак охраны авторского права, номер версии и дата этой сборки.</p>
+            aboutUpdates ? (
+              <p>Что менялось в сборках: номер, дата и краткое описание.</p>
+            ) : (
+              <p>Автор, знак охраны авторского права, номер версии и дата этой сборки.</p>
+            )
           ) : undefined
         }
         helpTitle={
@@ -657,7 +673,7 @@ export function SettingsScreen({
           </section>
         )}
 
-        {section === 'about' && (
+        {section === 'about' && !aboutUpdates && (
           <section className="settings-block about-block">
             <h2>Возьми</h2>
             <p className="about-copy">{copyrightLine()}</p>
@@ -671,6 +687,32 @@ export function SettingsScreen({
                 </>
               ) : null}
             </p>
+            <button
+              type="button"
+              className="settings-nav-row about-updates-nav"
+              onClick={() => setAboutUpdates(true)}
+            >
+              <span className="settings-nav-text">
+                <span className="settings-nav-title">Информация об обновлениях</span>
+                <span className="settings-nav-hint">Сборки, даты и что изменилось</span>
+              </span>
+              <span className="settings-nav-chevron" aria-hidden="true">
+                ›
+              </span>
+            </button>
+          </section>
+        )}
+        {section === 'about' && aboutUpdates && (
+          <section className="settings-block">
+            <ul className="changelog-list">
+              {changelogEntries().map((entry) => (
+                <li key={entry.version} className="changelog-item">
+                  <p className="changelog-version">{entry.version}</p>
+                  <p className="changelog-date">{entry.date}</p>
+                  <p className="hint">{entry.notes}</p>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
       </main>

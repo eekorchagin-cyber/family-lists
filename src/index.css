@@ -1243,10 +1243,6 @@ button.category-name-input {
   padding: 8px 0 4px;
 }
 
-.loyalty-view--large .qr-image {
-  width: min(280px, 80vw);
-}
-
 .loyalty-view-label {
   margin: 0;
   font-weight: 600;
@@ -1266,11 +1262,33 @@ button.category-name-input {
 
 .loyalty-photo {
   display: block;
-  width: min(280px, 80vw);
+  width: 80vw;
+  max-width: 80vw;
   height: auto;
   margin: 0 auto;
   border-radius: 12px;
   background: #fff;
+}
+
+.loyalty-view--large .barcode-svg,
+.loyalty-view--large .qr-image,
+.loyalty-view--large .loyalty-photo {
+  width: 80vw;
+  max-width: 80vw;
+}
+
+.dialog.loyalty-sheet {
+  width: min(92vw, 640px);
+  max-width: 92vw;
+}
+
+.barcode-svg {
+  display: block;
+  width: 80vw;
+  max-width: 80vw;
+  height: auto;
+  background: #fff;
+  border-radius: 8px;
 }
 
 .template-copy {
@@ -1282,15 +1300,6 @@ button.category-name-input {
 
 .template-copy .input {
   width: 100%;
-}
-
-.barcode-svg {
-  display: block;
-  width: 100%;
-  max-width: 420px;
-  height: auto;
-  background: #fff;
-  border-radius: 8px;
 }
 
 .loyalty-sheet {
@@ -1305,6 +1314,38 @@ button.category-name-input {
 
 .about-meta {
   font-variant-numeric: tabular-nums;
+}
+
+.about-updates-nav {
+  margin-top: 16px;
+}
+
+.changelog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.changelog-item {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.changelog-version {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.changelog-date {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.9em;
 }
 
 .member-list {

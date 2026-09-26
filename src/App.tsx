@@ -15,6 +15,7 @@ import { StoreScreen } from './screens/StoreScreen'
 import { AddItemScreen } from './screens/AddItemScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { ListSettingsScreen } from './screens/ListSettingsScreen'
+import { captureSharedAppFromLocation } from './data/loyaltyApps'
 import type { Screen } from './types'
 
 function App() {
@@ -53,6 +54,7 @@ function App() {
     addGroup,
     renameGroup,
     setGroupIcon,
+    setStoreIcon,
     setGroupLoyalty,
     setStoreLoyalty,
     deleteGroup,
@@ -68,6 +70,10 @@ function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'home' })
   const [enterCode, setEnterCode] = useState<string | null>(null)
   const hadSession = useRef(Boolean(loadSession()))
+
+  useEffect(() => {
+    captureSharedAppFromLocation()
+  }, [])
 
   useEffect(() => {
     if (mustUseHomeScreenShortcut()) return
@@ -124,6 +130,7 @@ function App() {
     onRenameStore: renameStore,
     onRenameGroup: renameGroup,
     onSetGroupIcon: setGroupIcon,
+    onSetStoreIcon: setStoreIcon,
     onSetGroupLoyalty: setGroupLoyalty,
     onDeleteGroup: deleteGroup,
     onSetStoreGroup: setStoreGroup,

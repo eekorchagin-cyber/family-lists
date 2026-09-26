@@ -10,7 +10,9 @@ import {
   mergeGroups,
   parseGroupsCatalog,
   stripGroupMarker,
+  stripStoreIcon,
   withGroupMarker,
+  withStoreIcon,
 } from '../homeLayout'
 import { stripLoyaltyMarker, withLoyaltyMarker } from '../loyalty'
 import { nowIso } from './merge'
@@ -536,7 +538,7 @@ export async function pushLocal(
       category_sort: store.categorySort,
       category_order: store.categoryOrder,
       category_names: withLoyaltyMarker(
-        withGroupMarker(store.categoryNames, groupId, groupName),
+        withStoreIcon(withGroupMarker(store.categoryNames, groupId, groupName), store.icon),
         store.loyaltyCard,
       ),
       templates: store.templates ?? [],
@@ -698,7 +700,8 @@ export async function pushLocal(
 
 function storeFromRow(row: StoreRow): Store {
   const marked = stripGroupMarker(row.category_names ?? {})
-  const loyalty = stripLoyaltyMarker(marked.names)
+  const iconed = stripStoreIcon(marked.names)
+  const loyalty = stripLoyaltyMarker(iconed.names)
   return {
     id: row.id,
     name: row.name,
@@ -709,6 +712,7 @@ function storeFromRow(row: StoreRow): Store {
     visibility: row.visibility,
     ownerId: row.owner_id,
     ...(marked.groupId ? { groupId: marked.groupId } : {}),
+    ...(iconed.icon ? { icon: iconed.icon } : {}),
     ...(loyalty.card ? { loyaltyCard: loyalty.card } : {}),
     updatedAt: row.updated_at,
   }

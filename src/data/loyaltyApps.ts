@@ -1,39 +1,70 @@
-export const LOYALTY_APPS = [
-  { id: 'pyaterochka', name: 'Пятёрочка', url: 'pyaterochka://', android: 'ru.pyaterochka.app.browser' },
-  { id: 'perekrestok', name: 'Перекрёсток', url: 'perekrestok://', android: 'ru.perekrestok.app' },
-  { id: 'lenta', name: 'Лента', url: 'lentaapp://', android: 'com.icemobile.lenta' },
-  { id: 'krasnoe', name: 'Красное & Белое', url: 'kb://', android: 'ru.krasnoeibeloe.app' },
-  { id: 'auchan', name: 'Ашан', url: 'auchan://', android: 'ru.auchan.shop' },
-  { id: 'metro', name: 'METRO', url: 'metro://', android: 'de.metro.mobile.android' },
-  { id: 'magnit', name: 'Магнит', url: 'magnit://', android: 'ru.tander.magnit' },
-  { id: 'ozon', name: 'OZON', url: 'ozon://', android: 'ru.ozon.app.android' },
-  { id: 'komandor', name: 'Командор', url: 'https://www.sm-komandor.ru' },
-] as const
-
 function isAndroid(): boolean {
   return typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
+}
+
+function playPackage(value: string): string | null {
+  const match = /play\.google\.com\/store\/apps\/details\?id=([a-zA-Z0-9._]+)/.exec(value)
+  if (match) return match[1]
+  if (/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$/i.test(value.trim())) return value.trim()
+  return null
 }
 
 export function loyaltyAppHref(value: string): string {
   const trimmed = value.trim()
   if (!trimmed) return ''
-  const known = LOYALTY_APPS.find(
-    (app) => app.url === trimmed || ('android' in app && app.android === trimmed),
-  )
-  if (isAndroid() && known && 'android' in known && known.android) {
-    const scheme = known.url.includes('://') ? known.url.split(':')[0] : 'https'
-    return `intent://#Intent;scheme=${scheme};package=${known.android};S.browser_fallback_url=${encodeURIComponent(known.url)};end`
+  if (trimmed.startsWith('intent:')) return trimmed
+  const pkg = playPackage(trimmed)
+  if (pkg && isAndroid()) {
+    return `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${pkg};end`
   }
   return trimmed
 }
 
+/** Открыть программу. Без noreferrer — иначе iOS не отдаёт custom scheme установленному приложению. */
 export function openLoyaltyApp(value: string): void {
   const href = loyaltyAppHref(value)
   if (!href) return
-  const link = document.createElement('a')
-  link.href = href
-  link.rel = 'noreferrer'
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
+  window.location.assign(href)
+}
+
+/** Системный список установленных приложений (Android). С веб-страницы выбрать пакет и вернуть его нельзя. */
+export function openInstalledAppsList(): boolean {
+  if (!isAndroid()) return false
+  window.location.assign(
+    'intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end',
+  )
+  return true
+}
+
+export async function readClipboardLink(): Promise<string> {
+  const text = (await navigator.clipboard.readText()).trim()
+  return text
+}
+
+export function takeSharedAppLink(): { url: string; title: string } | null {
+  try {
+    const url = sessionStorage.getItem('pokupki-shared-app')?.trim() ?? ''
+    const title = sessionStorage.getItem('pokupki-shared-app-title')?.trim() ?? ''
+    if (!url) return null
+    sessionStorage.removeItem('pokupki-shared-app')
+    sessionStorage.removeItem('pokupki-shared-app-title')
+    return { url, title }
+  } catch {
+    return null
+  }
+}
+
+export function captureSharedAppFromLocation(): void {
+  if (typeof window === 'undefined') return
+  const params = new URLSearchParams(window.location.search)
+  const url = (params.get('url') ?? params.get('text') ?? '').trim()
+  if (!url) return
+  if (!/^(https?:|intent:|[a-z][a-z0-9+.-]*:)/i.test(url) && !playPackage(url)) return
+  try {
+    sessionStorage.setItem('pokupki-shared-app', url)
+    const title = (params.get('title') ?? '').trim()
+    if (title) sessionStorage.setItem('pokupki-shared-app-title', title)
+  } catch {
+    /* ignore */
+  }
 }

@@ -155,6 +155,7 @@ export function useAppState() {
             ownerId: actorId(),
             visibility: actorId() ? 'home' : 'private',
             updatedAt: nowIso(),
+            ...(iconIdFromName(trimmed) !== 'other' ? { icon: iconIdFromName(trimmed) } : {}),
           },
         ],
         settings: included ? current.settings : withBadgeStore(current.settings, id, false),
@@ -169,7 +170,11 @@ export function useAppState() {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       if (!store || store.name === trimmed) return current
-      return persist(patchStore(current, storeId, { name: trimmed }))
+      const oldInferred = iconIdFromName(store.name)
+      const nextInferred = iconIdFromName(trimmed)
+      const keepCustom = store.icon && store.icon !== oldInferred
+      const icon = keepCustom ? store.icon : nextInferred === 'other' ? undefined : nextInferred
+      return persist(patchStore(current, storeId, { name: trimmed, icon }))
     })
   }, [])
 
@@ -942,6 +947,15 @@ export function useAppState() {
     })
   }, [])
 
+  const setStoreIcon = useCallback((storeId: string, icon: string | undefined) => {
+    setData((current) => {
+      const store = current.stores.find((item) => item.id === storeId)
+      if (!store) return current
+      if ((store.icon ?? '') === (icon ?? '')) return current
+      return persist(patchStore(current, storeId, { icon }))
+    })
+  }, [])
+
   const setGroupLoyalty = useCallback((groupId: string, card: Store['loyaltyCard']) => {
     setData((current) => {
       const groups = (current.groups ?? []).map((group) => {
@@ -1102,6 +1116,7 @@ export function useAppState() {
     addGroup,
     renameGroup,
     setGroupIcon,
+    setStoreIcon,
     setGroupLoyalty,
     setStoreLoyalty,
     deleteGroup,

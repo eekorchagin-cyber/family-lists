@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import {
   canDetectBarcode,
   detectCodeFromFile,
@@ -6,7 +6,12 @@ import {
   looksLikeUrl,
   loyaltyKindFromFormat,
 } from '../data/loyalty'
-import { LOYALTY_APPS } from '../data/loyaltyApps'
+import {
+  openInstalledAppsList,
+  openLoyaltyApp,
+  readClipboardLink,
+  takeSharedAppLink,
+} from '../data/loyaltyApps'
 import type { LoyaltyCard, LoyaltyKind } from '../types'
 import { LoyaltyCardView } from './LoyaltyCardView'
 
@@ -42,6 +47,15 @@ export function LoyaltyCardEditor({
   const cameraRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const canDetect = canDetectBarcode()
+
+  useEffect(() => {
+    const shared = takeSharedAppLink()
+    if (!shared) return
+    setKind('app')
+    setValue(shared.url)
+    if (shared.title) setLabel((current) => current.trim() || shared.title)
+    setScanError('Взяли ссылку из приложения на телефоне.')
+  }, [])
 
   const card: LoyaltyCard | undefined =
     value.trim() || (kind !== 'app' && image)
@@ -96,6 +110,29 @@ export function LoyaltyCardEditor({
     }
   }
 
+  async function pasteLink() {
+    try {
+      const text = await readClipboardLink()
+      if (!text) {
+        setScanError('В буфере нет ссылки. Скопируйте её из приложения магазина.')
+        return
+      }
+      setValue(text)
+      setScanError('')
+    } catch {
+      setScanError('Не удалось прочитать буфер. Вставьте ссылку вручную.')
+    }
+  }
+
+  function pickOnPhone() {
+    const opened = openInstalledAppsList()
+    setScanError(
+      opened
+        ? 'Откройте нужную программу из списка установленных, скопируйте из неё ссылку (Поделиться) и вернитесь сюда — «Вставить ссылку».'
+        : 'Откройте нужную программу на телефоне и скопируйте ссылку (Поделиться). Затем «Вставить ссылку». Имя программы может быть любым.',
+    )
+  }
+
   return (
     <div className="overlay overlay--capture" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
@@ -120,51 +157,79 @@ export function LoyaltyCardEditor({
         </div>
         {kind === 'app' ? (
           <>
-            <p className="field-label">Приложение на телефоне</p>
-            <div className="choice-row">
-              {LOYALTY_APPS.map((app) => (
-                <button
-                  key={app.id}
-                  type="button"
-                  className={value === app.url ? 'choice active' : 'choice'}
-                  onClick={() => {
-                    setValue(app.url)
-                    if (!label.trim()) setLabel(app.name)
-                  }}
-                >
-                  {app.name}
-                </button>
-              ))}
-            </div>
-            <label className="field-label" htmlFor="loyalty-value">
-              Ссылка или схема приложения
+            <label className="field-label" htmlFor="loyalty-label">
+              Название программы
             </label>
+            <input
+              id="loyalty-label"
+              className="input"
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="Как в телефоне — не обязательно как список"
+            />
+            <label className="field-label" htmlFor="loyalty-value">
+              Ссылка, чтобы открыть её
+            </label>
+            <input
+              id="loyalty-value"
+              className="input"
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              placeholder="Ссылка из приложения или Поделиться"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            <div className="choice-row">
+              <button type="button" className="button-secondary" onClick={pickOnPhone}>
+                Выбрать приложение на телефоне
+              </button>
+              <button type="button" className="button-secondary" onClick={() => void pasteLink()}>
+                Вставить ссылку
+              </button>
+              {value.trim() ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => openLoyaltyApp(value)}
+                >
+                  Проверить открытие
+                </button>
+              ) : null}
+            </div>
+            <p className="hint">
+              Со страницы нельзя показать весь список программ телефона. На Android кнопка открывает
+              установленные приложения. Дальше скопируйте ссылку из выбранной программы и вставьте
+              сюда. Можно поделиться ссылкой из приложения в «Возьми».
+            </p>
           </>
         ) : (
-          <label className="field-label" htmlFor="loyalty-value">
-            Код
-          </label>
+          <>
+            <label className="field-label" htmlFor="loyalty-value">
+              Код
+            </label>
+            <input
+              id="loyalty-value"
+              className="input"
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              placeholder="Номер с карты"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            <label className="field-label" htmlFor="loyalty-label">
+              Подпись
+            </label>
+            <input
+              id="loyalty-label"
+              className="input"
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="Например, Пятёрочка"
+            />
+          </>
         )}
-        <input
-          id="loyalty-value"
-          className="input"
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          placeholder={kind === 'app' ? 'pyaterochka:// или https://' : 'Номер с карты'}
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-        />
-        <label className="field-label" htmlFor="loyalty-label">
-          Подпись
-        </label>
-        <input
-          id="loyalty-label"
-          className="input"
-          value={label}
-          onChange={(event) => setLabel(event.target.value)}
-          placeholder="Например, Пятёрочка"
-        />
         {kind !== 'app' ? (
           <div className="choice-row">
             <button

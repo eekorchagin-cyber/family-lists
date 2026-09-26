@@ -57,6 +57,7 @@ export type Store = {
   ownerId?: string
   /** Если задан — список лежит внутри группы (второй уровень). */
   groupId?: string
+  icon?: string
   loyaltyCard?: LoyaltyCard
   updatedAt?: string
 }
