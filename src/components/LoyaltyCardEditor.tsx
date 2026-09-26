@@ -51,9 +51,6 @@ export function LoyaltyCardEditor({
   const [image, setImage] = useState(initial?.image ?? '')
   const [scanError, setScanError] = useState('')
   const initialShortcut = parseShortcutName(initial?.value ?? '')
-  const [linkMode, setLinkMode] = useState<'shortcut' | 'url'>(
-    initialShortcut || (!initial?.value && isAppleMobile()) ? 'shortcut' : 'url',
-  )
   const [shortcutName, setShortcutName] = useState(initialShortcut)
   const cameraRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -62,7 +59,6 @@ export function LoyaltyCardEditor({
   function applyAppValue(raw: string) {
     const href = loyaltyAppHref(raw)
     if (isCustomAppScheme(raw) || (href && isCustomAppScheme(href))) {
-      setLinkMode('url')
       setShortcutName('')
       setValue(href || raw.trim())
       setScanError('')
@@ -70,35 +66,39 @@ export function LoyaltyCardEditor({
     }
     const shortcut = parseShortcutName(raw) || parseShortcutName(href) || (isLatinShortcutName(raw) ? raw.trim() : '')
     if (shortcut) {
-      setLinkMode('shortcut')
       setShortcutName(shortcut)
       setValue(shortcutOpenHref(shortcut))
       return
     }
-    setLinkMode('url')
     setShortcutName('')
     setValue(href || raw)
   }
 
   function setShortcutNameFromInput(name: string) {
+    setShortcutName(name)
     const trimmed = name.trim()
+    if (!trimmed) {
+      setScanError('')
+      return
+    }
     if (trimmed.includes(':')) {
       applyAppValue(name)
       return
     }
-    setShortcutName(name)
-    if (!trimmed) {
-      setValue('')
-      setScanError('')
-      return
-    }
     if (!isLatinShortcutName(name)) {
-      setValue('')
       setScanError('Имя команды — латиницей, без русских букв. Например: Kopilka')
       return
     }
     setScanError('')
     setValue(shortcutOpenHref(trimmed))
+  }
+
+  function setUrlFromInput(raw: string) {
+    setValue(raw)
+    const shortcut = parseShortcutName(raw)
+    if (shortcut) setShortcutName(shortcut)
+    else if (raw.includes(':')) setShortcutName('')
+    setScanError('')
   }
 
   useEffect(() => {
@@ -238,69 +238,39 @@ export function LoyaltyCardEditor({
               onChange={(event) => setLabel(event.target.value)}
               placeholder="Как в телефоне — не обязательно как список"
             />
-            <p className="field-label">Как открывать</p>
-            <div className="choice-row">
-              <button
-                type="button"
-                className={linkMode === 'shortcut' ? 'choice active' : 'choice'}
-                onClick={() => {
-                  setLinkMode('shortcut')
-                  if (shortcutName.trim()) setShortcutNameFromInput(shortcutName)
-                }}
-              >
-                Команда
-              </button>
-              <button
-                type="button"
-                className={linkMode === 'url' ? 'choice active' : 'choice'}
-                onClick={() => setLinkMode('url')}
-              >
-                Ссылка
-              </button>
-            </div>
-            {linkMode === 'shortcut' ? (
-              <>
-                <label className="field-label" htmlFor="loyalty-shortcut">
-                  Имя быстрой команды
-                </label>
-                <input
-                  id="loyalty-shortcut"
-                  className="input"
-                  value={shortcutName}
-                  onChange={(event) => setShortcutNameFromInput(event.target.value)}
-                  placeholder="Kopilka"
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                />
-                {value ? <p className="hint loyalty-view-url">{value}</p> : null}
-              </>
-            ) : (
-              <>
-                <label className="field-label" htmlFor="loyalty-value">
-                  Ссылка, чтобы открыть её
-                </label>
-                <input
-                  id="loyalty-value"
-                  className="input"
-                  value={value}
-                  onChange={(event) => setValue(event.target.value)}
-                  placeholder="OZON:// или https://…"
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                />
-              </>
-            )}
+            <label className="field-label" htmlFor="loyalty-shortcut">
+              Имя быстрой команды
+            </label>
+            <input
+              id="loyalty-shortcut"
+              className="input"
+              value={shortcutName}
+              onChange={(event) => setShortcutNameFromInput(event.target.value)}
+              placeholder="Kopilka — если открываете через «Команды»"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            <label className="field-label" htmlFor="loyalty-value">
+              Ссылка приложения
+            </label>
+            <input
+              id="loyalty-value"
+              className="input"
+              value={value}
+              onChange={(event) => setUrlFromInput(event.target.value)}
+              placeholder="OZON:// или https://…"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
             <div className="choice-row">
               <button type="button" className="button-secondary" onClick={pickOnPhone}>
                 {isAppleMobile() ? 'Открыть «Команды»' : 'Выбрать приложение на телефоне'}
               </button>
-              {linkMode === 'url' ? (
-                <button type="button" className="button-secondary" onClick={() => void pasteLink()}>
-                  Вставить ссылку
-                </button>
-              ) : null}
+              <button type="button" className="button-secondary" onClick={() => void pasteLink()}>
+                Вставить ссылку
+              </button>
               {value.trim() ? (
                 <button
                   type="button"
@@ -314,9 +284,9 @@ export function LoyaltyCardEditor({
               ) : null}
             </div>
             <p className="hint">
-              {linkMode === 'shortcut'
-                ? 'В «Командах» назовите быструю команду латиницей. Сюда впишите только это имя — строка shortcuts://run-shortcut?name= подставится сама.'
-                : 'Можно схему приложения, например OZON://, или https:// из «Поделиться».'}
+              Для OZON и похожих программ вставьте схему в ссылку, например OZON://. Поле «Имя
+              команды» не трогайте. Если открываете через «Команды», впишите только латинское имя —
+              ссылка shortcuts:// подставится сама.
             </p>
           </>
         ) : (

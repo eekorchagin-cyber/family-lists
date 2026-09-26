@@ -15,7 +15,7 @@ import { isLocalHost } from './sync/codes'
 import { appendCategoryToStores } from './categories'
 import { markDirty } from './sync/dirty'
 import { groupsFromStores, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker, stripStoreIcon } from './homeLayout'
-import { parseLoyaltyCard, stripLoyaltyMarker } from './loyalty'
+import { asCategoryNames, parseLoyaltyCard, stripLoyaltyMarker } from './loyalty'
 import {
   createDefaultData,
   DEFAULT_CATEGORIES,
@@ -113,12 +113,7 @@ function normalizeTemplates(value: Record<string, unknown>): NamedTemplate[] {
 }
 
 function normalizeCategoryNames(value: unknown): Record<string, string> {
-  if (!isRecord(value)) return {}
-  const names: Record<string, string> = {}
-  for (const [key, name] of Object.entries(value)) {
-    if (typeof name === 'string' && name.trim()) names[key] = name
-  }
-  return names
+  return asCategoryNames(value)
 }
 
 function normalizeStore(value: unknown): Store | null {

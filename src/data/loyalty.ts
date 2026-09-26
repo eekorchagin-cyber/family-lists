@@ -2,6 +2,20 @@ import type { LoyaltyCard, LoyaltyKind, Store, StoreGroup } from '../types'
 
 export const LOYALTY_KEY = '__lc'
 
+export function asCategoryNames(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object') return {}
+  const names: Record<string, string> = {}
+  for (const [key, name] of Object.entries(value as Record<string, unknown>)) {
+    if (key === LOYALTY_KEY) {
+      if (typeof name === 'string' && name.trim()) names[key] = name
+      else if (name && typeof name === 'object') names[key] = JSON.stringify(name)
+      continue
+    }
+    if (typeof name === 'string' && name.trim()) names[key] = name
+  }
+  return names
+}
+
 export function parseLoyaltyCard(value: unknown): LoyaltyCard | undefined {
   if (!value || typeof value !== 'object') return undefined
   const row = value as Record<string, unknown>
@@ -23,10 +37,14 @@ export function parseLoyaltyCard(value: unknown): LoyaltyCard | undefined {
   }
 }
 
-export function parseLoyaltyCardJson(raw: string | undefined): LoyaltyCard | undefined {
-  if (!raw?.trim()) return undefined
+export function parseLoyaltyCardJson(raw: unknown): LoyaltyCard | undefined {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return parseLoyaltyCard(raw)
+  if (typeof raw !== 'string') return undefined
+  const text = raw.trim()
+  if (!text) return undefined
+  const payload = text.startsWith('lc:') ? text.slice(3) : text
   try {
-    return parseLoyaltyCard(JSON.parse(raw) as unknown)
+    return parseLoyaltyCard(JSON.parse(payload) as unknown)
   } catch {
     return undefined
   }
@@ -54,7 +72,7 @@ export function withLoyaltyMarker(
 ): Record<string, string> {
   const { names: clean } = stripLoyaltyMarker(names)
   if (!card) return clean
-  return { ...clean, [LOYALTY_KEY]: JSON.stringify(card) }
+  return { ...clean, [LOYALTY_KEY]: `lc:${JSON.stringify(card)}` }
 }
 
 export function hasLoyaltyCard(card: LoyaltyCard | undefined): boolean {
@@ -67,9 +85,11 @@ export function resolveLoyaltyCard(
   store: Store,
   groups: StoreGroup[],
 ): { card: LoyaltyCard; source: 'store' | 'group' } | null {
-  if (store.loyaltyCard && hasLoyaltyCard(store.loyaltyCard)) {
-    return { card: store.loyaltyCard, source: 'store' }
-  }
+  const fromNames = stripLoyaltyMarker(store.categoryNames ?? {}).card
+  const own =
+    (store.loyaltyCard && hasLoyaltyCard(store.loyaltyCard) ? store.loyaltyCard : undefined) ??
+    (fromNames && hasLoyaltyCard(fromNames) ? fromNames : undefined)
+  if (own) return { card: own, source: 'store' }
   if (!store.groupId) return null
   const group = groups.find((item) => item.id === store.groupId)
   if (group?.loyaltyCard && hasLoyaltyCard(group.loyaltyCard)) {

@@ -1,4 +1,5 @@
 import type { AppData, Item, Store, StoreVisibility } from '../../types'
+import { hasLoyaltyCard } from '../loyalty'
 
 function stamp(): string {
   return new Date().toISOString()
@@ -40,20 +41,33 @@ export function mergeItems(local: Item, remote: Item): Item {
   }
 }
 
+function keepLoyalty(next: Store, local: Store, remote: Store): Store {
+  if (next.loyaltyCard && hasLoyaltyCard(next.loyaltyCard)) return next
+  const card =
+    (local.loyaltyCard && hasLoyaltyCard(local.loyaltyCard) && local.loyaltyCard) ||
+    (remote.loyaltyCard && hasLoyaltyCard(remote.loyaltyCard) && remote.loyaltyCard) ||
+    undefined
+  return card ? { ...next, loyaltyCard: card } : next
+}
+
 function mergeStore(local: Store, remote: Store, userId?: string): Store {
   const ownerId = remote.ownerId ?? local.ownerId
   // Чужой список: облако — источник правды (группа, имя, категории).
   // Иначе локальные правки на втором телефоне «перебивают» вложенность.
-  if (userId && ownerId && ownerId !== userId) return remote
+  if (userId && ownerId && ownerId !== userId) return keepLoyalty(remote, local, remote)
   const localAt = local.updatedAt ?? ''
   const remoteAt = remote.updatedAt ?? ''
-  if (remoteAt > localAt) return remote
+  if (remoteAt > localAt) return keepLoyalty(remote, local, remote)
   if (localAt > remoteAt) {
-    if (remote.groupId && !local.groupId) return { ...local, groupId: remote.groupId }
-    return local
+    if (remote.groupId && !local.groupId) {
+      return keepLoyalty({ ...local, groupId: remote.groupId }, local, remote)
+    }
+    return keepLoyalty(local, local, remote)
   }
-  if (remote.groupId && !local.groupId) return { ...local, groupId: remote.groupId }
-  return local
+  if (remote.groupId && !local.groupId) {
+    return keepLoyalty({ ...local, groupId: remote.groupId }, local, remote)
+  }
+  return keepLoyalty(local, local, remote)
 }
 
 function sameStoreMeta(a: Store, b: Store): boolean {

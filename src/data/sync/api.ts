@@ -14,7 +14,7 @@ import {
   withGroupMarker,
   withStoreIcon,
 } from '../homeLayout'
-import { stripLoyaltyMarker, withLoyaltyMarker } from '../loyalty'
+import { asCategoryNames, stripLoyaltyMarker, withLoyaltyMarker } from '../loyalty'
 import { nowIso } from './merge'
 import { loadSession, type HomeMember, type SyncSession } from './session'
 
@@ -459,7 +459,7 @@ export async function pullRemote(): Promise<AppData> {
   const groupNames = new Map<string, string>()
   const storeRows = (stores.data ?? []) as StoreRow[]
   const storesList = storeRows.map((row) => {
-    const marked = stripGroupMarker(row.category_names ?? {})
+    const marked = stripGroupMarker(asCategoryNames(row.category_names ?? {}))
     if (marked.groupId && marked.groupName) {
       groupNames.set(marked.groupId, marked.groupName)
     }
@@ -515,7 +515,7 @@ export async function pushLocal(
       )
     for (const row of existingRows ?? []) {
       const marked = stripGroupMarker(
-        ((row as { category_names?: Record<string, string> }).category_names ?? {}),
+        asCategoryNames((row as { category_names?: unknown }).category_names),
       )
       remoteMarkers.set(row.id as string, {
         ...(marked.groupId ? { groupId: marked.groupId } : {}),
@@ -699,7 +699,7 @@ export async function pushLocal(
 }
 
 function storeFromRow(row: StoreRow): Store {
-  const marked = stripGroupMarker(row.category_names ?? {})
+  const marked = stripGroupMarker(asCategoryNames(row.category_names ?? {}))
   const iconed = stripStoreIcon(marked.names)
   const loyalty = stripLoyaltyMarker(iconed.names)
   return {
