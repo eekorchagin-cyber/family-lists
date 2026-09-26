@@ -12,6 +12,7 @@ import {
   takeOverHome,
   loadAccessInfo,
   reclaimHome,
+  reattachToHome,
   loadInviteCode,
   loadMembers,
   loadMyProfile,
@@ -82,6 +83,7 @@ export function useSync(
   const [mergePending, setMergePending] = useState<MergePending | null>(null)
   const quietFailsRef = useRef(0)
   const missingProfileRef = useRef(0)
+  const reclaimTriedRef = useRef(false)
   const errorRef = useRef<string | null>(null)
   const dismissedErrorRef = useRef<string | null>(null)
   errorRef.current = error
@@ -99,15 +101,41 @@ export function useSync(
 
   useEffect(() => {
     if (!configured) return
-    if (loadSession()?.userId) return
-    void recoverSessionFromAuth()
-      .then((recovered) => {
-        if (!recovered?.homeId) return
-        // Сохраняем даже без password: auth Supabase уже живой, tick сможет работать.
-        saveSession(recovered)
-        setSession(recovered)
-      })
-      .catch(() => {})
+    const existing = loadSession()
+    if (existing?.leftByUser) return
+    if (existing?.userId && !existing.frozen && existing.homeId) return
+    void (async () => {
+      setBusy(true)
+      try {
+        try {
+          const recovered = await recoverSessionFromAuth()
+          if (recovered?.homeId) {
+            const next = {
+              ...recovered,
+              password: existing?.password || recovered.password,
+              frozen: false,
+              leftByUser: false,
+            }
+            saveSession(next)
+            setSession(next)
+            return
+          }
+        } catch {
+          /* дальше reclaim по сохранённой сессии */
+        }
+        const current = loadSession()
+        if (!current || current.leftByUser) return
+        if (!current.frozen && current.homeId) return
+        const restored = await reattachToHome(current)
+        if (!restored?.homeId) return
+        saveSession(restored)
+        setSession(restored)
+      } catch {
+        /* tick повторит */
+      } finally {
+        setBusy(false)
+      }
+    })()
   }, [configured])
 
   const freeze = useCallback((current: SyncSession) => {
@@ -123,17 +151,55 @@ export function useSync(
     busyRef.current = true
     try {
       await restoreSession(current)
-      const profile = await loadMyProfile()
-      if (!profile?.homeId) {
+      let profile = await loadMyProfile()
+      if (!profile) {
+        // После обновления auth может ещё не подняться — не выкидываем из семьи.
         missingProfileRef.current += 1
-        if (missingProfileRef.current < 4) return
-        if (!current.frozen) freeze(current)
-        setError(
-          'Этот телефон пока не в доме. Откройте Настройки → Семья и войдите по коду.',
-        )
         return
       }
+      if (!profile.homeId) {
+        if (current.leftByUser) {
+          missingProfileRef.current += 1
+          if (missingProfileRef.current < 4) return
+          if (!current.frozen) freeze(current)
+          setError(
+            'Этот телефон пока не в доме. Откройте Настройки → Семья и войдите по коду.',
+          )
+          return
+        }
+        if (!reclaimTriedRef.current) {
+          reclaimTriedRef.current = true
+          try {
+            const restored = await reattachToHome(current)
+            if (restored?.homeId) {
+              current = restored
+              saveSession(current)
+              setSession(current)
+              sessionStorage.removeItem('pokupki-adopt-cloud')
+              profile = {
+                id: restored.userId,
+                homeId: restored.homeId,
+                displayName: restored.displayName,
+                isCreator: restored.isCreator,
+                isAppAdmin: Boolean(restored.isAppAdmin),
+              }
+            }
+          } catch {
+            /* ниже — ещё несколько попыток */
+          }
+        }
+        if (!profile.homeId) {
+          missingProfileRef.current += 1
+          if (missingProfileRef.current < 8) return
+          if (!current.frozen) freeze(current)
+          setError(
+            'Этот телефон пока не в доме. Откройте Настройки → Семья и войдите по коду.',
+          )
+          return
+        }
+      }
       missingProfileRef.current = 0
+      reclaimTriedRef.current = false
       if (
         current.frozen ||
         current.homeId !== profile.homeId ||
@@ -413,7 +479,7 @@ export function useSync(
     async (code: string, displayName?: string): Promise<'need-name' | 'error' | 'already' | void> => {
       if (!configured) return 'error'
       const existing = loadSession()
-      if (existing && !existing.frozen) return 'already'
+      if (existing && !existing.frozen && !existing.leftByUser) return 'already'
       const kind = kindFromCode(code)
       if (existing?.frozen && (kind === 'invite' || kind === 'access')) {
         setError(
@@ -621,11 +687,10 @@ export function useSync(
         isCreator: profile.isCreator,
         displayName: profile.displayName || current.displayName,
         frozen: false,
+        leftByUser: false,
       }
       saveSession(next)
       setSession(next)
-      // После возврата в дом берём облако целиком — иначе локальные копии
-      // с теми же именами улетают push'ем и размножают списки.
       sessionStorage.setItem('pokupki-adopt-cloud', '3')
       sessionStorage.setItem('pokupki-force-push', '6')
       dirtyRef.current = false
@@ -653,10 +718,10 @@ export function useSync(
         isCreator: profile.isCreator,
         displayName: profile.displayName || current.displayName,
         frozen: false,
+        leftByUser: true,
       }
       saveSession(next)
       setSession(next)
-      // Свои списки с телефона уходят в новый пустой дом; общие семейные в облаке остаются у семьи.
       const demoted = {
         ...dataRef.current,
         stores: dataRef.current.stores.map((store) => ({
@@ -710,6 +775,8 @@ export function useSync(
     dismissedErrorRef.current = null
     setError(null)
     quietFailsRef.current = 0
+    missingProfileRef.current = 0
+    reclaimTriedRef.current = false
     await tick()
   }, [tick])
 

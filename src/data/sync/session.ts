@@ -11,6 +11,8 @@ export type SyncSession = {
   isCreator: boolean
   isAppAdmin?: boolean
   frozen: boolean
+  /** Пользователь сам вышел из семьи — не возвращать его туда автоматически. */
+  leftByUser?: boolean
   lastPulledAt: string | null
 }
 
@@ -30,6 +32,7 @@ export function loadSession(): SyncSession | null {
     // Раньше пустой password => null, и семья «пропадалa» после сбоя storage.
     if (!value.userId || !value.email) return null
     const homeId = value.homeId ?? ''
+    const leftByUser = Boolean(value.leftByUser)
     return {
       email: value.email,
       password: value.password ?? '',
@@ -38,12 +41,17 @@ export function loadSession(): SyncSession | null {
       displayName: value.displayName ?? '',
       isCreator: Boolean(value.isCreator),
       isAppAdmin: Boolean(value.isAppAdmin),
-      frozen: Boolean(value.frozen) || !homeId,
+      frozen: Boolean(value.frozen) && (leftByUser || !homeId),
+      leftByUser,
       lastPulledAt: value.lastPulledAt ?? null,
     }
   } catch {
     return null
   }
+}
+
+export function sessionInFamily(session: SyncSession | null): boolean {
+  return Boolean(session && !session.frozen && session.homeId && !session.leftByUser)
 }
 
 export function saveSession(session: SyncSession | null): void {

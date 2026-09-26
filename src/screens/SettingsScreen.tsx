@@ -25,7 +25,7 @@ import {
   readCatalogXlsx,
 } from '../data/catalogExcel'
 import type { AccessInfo } from '../data/sync/api'
-import type { HomeMember, SyncSession } from '../data/sync/session'
+import { sessionInFamily, type HomeMember, type SyncSession } from '../data/sync/session'
 import type { CatalogEntry, Category, FontSize, Settings, Store, StoreGroup, Theme } from '../types'
 
 type SettingsSection = 'guide' | 'appearance' | 'categories' | 'catalog' | 'sync' | 'transfer' | 'about'
@@ -193,6 +193,13 @@ export function SettingsScreen({
   const [deletingAccount, setDeletingAccount] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const deviceName = sync.session?.displayName.trim() || 'Не задано'
+  const inFamily = sessionInFamily(sync.session)
+  const userLabel =
+    sync.session?.frozen && !sync.session.leftByUser && sync.busy
+      ? 'Подключаем к семье…'
+      : inFamily
+        ? 'Вы в семье'
+        : 'Пользователь на этом устройстве'
 
   const filteredCatalog = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -284,7 +291,7 @@ export function SettingsScreen({
         {section === null && (
           <>
             <p className="settings-user">
-              <span className="settings-user-label">Пользователь на этом устройстве</span>
+              <span className="settings-user-label">{userLabel}</span>
               <span className="settings-user-name">{deviceName}</span>
             </p>
             <ul className="store-list">

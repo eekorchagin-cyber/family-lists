@@ -139,6 +139,8 @@ export function SyncPanel({
         <section className="settings-block">
           {error ? (
             <SyncIssue error={error} busy={busy} onRetry={onRetry} onHide={onClearError} />
+          ) : busy && !session.leftByUser ? (
+            <p className="hint">Подключаем этот телефон обратно в семью…</p>
           ) : (
             <p className="hint">
               Этот браузер отключён от дома. Списки на устройстве на месте.

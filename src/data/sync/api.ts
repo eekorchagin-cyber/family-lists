@@ -201,6 +201,7 @@ export async function recoverSessionFromAuth(): Promise<SyncSession | null> {
     isCreator: profile.isCreator,
     isAppAdmin: profile.isAppAdmin,
     frozen: false,
+    leftByUser: false,
     lastPulledAt: existing?.lastPulledAt ?? null,
   }
 }
@@ -320,6 +321,31 @@ export async function reclaimHome(): Promise<string> {
   if (error) throw error
   if (typeof data !== 'string' || !data) throw new Error('Не удалось вернуться в дом')
   return data
+}
+
+/** Вернуть в дом после сбоя обновления: живой профиль, иначе reclaim. Не вызывать, если человек сам вышел. */
+export async function reattachToHome(session: SyncSession): Promise<SyncSession | null> {
+  await restoreSession(session)
+  let profile = await loadMyProfile()
+  if (!profile?.homeId) {
+    try {
+      await reclaimHome()
+    } catch {
+      /* участник без своего дома — reclaim не сработает, останется код */
+    }
+    profile = await loadMyProfile()
+  }
+  if (!profile?.homeId) return null
+  return {
+    ...session,
+    userId: profile.id,
+    homeId: profile.homeId,
+    displayName: profile.displayName || session.displayName,
+    isCreator: profile.isCreator,
+    isAppAdmin: profile.isAppAdmin,
+    frozen: false,
+    leftByUser: false,
+  }
 }
 
 /** Выйти из семьи и стать самостоятельным (свой дом). Не для организатора. */
