@@ -2,16 +2,18 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { CategoryMark } from '../components/CategoryMark'
 import { Header } from '../components/Header'
 import { LongPressButton } from '../components/LongPressButton'
+import { LoyaltyCardSheet } from '../components/LoyaltyCardView'
 import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
-import { BackIcon, SettingsIcon, TransferIcon } from '../components/NavIcons'
+import { BackIcon, CardIcon, SettingsIcon, TransferIcon } from '../components/NavIcons'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { parseItem } from '../data/parseItem'
 import { formatQty, parseQty } from '../data/qty'
+import { resolveLoyaltyCard } from '../data/loyalty'
 import type { HomeMember } from '../data/sync/session'
-import type { Category, Item, ParsedItem, Store } from '../types'
+import type { Category, Item, ParsedItem, Store, StoreGroup } from '../types'
 
 type StoreScreenProps = {
   store: Store
@@ -29,12 +31,13 @@ type StoreScreenProps = {
   onUpdateItem: (itemId: string, patch: Partial<Pick<Item, 'qty' | 'unit' | 'categoryId'>>) => void
   onClearBought: () => void
   completedEmpty?: boolean
-  onSaveTemplate: (name: string) => void
+  onSaveTemplate: (name: string, items?: Item[]) => void
   members?: HomeMember[]
   myId?: string
   thisListUpdated?: boolean
   onDismissStoreUpdate?: () => void
   otherStores?: Store[]
+  groups?: StoreGroup[]
   onCopyToStore?: (storeId: string) => void
   onMoveToStore?: (storeId: string) => void
 }
@@ -61,6 +64,7 @@ export function StoreScreen({
   thisListUpdated = false,
   onDismissStoreUpdate,
   otherStores = [],
+  groups = [],
   onCopyToStore,
   onMoveToStore,
 }: StoreScreenProps) {
@@ -72,8 +76,12 @@ export function StoreScreen({
   const [namingTemplate, setNamingTemplate] = useState(false)
   const [renamingStore, setRenamingStore] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
+  const [showingCard, setShowingCard] = useState(false)
   const [transferring, setTransferring] = useState(false)
+  const [completionArmed, setCompletionArmed] = useState(false)
   const completionHandled = useRef(false)
+  const templateSnapshot = useRef<Item[] | null>(null)
+  const completionKey = `pokupki-completion:${store.id}`
 
   const activeItems = useMemo(
     () => items.filter((item) => !item.bought),
@@ -84,19 +92,73 @@ export function StoreScreen({
     [items],
   )
   const allDone = items.length > 0 && activeItems.length === 0
+  const boughtFingerprint = useMemo(
+    () =>
+      boughtItems
+        .map((item) => item.id)
+        .sort()
+        .join(','),
+    [boughtItems],
+  )
+  const loyalty = useMemo(() => resolveLoyaltyCard(store, groups), [groups, store])
 
   useEffect(() => {
-    if (activeItems.length > 0) completionHandled.current = false
+    if (activeItems.length > 0) {
+      completionHandled.current = false
+      try {
+        sessionStorage.removeItem(completionKey)
+      } catch {
+        /* ignore */
+      }
+    }
     if (!allDone) {
+      setShowCompletion(false)
+      setCompletionArmed(false)
+      return
+    }
+    let dismissed = ''
+    try {
+      dismissed = sessionStorage.getItem(completionKey) ?? ''
+    } catch {
+      dismissed = ''
+    }
+    if (dismissed && dismissed === boughtFingerprint) {
+      completionHandled.current = true
       setShowCompletion(false)
       return
     }
     if (!completionHandled.current) setShowCompletion(true)
-  }, [allDone, activeItems.length])
+  }, [allDone, activeItems.length, boughtFingerprint, completionKey])
+
+  useEffect(() => {
+    if (!showCompletion) {
+      setCompletionArmed(false)
+      return
+    }
+    setCompletionArmed(false)
+    const timer = window.setTimeout(() => setCompletionArmed(true), 450)
+    return () => window.clearTimeout(timer)
+  }, [showCompletion])
+
+  function blurActive() {
+    const active = document.activeElement
+    if (active instanceof HTMLElement) active.blur()
+  }
+
+  function rememberDismiss() {
+    completionHandled.current = true
+    try {
+      sessionStorage.setItem(completionKey, boughtFingerprint)
+    } catch {
+      /* ignore */
+    }
+    setShowCompletion(false)
+    setCompletionArmed(false)
+    blurActive()
+  }
 
   function dismissCompletion() {
-    completionHandled.current = true
-    setShowCompletion(false)
+    rememberDismiss()
   }
 
   const grouped = useMemo(() => {
@@ -172,6 +234,16 @@ export function StoreScreen({
         }
         right={
           <>
+            {loyalty ? (
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Бонусная карта"
+                onClick={() => setShowingCard(true)}
+              >
+                <CardIcon />
+              </button>
+            ) : null}
             {otherStores.length > 0 ? (
               <button
                 type="button"
@@ -210,6 +282,16 @@ export function StoreScreen({
             </button>
           </form>
         </div>
+
+        {loyalty ? (
+          <button
+            type="button"
+            className="button-secondary loyalty-checkout"
+            onClick={() => setShowingCard(true)}
+          >
+            Карта
+          </button>
+        ) : null}
 
         {suggestions.length > 0 && (
           <ul className="suggestions">
@@ -395,16 +477,18 @@ export function StoreScreen({
       )}
 
       {showCompletion && allDone && !editItem && !addingCategory && !namingTemplate && (
-        <div className="overlay" role="presentation">
-          <div className="dialog">
+        <div className="overlay overlay--capture" role="presentation">
+          <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <h2>Все товары куплены</h2>
             <p className="hint">Что сделать со списком?</p>
             <div className="choice-row">
               <button
                 type="button"
                 className="button-primary"
+                disabled={!completionArmed}
                 onClick={() => {
-                  dismissCompletion()
+                  if (!completionArmed) return
+                  rememberDismiss()
                   onClearBought()
                 }}
               >
@@ -413,14 +497,24 @@ export function StoreScreen({
               <button
                 type="button"
                 className="button-secondary"
-                onClick={() => dismissCompletion()}
+                disabled={!completionArmed}
+                onClick={() => {
+                  if (!completionArmed) return
+                  dismissCompletion()
+                }}
               >
                 Оставить список
               </button>
               <button
                 type="button"
                 className="button-secondary"
-                onClick={() => setNamingTemplate(true)}
+                disabled={!completionArmed}
+                onClick={() => {
+                  if (!completionArmed) return
+                  templateSnapshot.current = items.map((item) => ({ ...item }))
+                  setShowCompletion(false)
+                  setNamingTemplate(true)
+                }}
               >
                 Сохранить как шаблон
               </button>
@@ -436,11 +530,17 @@ export function StoreScreen({
           placeholder="Например, На неделю"
           initial={`Шаблон ${(store.templates?.length ?? 0) + 1}`}
           confirmLabel="Сохранить"
-          onClose={() => setNamingTemplate(false)}
-          onConfirm={(name) => {
-            onSaveTemplate(name)
+          inputId="store-template-name"
+          onClose={() => {
             setNamingTemplate(false)
-            dismissCompletion()
+            templateSnapshot.current = null
+            if (allDone && !completionHandled.current) setShowCompletion(true)
+          }}
+          onConfirm={(name) => {
+            onSaveTemplate(name, templateSnapshot.current ?? items)
+            templateSnapshot.current = null
+            setNamingTemplate(false)
+            rememberDismiss()
           }}
         />
       )}
@@ -450,6 +550,7 @@ export function StoreScreen({
           label="Название"
           initial={store.name}
           confirmLabel="Сохранить"
+          inputId="store-rename"
           onClose={() => setRenamingStore(false)}
           onConfirm={(name) => {
             onRenameStore(name)
@@ -472,6 +573,13 @@ export function StoreScreen({
           }}
         />
       )}
+      {showingCard && loyalty ? (
+        <LoyaltyCardSheet
+          card={loyalty.card}
+          source={loyalty.source}
+          onClose={() => setShowingCard(false)}
+        />
+      ) : null}
     </div>
   )
 }

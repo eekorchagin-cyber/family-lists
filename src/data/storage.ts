@@ -15,6 +15,7 @@ import { isLocalHost } from './sync/codes'
 import { appendCategoryToStores } from './categories'
 import { markDirty } from './sync/dirty'
 import { groupsFromStores, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker } from './homeLayout'
+import { parseLoyaltyCard, stripLoyaltyMarker } from './loyalty'
 import {
   createDefaultData,
   DEFAULT_CATEGORIES,
@@ -127,10 +128,12 @@ function normalizeStore(value: unknown): Store | null {
 
   const defaults = emptyStoreFields()
   const marked = stripGroupMarker(normalizeCategoryNames(value.categoryNames))
+  const loyalty = stripLoyaltyMarker(marked.names)
   const groupId =
     typeof value.groupId === 'string' && value.groupId.trim()
       ? value.groupId.trim()
       : marked.groupId
+  const loyaltyCard = parseLoyaltyCard(value.loyaltyCard) ?? loyalty.card
   return {
     id: value.id,
     name: value.name,
@@ -138,11 +141,12 @@ function normalizeStore(value: unknown): Store | null {
     categoryOrder: Array.isArray(value.categoryOrder)
       ? value.categoryOrder.filter((id): id is string => typeof id === 'string')
       : defaults.categoryOrder,
-    categoryNames: marked.names,
+    categoryNames: loyalty.names,
     templates: normalizeTemplates(value),
     visibility: value.visibility === 'home' ? 'home' : 'private',
     ...(typeof value.ownerId === 'string' ? { ownerId: value.ownerId } : {}),
     ...(groupId ? { groupId } : {}),
+    ...(loyaltyCard ? { loyaltyCard } : {}),
     ...(typeof value.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
   }
 }
@@ -153,9 +157,13 @@ function normalizeGroup(value: unknown): StoreGroup | null {
   }
   const name = value.name.trim()
   if (!name) return null
+  const loyaltyCard = parseLoyaltyCard(value.loyaltyCard)
+  const icon = typeof value.icon === 'string' ? value.icon.trim() : ''
   return {
     id: value.id,
     name,
+    ...(icon ? { icon } : {}),
+    ...(loyaltyCard ? { loyaltyCard } : {}),
     ...(typeof value.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
   }
 }

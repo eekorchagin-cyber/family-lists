@@ -262,6 +262,191 @@ export function ChandelierIcon() {
   )
 }
 
+/** Капсула и таблетка */
+export function PillsIcon() {
+  return (
+    <IconSvg>
+      <g transform="rotate(-38 9 10)">
+        <rect x="2.4" y="6.4" width="13.4" height="7.2" rx="3.6" fill="#f8fafc" stroke="#1c1917" strokeWidth="1.2" />
+        <path d="M9.1 6.4v7.2" fill="none" stroke="#1c1917" strokeWidth="1.15" />
+        <rect x="2.4" y="6.4" width="6.7" height="7.2" rx="3.6" fill="#e2e8f0" stroke="#1c1917" strokeWidth="1.15" />
+      </g>
+      <circle cx="16.4" cy="17.1" r="4.35" fill="#f8fafc" stroke="#1c1917" strokeWidth="1.2" />
+      <path d="M12.3 17.1h8.2" fill="none" stroke="#1c1917" strokeWidth="1.15" strokeLinecap="round" />
+    </IconSvg>
+  )
+}
+
+/** Кровать */
+export function BedIcon() {
+  return (
+    <IconSvg>
+      <path
+        d="M3.2 18.6V8.8c0-.7.55-1.25 1.25-1.25h4.1c.7 0 1.25.55 1.25 1.25v2.15h4.4V8.8c0-.7.55-1.25 1.25-1.25h4.1c.7 0 1.25.55 1.25 1.25v9.8"
+        fill="#e7e5e4"
+        stroke="#1c1917"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3.2 14.1h17.6v4.5H3.2z"
+        fill="#f8fafc"
+        stroke="#1c1917"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2.4 18.6h19.2"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </IconSvg>
+  )
+}
+
+/** Лейка душа */
+export function ShowerIcon() {
+  return (
+    <IconSvg>
+      <path
+        d="M5.2 18.2 9.4 14"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8.1 12.4c2.4-2.4 6.2-2.55 8.15-.6 1.9 1.9 1.75 5.7-.65 8.1l-1.15-1.15c1.7-1.7 1.85-4.35.5-5.7s-4-1.2-5.7.5z"
+        fill="#f8fafc"
+        stroke="#1c1917"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M11.6 16.2h.02M13.5 14.9h.02M15.3 13.5h.02M13.2 17.8h.02M15.15 16.4h.02M16.9 14.95h.02"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="2.1"
+        strokeLinecap="round"
+      />
+    </IconSvg>
+  )
+}
+
+/** Раковина со смесителем */
+export function SinkIcon() {
+  return (
+    <IconSvg>
+      <path
+        d="M3.4 14.2c0-1.05.85-1.9 1.9-1.9h13.4c1.05 0 1.9.85 1.9 1.9 0 3.4-3.9 6.2-8.6 6.2s-8.6-2.8-8.6-6.2z"
+        fill="#f8fafc"
+        stroke="#1c1917"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.4 12.3V11c0-.7.55-1.25 1.25-1.25h2.2"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M16.4 12.3V11c0-.7-.55-1.25-1.25-1.25h-2.2"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12 4.2v6.4"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12 4.2c2.4 0 3.6 1.55 3.6 3.15 0 1.1-.7 2-1.9 2"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </IconSvg>
+  )
+}
+
+/** Монитор */
+export function ComputerIcon() {
+  return (
+    <IconSvg>
+      <rect
+        x="3.4"
+        y="3.6"
+        width="17.2"
+        height="13.2"
+        rx="1.8"
+        fill="#f8fafc"
+        stroke="#1c1917"
+        strokeWidth="1.2"
+      />
+      <rect x="5.3" y="5.5" width="13.4" height="9.3" rx="0.6" fill="#e7e5e4" stroke="#1c1917" strokeWidth="1" />
+      <path
+        d="M8.6 8.3c.35-.7 1.15-1.1 1.95-.95.7.15 1.2.7 1.3 1.4M14.2 8.3c-.35-.7-1.15-1.1-1.95-.95-.7.15-1.2.7-1.3 1.4"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+      />
+      <path d="M8.4 13.1h7.2" fill="none" stroke="#1c1917" strokeWidth="1.15" strokeLinecap="round" />
+      <path d="M12 16.8v2.1" fill="none" stroke="#1c1917" strokeWidth="1.25" strokeLinecap="round" />
+      <path d="M8.2 20.2h7.6" fill="none" stroke="#1c1917" strokeWidth="1.25" strokeLinecap="round" />
+    </IconSvg>
+  )
+}
+
+/** Настольная лампа */
+export function DeskLampIcon() {
+  return (
+    <IconSvg>
+      <path
+        d="M6.6 21.2h10.8"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+      <path d="M12 21.2V16.6" fill="none" stroke="#1c1917" strokeWidth="1.25" strokeLinecap="round" />
+      <circle cx="12" cy="16.2" r="1.15" fill="#e7e5e4" stroke="#1c1917" strokeWidth="1.05" />
+      <path
+        d="M12 15.1 7.6 10.4"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <circle cx="7.6" cy="10.4" r="1.05" fill="#e7e5e4" stroke="#1c1917" strokeWidth="1.05" />
+      <path
+        d="M7.6 9.4 11.1 5.4"
+        fill="none"
+        stroke="#1c1917"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8.2 2.8 16.6 8.4l-2.3 3.35c-.55.8-1.7 1.05-2.55.55L6.1 7.55c-.85-.5-1.15-1.6-.65-2.45z"
+        fill="#f8fafc"
+        stroke="#1c1917"
+        strokeWidth="1.15"
+        strokeLinejoin="round"
+      />
+      <circle cx="15.4" cy="12.4" r="1.55" fill="#fde68a" stroke="#1c1917" strokeWidth="1.05" />
+    </IconSvg>
+  )
+}
+
 const SPECIAL_ICONS: Partial<Record<CategoryIconId, () => ReactNode>> = {
   westie: () => <WestieIcon />,
   fan: () => <FanIcon />,
@@ -269,6 +454,12 @@ const SPECIAL_ICONS: Partial<Record<CategoryIconId, () => ReactNode>> = {
   tile: () => <TileIcon />,
   paintbrush: () => <PaintbrushIcon />,
   chandelier: () => <ChandelierIcon />,
+  pharmacy: () => <PillsIcon />,
+  bed: () => <BedIcon />,
+  shower: () => <ShowerIcon />,
+  sink: () => <SinkIcon />,
+  computer: () => <ComputerIcon />,
+  deskLamp: () => <DeskLampIcon />,
 }
 
 export function CategorySpecialIcon({ id }: { id: string }) {

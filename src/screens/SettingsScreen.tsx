@@ -18,6 +18,7 @@ import {
 } from '../data/appBadge'
 import { buildHomeRows, isGroupsCatalogId, loadHomeOrder } from '../data/homeLayout'
 import { isStandaloneApp } from '../data/sync/codes'
+import { APP_AUTHOR, copyrightLine, parseAppVersion } from '../data/version'
 import {
   downloadCatalogXlsx,
   importSummaryText,
@@ -27,7 +28,7 @@ import type { AccessInfo } from '../data/sync/api'
 import type { HomeMember, SyncSession } from '../data/sync/session'
 import type { CatalogEntry, Category, FontSize, Settings, Store, StoreGroup, Theme } from '../types'
 
-type SettingsSection = 'guide' | 'appearance' | 'categories' | 'catalog' | 'sync' | 'transfer'
+type SettingsSection = 'guide' | 'appearance' | 'categories' | 'catalog' | 'sync' | 'transfer' | 'about'
 
 const SECTIONS: { id: Exclude<SettingsSection, 'guide'>; title: string; hint: string }[] = [
   { id: 'appearance', title: 'Оформление', hint: 'Тема, шрифт и число на ярлыке' },
@@ -35,6 +36,7 @@ const SECTIONS: { id: Exclude<SettingsSection, 'guide'>; title: string; hint: st
   { id: 'categories', title: 'Категории', hint: 'Общие — добавить в любой список' },
   { id: 'catalog', title: 'Товары', hint: 'Справочник' },
   { id: 'transfer', title: 'Экспорт / импорт', hint: 'Наименования в таблице Excel' },
+  { id: 'about', title: 'О программе', hint: 'Автор, версия и дата сборки' },
 ]
 
 const SECTION_TITLES: Record<SettingsSection, string> = {
@@ -44,6 +46,7 @@ const SECTION_TITLES: Record<SettingsSection, string> = {
   categories: 'Категории',
   catalog: 'Товары',
   transfer: 'Экспорт / импорт',
+  about: 'О программе',
 }
 
 type SettingsScreenProps = {
@@ -224,6 +227,7 @@ export function SettingsScreen({
   }
 
   const title = section ? SECTION_TITLES[section] : 'Настройки'
+  const about = parseAppVersion()
   const goBack = section ? () => setSection(null) : onBack
 
   return (
@@ -264,6 +268,8 @@ export function SettingsScreen({
               названием пропускается. Если категории ещё нет в программе, она добавится в
               справочник.
             </p>
+          ) : section === 'about' ? (
+            <p>Автор, знак охраны авторского права, номер версии и дата этой сборки.</p>
           ) : undefined
         }
         helpTitle={
@@ -641,6 +647,23 @@ export function SettingsScreen({
               Импорт из Excel
             </button>
             {transferHint ? <p className="hint">{transferHint}</p> : null}
+          </section>
+        )}
+
+        {section === 'about' && (
+          <section className="settings-block about-block">
+            <h2>Возьми</h2>
+            <p className="about-copy">{copyrightLine()}</p>
+            <p className="hint">Автор: {APP_AUTHOR}</p>
+            <p className="about-meta">
+              Версия {about.version}
+              {about.builtLabel ? (
+                <>
+                  <br />
+                  Сборка {about.builtLabel}
+                </>
+              ) : null}
+            </p>
           </section>
         )}
       </main>

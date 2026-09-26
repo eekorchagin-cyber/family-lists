@@ -27,9 +27,20 @@ export type NamedTemplate = {
 
 export type StoreVisibility = 'private' | 'home'
 
+export type LoyaltyKind = 'barcode' | 'qr' | 'app'
+
+export type LoyaltyCard = {
+  kind: LoyaltyKind
+  value: string
+  format?: string
+  label?: string
+}
+
 export type StoreGroup = {
   id: string
   name: string
+  icon?: string
+  loyaltyCard?: LoyaltyCard
   updatedAt?: string
 }
 
@@ -44,6 +55,7 @@ export type Store = {
   ownerId?: string
   /** Если задан — список лежит внутри группы (второй уровень). */
   groupId?: string
+  loyaltyCard?: LoyaltyCard
   updatedAt?: string
 }
 

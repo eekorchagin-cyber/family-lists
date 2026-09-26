@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { AddIconButton } from '../components/AddIconButton'
+import { CategoryMark } from '../components/CategoryMark'
+import { CategoryMarkPicker } from '../components/CategoryMarkPicker'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
+import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
 import { NameDialog } from '../components/NameDialog'
 import { SettingsIcon } from '../components/SettingsIcon'
+import { isStoreInBadge } from '../data/appBadge'
 import { storeHasLocalCategories } from '../data/categories'
 import {
   buildHomeRows,
@@ -16,7 +20,7 @@ import {
   type HomeRow,
 } from '../data/homeLayout'
 import { APP_VERSION } from '../data/version'
-import type { Category, Item, Store, StoreGroup } from '../types'
+import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup } from '../types'
 
 type HomeScreenProps = {
   stores: Store[]
@@ -31,6 +35,8 @@ type HomeScreenProps = {
   onDeleteStore: (storeId: string) => void
   onRenameGroup: (groupId: string, name: string) => void
   onDeleteGroup: (groupId: string) => void
+  onSetGroupIcon: (groupId: string, icon: string | undefined) => void
+  onSetGroupLoyalty: (groupId: string, card: LoyaltyCard | undefined) => void
   onSetStoreGroup: (storeId: string, groupId: string | null) => void
   onReorderStores: (orderedIds: string[]) => void
   onReorderHome: (orderedKeys: string[]) => void
@@ -48,6 +54,7 @@ type HomeScreenProps = {
   badgePrompt?: boolean
   onAllowBadge?: () => void
   onSkipBadge?: () => void
+  settings: Settings
 }
 
 const LONG_PRESS_MS = 450
@@ -82,6 +89,8 @@ export function HomeScreen({
   onDeleteStore,
   onRenameGroup,
   onDeleteGroup,
+  onSetGroupIcon,
+  onSetGroupLoyalty,
   onSetStoreGroup,
   onReorderStores,
   onReorderHome,
@@ -99,6 +108,7 @@ export function HomeScreen({
   badgePrompt = false,
   onAllowBadge,
   onSkipBadge,
+  settings,
 }: HomeScreenProps) {
   const [managing, setManaging] = useState<Managing | null>(null)
   const [movingStore, setMovingStore] = useState<Store | null>(null)
@@ -107,6 +117,8 @@ export function HomeScreen({
   const [deletingStore, setDeletingStore] = useState<Store | null>(null)
   const [deletingGroup, setDeletingGroup] = useState<StoreGroup | null>(null)
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const [pickingGroupIcon, setPickingGroupIcon] = useState<StoreGroup | null>(null)
+  const [editingGroupCard, setEditingGroupCard] = useState<StoreGroup | null>(null)
   const [addingMenu, setAddingMenu] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => loadCollapsedGroups())
   const [homeOrder, setHomeOrder] = useState(() => ensureHomeOrder(stores, groups, loadHomeOrder()))
@@ -550,6 +562,16 @@ export function HomeScreen({
                         <span className="store-group-chevron" aria-hidden="true">
                           {isCollapsed ? '▸' : '▾'}
                         </span>
+                        {row.group.icon ? (
+                          <CategoryMark
+                            className="category-mark-sm"
+                            category={{
+                              name: row.group.name,
+                              color: 'none',
+                              icon: row.group.icon,
+                            }}
+                          />
+                        ) : null}
                         <span className="store-name-text">{row.group.name}</span>
                         <span className="store-local-mark">{nestedCount}</span>
                       </span>
@@ -621,7 +643,14 @@ export function HomeScreen({
                       ) : null}
                     </span>
                     {(unboughtByStoreId.get(store.id) ?? 0) > 0 ? (
-                      <span className="store-unbought-count" aria-label="Некуплено">
+                      <span
+                        className={
+                          isStoreInBadge(store.id, settings)
+                            ? 'store-unbought-count'
+                            : 'store-unbought-count store-unbought-count--outline'
+                        }
+                        aria-label="Некуплено"
+                      >
                         {unboughtByStoreId.get(store.id)}
                       </span>
                     ) : null}
@@ -643,7 +672,7 @@ export function HomeScreen({
       </main>
 
       {addingMenu ? (
-        <div className="overlay" role="presentation" onClick={() => setAddingMenu(false)}>
+        <div className="overlay overlay--capture" role="presentation" onClick={() => setAddingMenu(false)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <h2>Добавить</h2>
             <div className="choice-row">
@@ -676,7 +705,7 @@ export function HomeScreen({
       ) : null}
 
       {managing?.kind === 'store' ? (
-        <div className="overlay" role="presentation" onClick={() => setManaging(null)}>
+        <div className="overlay overlay--capture" role="presentation" onClick={() => setManaging(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <h2>{managing.store.name}</h2>
             <div className="choice-row">
@@ -731,7 +760,7 @@ export function HomeScreen({
       ) : null}
 
       {managing?.kind === 'group' ? (
-        <div className="overlay" role="presentation" onClick={() => setManaging(null)}>
+        <div className="overlay overlay--capture" role="presentation" onClick={() => setManaging(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <h2>{managing.group.name}</h2>
             <div className="choice-row">
@@ -744,6 +773,26 @@ export function HomeScreen({
                 }}
               >
                 Переименовать
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  setPickingGroupIcon(managing.group)
+                  setManaging(null)
+                }}
+              >
+                Значок
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  setEditingGroupCard(managing.group)
+                  setManaging(null)
+                }}
+              >
+                Бонусная карта
               </button>
               <button
                 type="button"
@@ -764,7 +813,7 @@ export function HomeScreen({
       ) : null}
 
       {movingStore ? (
-        <div className="overlay" role="presentation" onClick={() => setMovingStore(null)}>
+        <div className="overlay overlay--capture" role="presentation" onClick={() => setMovingStore(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <h2>Куда перенести</h2>
             <div className="choice-row">
@@ -830,10 +879,58 @@ export function HomeScreen({
           placeholder="Например, На дачу"
           initial={renamingGroup.name}
           confirmLabel="Сохранить"
+          inputId="group-rename"
           onClose={() => setRenamingGroup(null)}
           onConfirm={(next) => {
             onRenameGroup(renamingGroup.id, next)
             setRenamingGroup(null)
+          }}
+        />
+      ) : null}
+
+      {pickingGroupIcon ? (
+        <div className="overlay overlay--capture" role="presentation" onClick={() => setPickingGroupIcon(null)}>
+          <div className="dialog" onClick={(event) => event.stopPropagation()}>
+            <h2>Значок группы</h2>
+            <CategoryMarkPicker
+              iconsOnly
+              color="none"
+              icon={pickingGroupIcon.icon ?? ''}
+              onColor={() => {}}
+              onIcon={(icon) => {
+                onSetGroupIcon(pickingGroupIcon.id, icon)
+                setPickingGroupIcon(null)
+              }}
+            />
+            {pickingGroupIcon.icon ? (
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  onSetGroupIcon(pickingGroupIcon.id, undefined)
+                  setPickingGroupIcon(null)
+                }}
+              >
+                Без значка
+              </button>
+            ) : null}
+            <div className="dialog-actions">
+              <button type="button" className="button-secondary" onClick={() => setPickingGroupIcon(null)}>
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editingGroupCard ? (
+        <LoyaltyCardEditor
+          title={`Карта: ${editingGroupCard.name}`}
+          initial={editingGroupCard.loyaltyCard}
+          onClose={() => setEditingGroupCard(null)}
+          onSave={(card) => {
+            onSetGroupLoyalty(editingGroupCard.id, card)
+            setEditingGroupCard(null)
           }}
         />
       ) : null}

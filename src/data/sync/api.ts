@@ -12,6 +12,7 @@ import {
   stripGroupMarker,
   withGroupMarker,
 } from '../homeLayout'
+import { stripLoyaltyMarker, withLoyaltyMarker } from '../loyalty'
 import { nowIso } from './merge'
 import { loadSession, type HomeMember, type SyncSession } from './session'
 
@@ -508,7 +509,10 @@ export async function pushLocal(
       visibility: store.visibility ?? 'private',
       category_sort: store.categorySort,
       category_order: store.categoryOrder,
-      category_names: withGroupMarker(store.categoryNames, groupId, groupName),
+      category_names: withLoyaltyMarker(
+        withGroupMarker(store.categoryNames, groupId, groupName),
+        store.loyaltyCard,
+      ),
       templates: store.templates ?? [],
       updated_at: store.updatedAt ?? at,
     }
@@ -668,16 +672,18 @@ export async function pushLocal(
 
 function storeFromRow(row: StoreRow): Store {
   const marked = stripGroupMarker(row.category_names ?? {})
+  const loyalty = stripLoyaltyMarker(marked.names)
   return {
     id: row.id,
     name: row.name,
     categorySort: row.category_sort === 'alpha' ? 'alpha' : 'custom',
     categoryOrder: row.category_order ?? [],
-    categoryNames: marked.names,
+    categoryNames: loyalty.names,
     templates: row.templates ?? [],
     visibility: row.visibility,
     ownerId: row.owner_id,
     ...(marked.groupId ? { groupId: marked.groupId } : {}),
+    ...(loyalty.card ? { loyaltyCard: loyalty.card } : {}),
     updatedAt: row.updated_at,
   }
 }

@@ -40,6 +40,16 @@ export function SettingsIcon() {
   )
 }
 
+export function CardIcon() {
+  return (
+    <svg {...icon}>
+      <rect x="3.2" y="6.2" width="17.6" height="12.2" rx="2" />
+      <path d="M3.2 10.2h17.6" />
+      <path d="M7 15.2h4" />
+    </svg>
+  )
+}
+
 export function HelpIcon() {
   return (
     <svg {...icon}>

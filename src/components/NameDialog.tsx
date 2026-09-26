@@ -7,6 +7,7 @@ type NameDialogProps = {
   placeholder?: string
   initial?: string
   confirmLabel: string
+  inputId?: string
   onClose: () => void
   onConfirm: (name: string) => void
 }
@@ -17,6 +18,7 @@ export function NameDialog({
   placeholder,
   initial = '',
   confirmLabel,
+  inputId = 'name-dialog-input',
   onClose,
   onConfirm,
 }: NameDialogProps) {
@@ -36,14 +38,14 @@ export function NameDialog({
   }
 
   return (
-    <div className="overlay" role="presentation" onClick={onClose}>
+    <div className="overlay overlay--capture" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
         <h2>{title}</h2>
-        <label className="field-label" htmlFor="template-name">
+        <label className="field-label" htmlFor={inputId}>
           {label}
         </label>
         <input
-          id="template-name"
+          id={inputId}
           className="input"
           value={name}
           onChange={(event) => setName(event.target.value)}

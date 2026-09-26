@@ -1,4 +1,5 @@
 import type { Store, StoreGroup } from '../types'
+import { parseLoyaltyCard } from './loyalty'
 
 export const HOME_ORDER_KEY = 'pokupki-home-order'
 export const GROUP_COLLAPSED_KEY = 'pokupki-group-collapsed'
@@ -264,9 +265,13 @@ export function parseGroupsCatalog(raw: string | undefined): StoreGroup[] | null
       if (!entry || typeof entry !== 'object') continue
       const row = entry as Record<string, unknown>
       if (typeof row.id !== 'string' || typeof row.name !== 'string') continue
+      const icon = typeof row.icon === 'string' ? row.icon.trim() : ''
+      const loyaltyCard = parseLoyaltyCard(row.loyaltyCard)
       groups.push({
         id: row.id,
         name: row.name,
+        ...(icon ? { icon } : {}),
+        ...(loyaltyCard ? { loyaltyCard } : {}),
         ...(typeof row.updatedAt === 'string' ? { updatedAt: row.updatedAt } : {}),
       })
     }

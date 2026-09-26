@@ -52,6 +52,9 @@ function App() {
     reorderHome,
     addGroup,
     renameGroup,
+    setGroupIcon,
+    setGroupLoyalty,
+    setStoreLoyalty,
     deleteGroup,
     setStoreGroup,
     setTheme,
@@ -113,12 +116,15 @@ function App() {
     badgePrompt: badge.prompt,
     onAllowBadge: () => void badge.allow(),
     onSkipBadge: badge.skip,
+    settings: data.settings,
     onOpenSettings: () => setScreen({ name: 'settings' as const }),
     onOpenStore: (storeId: string) => setScreen({ name: 'store' as const, storeId }),
     onStartAddStore: () => setScreen({ name: 'newStore' as const }),
     onAddGroup: addGroup,
     onRenameStore: renameStore,
     onRenameGroup: renameGroup,
+    onSetGroupIcon: setGroupIcon,
+    onSetGroupLoyalty: setGroupLoyalty,
     onDeleteGroup: deleteGroup,
     onSetStoreGroup: setStoreGroup,
     onReorderStores: reorderStores,
@@ -282,6 +288,8 @@ function App() {
             onSaveTemplate={(name) => saveTemplate(store.id, name)}
             onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
             onMoveToStore={(storeId) => transferItems(store.id, storeId, 'move')}
+            groups={data.groups ?? []}
+            onSetLoyalty={(card) => setStoreLoyalty(store.id, card)}
           />
           {overlay}
         </>
@@ -334,8 +342,9 @@ function App() {
           onUpdateItem={updateItem}
           onClearBought={() => clearBought(store.id)}
           completedEmpty={clearedStoreIds.includes(store.id)}
-          onSaveTemplate={(name) => saveTemplate(store.id, name)}
+          onSaveTemplate={(name, snapshot) => saveTemplate(store.id, name, snapshot)}
           otherStores={data.stores.filter((item) => item.id !== store.id)}
+          groups={data.groups ?? []}
           onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
           onMoveToStore={(storeId) => transferItems(store.id, storeId, 'move')}
         />

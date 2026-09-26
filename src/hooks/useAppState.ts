@@ -617,20 +617,21 @@ export function useAppState() {
     })
   }, [rememberCleared])
 
-  const saveTemplate = useCallback((storeId: string, name: string) => {
+  const saveTemplate = useCallback((storeId: string, name: string, snapshot?: Item[]) => {
     const trimmed = name.trim()
     if (!trimmed) return
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       if (!store) return current
-      const items = current.items
-        .filter((item) => item.storeId === storeId)
-        .map((item) => ({
-          name: item.name,
-          categoryId: item.categoryId,
-          qty: item.qty,
-          unit: item.unit,
-        }))
+      const source =
+        snapshot ?? current.items.filter((item) => item.storeId === storeId)
+      const items = source.map((item) => ({
+        name: item.name,
+        categoryId: item.categoryId,
+        qty: item.qty,
+        unit: item.unit,
+      }))
+      if (items.length === 0) return current
       return persist(
         patchStore(current, storeId, {
           templates: [
@@ -903,6 +904,42 @@ export function useAppState() {
     })
   }, [])
 
+  const setGroupIcon = useCallback((groupId: string, icon: string | undefined) => {
+    setData((current) => {
+      const groups = (current.groups ?? []).map((group) => {
+        if (group.id !== groupId) return group
+        const next = withUpdatedAt({ ...group, icon })
+        if (!icon) delete next.icon
+        return next
+      })
+      if (groups.every((group, index) => group === (current.groups ?? [])[index])) return current
+      return persist({ ...current, groups })
+    })
+  }, [])
+
+  const setGroupLoyalty = useCallback((groupId: string, card: Store['loyaltyCard']) => {
+    setData((current) => {
+      const groups = (current.groups ?? []).map((group) => {
+        if (group.id !== groupId) return group
+        const next = withUpdatedAt({ ...group, loyaltyCard: card })
+        if (!card) delete next.loyaltyCard
+        return next
+      })
+      if (groups.every((group, index) => group === (current.groups ?? [])[index])) return current
+      return persist({ ...current, groups })
+    })
+  }, [])
+
+  const setStoreLoyalty = useCallback((storeId: string, card: Store['loyaltyCard']) => {
+    setData((current) => {
+      const store = current.stores.find((item) => item.id === storeId)
+      if (!store) return current
+      const next = card ? { loyaltyCard: card } : { loyaltyCard: undefined }
+      if (!card && !store.loyaltyCard) return current
+      return persist(patchStore(current, storeId, next))
+    })
+  }, [])
+
   const deleteGroup = useCallback((groupId: string) => {
     setData((current) => {
       if (!(current.groups ?? []).some((group) => group.id === groupId)) return current
@@ -1039,6 +1076,9 @@ export function useAppState() {
     reorderHome,
     addGroup,
     renameGroup,
+    setGroupIcon,
+    setGroupLoyalty,
+    setStoreLoyalty,
     deleteGroup,
     setStoreGroup,
     setTheme,

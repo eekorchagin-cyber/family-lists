@@ -46,6 +46,11 @@ const ICON_LABELS: Record<string, string> = {
   door: 'Дверь',
   insulation: 'Утеплитель',
   shelf: 'Стеллаж',
+  bed: 'Кровать',
+  shower: 'Душ',
+  sink: 'Раковина',
+  computer: 'Компьютер',
+  deskLamp: 'Настольная лампа',
 }
 
 type CategoryMarkPickerProps = {
@@ -53,6 +58,7 @@ type CategoryMarkPickerProps = {
   icon: string
   onColor: (color: string) => void
   onIcon: (icon: string) => void
+  iconsOnly?: boolean
 }
 
 export function CategoryMarkPicker({
@@ -60,28 +66,33 @@ export function CategoryMarkPicker({
   icon,
   onColor,
   onIcon,
+  iconsOnly = false,
 }: CategoryMarkPickerProps) {
   return (
     <>
-      <p className="field-label">Цвет</p>
-      <div className="color-pick">
-        {CATEGORY_COLORS.map((value) => (
-          <button
-            key={value}
-            type="button"
-            className={[
-              'color-swatch',
-              color === value ? 'active' : '',
-              value === 'none' ? 'color-swatch--none' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            style={value === 'none' ? undefined : { background: value }}
-            aria-label={value === 'none' ? 'Без цвета' : `Цвет ${value}`}
-            onClick={() => onColor(value)}
-          />
-        ))}
-      </div>
+      {iconsOnly ? null : (
+        <>
+          <p className="field-label">Цвет</p>
+          <div className="color-pick">
+            {CATEGORY_COLORS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={[
+                  'color-swatch',
+                  color === value ? 'active' : '',
+                  value === 'none' ? 'color-swatch--none' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                style={value === 'none' ? undefined : { background: value }}
+                aria-label={value === 'none' ? 'Без цвета' : `Цвет ${value}`}
+                onClick={() => onColor(value)}
+              />
+            ))}
+          </div>
+        </>
+      )}
       <p className="field-label">Значок</p>
       <div className="icon-pick">
         {CATEGORY_ICONS.map((item) => (

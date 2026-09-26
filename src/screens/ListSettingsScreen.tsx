@@ -5,12 +5,14 @@ import { CategoryMark } from '../components/CategoryMark'
 import { CategoryScopeDialog } from '../components/CategoryScopeDialog'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
+import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
 import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { BackIcon } from '../components/NavIcons'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
-import type { Category, CategorySort, Item, Store, StoreVisibility } from '../types'
+import { resolveLoyaltyCard } from '../data/loyalty'
+import type { Category, CategorySort, Item, LoyaltyCard, Store, StoreGroup, StoreVisibility } from '../types'
 
 type ListSettingsSection = 'list' | 'categories' | 'templates' | 'transfer'
 
@@ -66,6 +68,8 @@ type ListSettingsScreenProps = {
   onSaveTemplate: (name: string) => void
   onCopyToStore: (storeId: string) => void
   onMoveToStore: (storeId: string) => void
+  groups?: StoreGroup[]
+  onSetLoyalty?: (card: LoyaltyCard | undefined) => void
   syncEnabled?: boolean
   onVisibility?: (visibility: StoreVisibility) => void
 }
@@ -92,10 +96,13 @@ export function ListSettingsScreen({
   onSaveTemplate,
   onCopyToStore,
   onMoveToStore,
+  groups = [],
+  onSetLoyalty,
   syncEnabled = false,
   onVisibility,
 }: ListSettingsScreenProps) {
   const [section, setSection] = useState<ListSettingsSection | null>(null)
+  const [editingCard, setEditingCard] = useState(false)
   const [picking, setPicking] = useState(false)
   const [adding, setAdding] = useState(false)
   const [editingScope, setEditingScope] = useState<Category | null>(null)
@@ -254,6 +261,25 @@ export function ListSettingsScreen({
                   «Только я» — список виден лишь вам (и на ваших телефонах с кодом T). «Весь дом» —
                   всем участникам семьи.
                 </p>
+              </>
+            ) : null}
+            {onSetLoyalty ? (
+              <>
+                <p className="field-label">Бонусная карта</p>
+                <p className="hint">
+                  {store.loyaltyCard
+                    ? store.loyaltyCard.label || 'Своя карта этого списка'
+                    : resolveLoyaltyCard(store, groups)?.source === 'group'
+                      ? 'Как у группы — можно задать отдельную для списка'
+                      : 'Нет карты. Добавьте штрихкод, QR или ссылку на приложение магазина.'}
+                </p>
+                <button
+                  type="button"
+                  className="button-secondary add-category"
+                  onClick={() => setEditingCard(true)}
+                >
+                  {store.loyaltyCard ? 'Изменить карту' : 'Добавить карту'}
+                </button>
               </>
             ) : null}
             <button
@@ -459,6 +485,7 @@ export function ListSettingsScreen({
           placeholder="Например, На неделю"
           initial={`Шаблон ${(store.templates?.length ?? 0) + 1}`}
           confirmLabel="Сохранить"
+          inputId="list-template-name"
           onClose={() => setNamingTemplate(false)}
           onConfirm={(name) => {
             onSaveTemplate(name)
@@ -466,6 +493,18 @@ export function ListSettingsScreen({
           }}
         />
       )}
+      {editingCard && onSetLoyalty ? (
+        <LoyaltyCardEditor
+          initial={store.loyaltyCard}
+          inherited={resolveLoyaltyCard(store, groups)?.source === 'group' ? resolveLoyaltyCard(store, groups)?.card : undefined}
+          inheritedLabel="группы"
+          onClose={() => setEditingCard(false)}
+          onSave={(card) => {
+            onSetLoyalty(card)
+            setEditingCard(false)
+          }}
+        />
+      ) : null}
       {transferring && (
         <TransferDialog
           stores={otherStores}
