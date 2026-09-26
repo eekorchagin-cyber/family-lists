@@ -6,22 +6,26 @@ import type { LoyaltyCard } from '../types'
 export function LoyaltyCardView({
   card,
   large = false,
+  showOpen = true,
 }: {
   card: LoyaltyCard
   large?: boolean
+  showOpen?: boolean
 }) {
   const label = card.label?.trim() || card.value
   if (card.kind === 'app') {
     return (
       <div className={large ? 'loyalty-view loyalty-view--large' : 'loyalty-view'}>
         {card.label ? <p className="loyalty-view-label">{card.label}</p> : null}
-        <button
-          type="button"
-          className="button-primary loyalty-app-link"
-          onClick={() => openLoyaltyApp(card.value)}
-        >
-          Открыть приложение
-        </button>
+        {showOpen ? (
+          <button
+            type="button"
+            className="button-primary loyalty-app-link"
+            onClick={() => openLoyaltyApp(card.value)}
+          >
+            Открыть приложение
+          </button>
+        ) : null}
         <p className="hint loyalty-view-url">{card.value}</p>
         {loyaltyAppHref(card.value) ? null : (
           <p className="hint">{loyaltyAppError(card.value)}</p>
@@ -75,9 +79,22 @@ export function LoyaltyCardSheet({
         {source === 'group' ? (
           <p className="hint">Карта группы — у этого списка своей нет.</p>
         ) : null}
-        <LoyaltyCardView card={card} large />
-        <div className="dialog-actions">
-          <button type="button" className="button-primary" onClick={onClose}>
+        <LoyaltyCardView card={card} large showOpen={false} />
+        <div className="dialog-actions dialog-actions-single">
+          {card.kind === 'app' ? (
+            <button
+              type="button"
+              className="button-primary"
+              onClick={() => openLoyaltyApp(card.value)}
+            >
+              Открыть приложение
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={card.kind === 'app' ? 'button-secondary' : 'button-primary'}
+            onClick={onClose}
+          >
             Закрыть
           </button>
         </div>

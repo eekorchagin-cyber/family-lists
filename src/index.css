@@ -217,10 +217,6 @@ ul {
   margin-top: 8px;
 }
 
-.dialog-actions-single {
-  grid-template-columns: 1fr;
-}
-
 .header-done {
   min-height: 48px;
   border: 0;
@@ -844,6 +840,10 @@ ul {
   margin-top: 20px;
 }
 
+.dialog-actions-single {
+  grid-template-columns: 1fr;
+}
+
 .dialog-actions--loyalty .dialog-actions-remove {
   grid-column: 1 / -1;
 }
@@ -1260,9 +1260,7 @@ button.category-name-input {
 }
 
 .loyalty-app-link {
-  display: inline-flex;
-  justify-content: center;
-  text-decoration: none;
+  width: 100%;
 }
 
 .loyalty-photo {
