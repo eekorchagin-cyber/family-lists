@@ -31,7 +31,7 @@ type HomeScreenProps = {
   onOpenSettings: () => void
   onOpenStore: (storeId: string) => void
   onStartAddStore: () => void
-  onAddGroup: (name: string) => void
+  onAddGroup: (name: string, visibility?: StoreVisibility) => void
   onRenameStore: (storeId: string, name: string) => void
   onDeleteStore: (storeId: string) => void
   onRenameGroup: (groupId: string, name: string) => void
@@ -41,6 +41,7 @@ type HomeScreenProps = {
   onSetGroupLoyalty: (groupId: string, card: LoyaltyCard | undefined) => void
   onSetStoreLoyalty: (storeId: string, card: LoyaltyCard | undefined) => void
   onSetStoreGroup: (storeId: string, groupId: string | null) => void
+  onSetGroupVisibility: (groupId: string, visibility: StoreVisibility) => void
   onSaveGroupTemplate: (
     groupId: string,
     draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
@@ -109,6 +110,7 @@ export function HomeScreen({
   onSetGroupLoyalty,
   onSetStoreLoyalty,
   onSetStoreGroup,
+  onSetGroupVisibility,
   onSaveGroupTemplate,
   onDeleteGroupTemplate,
   onReorderStores,
@@ -137,6 +139,7 @@ export function HomeScreen({
   const [deletingStore, setDeletingStore] = useState<Store | null>(null)
   const [deletingGroup, setDeletingGroup] = useState<StoreGroup | null>(null)
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const [newGroupVisibility, setNewGroupVisibility] = useState<StoreVisibility>('home')
   const [pickingGroupIcon, setPickingGroupIcon] = useState<StoreGroup | null>(null)
   const [pickingStoreIcon, setPickingStoreIcon] = useState<Store | null>(null)
   const [editingGroupCard, setEditingGroupCard] = useState<StoreGroup | null>(null)
@@ -594,6 +597,9 @@ export function HomeScreen({
                           />
                         ) : null}
                         <span className="store-name-text">{row.group.name}</span>
+                        {syncEnabled && row.group.visibility === 'private' ? (
+                          <span className="store-local-mark">личное</span>
+                        ) : null}
                         <span className="store-local-mark">{nestedCount}</span>
                       </span>
                       {(unboughtByGroupId.get(row.group.id) ?? 0) > 0 ? (
@@ -729,6 +735,7 @@ export function HomeScreen({
                 className="button-secondary"
                 onClick={() => {
                   setAddingMenu(false)
+                  setNewGroupVisibility('home')
                   setCreatingGroup(true)
                 }}
               >
@@ -821,6 +828,42 @@ export function HomeScreen({
         <div className="overlay overlay--capture" role="presentation" onClick={() => setManaging(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <h2>{managing.group.name}</h2>
+            {syncEnabled ? (
+              <>
+                <p className="field-label">Кто видит</p>
+                <div className="choice-row">
+                  <button
+                    type="button"
+                    className={managing.group.visibility === 'private' ? 'choice active' : 'choice'}
+                    onClick={() => {
+                      onSetGroupVisibility(managing.group.id, 'private')
+                      setManaging({
+                        kind: 'group',
+                        group: { ...managing.group, visibility: 'private' },
+                      })
+                    }}
+                  >
+                    Только я
+                  </button>
+                  <button
+                    type="button"
+                    className={managing.group.visibility !== 'private' ? 'choice active' : 'choice'}
+                    onClick={() => {
+                      onSetGroupVisibility(managing.group.id, 'home')
+                      setManaging({
+                        kind: 'group',
+                        group: { ...managing.group, visibility: 'home' },
+                      })
+                    }}
+                  >
+                    Весь дом
+                  </button>
+                </div>
+                <p className="hint">
+                  «Только я» — группа видна лишь вам, и на ваших телефонах с кодом T. Списки внутри неё у семьи остаются на первом уровне.
+                </p>
+              </>
+            ) : null}
             <div className="choice-row">
               <button
                 type="button"
@@ -917,9 +960,32 @@ export function HomeScreen({
           label="Название"
           placeholder="Например, На дачу"
           confirmLabel="Создать"
+          extra={
+            syncEnabled ? (
+              <>
+                <p className="field-label">Кто видит</p>
+                <div className="choice-row">
+                  <button
+                    type="button"
+                    className={newGroupVisibility === 'private' ? 'choice active' : 'choice'}
+                    onClick={() => setNewGroupVisibility('private')}
+                  >
+                    Только я
+                  </button>
+                  <button
+                    type="button"
+                    className={newGroupVisibility === 'home' ? 'choice active' : 'choice'}
+                    onClick={() => setNewGroupVisibility('home')}
+                  >
+                    Весь дом
+                  </button>
+                </div>
+              </>
+            ) : null
+          }
           onClose={() => setCreatingGroup(false)}
           onConfirm={(next) => {
-            onAddGroup(next)
+            onAddGroup(next, newGroupVisibility)
             setCreatingGroup(false)
           }}
         />

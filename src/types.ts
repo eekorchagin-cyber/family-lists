@@ -47,6 +47,11 @@ export type StoreGroup = {
   icon?: string
   loyaltyCard?: LoyaltyCard
   templates?: NamedTemplate[]
+  /** Нет поля или «home» — группа видна всей семье. */
+  visibility?: StoreVisibility
+  ownerId?: string
+  /** Списки внутри личной группы: на других ваших телефонах, без публикации семье. */
+  storeIds?: string[]
   updatedAt?: string
 }
 

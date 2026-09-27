@@ -30,6 +30,39 @@ export function groupHomeKey(groupId: string): string {
   return `g:${groupId}`
 }
 
+export function groupVisibleTo(group: StoreGroup, userId: string | undefined): boolean {
+  if (group.visibility !== 'private') return true
+  if (!userId || !group.ownerId) return true
+  return group.ownerId === userId
+}
+
+export function groupVisibilityFields(row: Record<string, unknown>): Pick<StoreGroup, 'visibility' | 'ownerId' | 'storeIds'> {
+  const visibility = row.visibility === 'private' || row.visibility === 'home' ? row.visibility : undefined
+  const ownerId = typeof row.ownerId === 'string' && row.ownerId.trim() ? row.ownerId.trim() : undefined
+  const storeIds = Array.isArray(row.storeIds)
+    ? row.storeIds.filter((id): id is string => typeof id === 'string' && id.trim() !== '')
+    : undefined
+  return {
+    ...(visibility ? { visibility } : {}),
+    ...(ownerId ? { ownerId } : {}),
+    ...(storeIds ? { storeIds } : {}),
+  }
+}
+
+export function nestStoresInPrivateGroups(stores: Store[], groups: StoreGroup[]): Store[] {
+  const groupByStore = new Map<string, string>()
+  for (const group of groups) {
+    if (group.visibility !== 'private') continue
+    for (const storeId of group.storeIds ?? []) groupByStore.set(storeId, group.id)
+  }
+  if (groupByStore.size === 0) return stores
+  return stores.map((store) => {
+    const groupId = groupByStore.get(store.id)
+    if (!groupId || store.groupId === groupId) return store
+    return { ...store, groupId }
+  })
+}
+
 export function parseHomeKey(key: string): HomeEntry | null {
   if (key.startsWith('g:')) {
     const id = key.slice(2)
@@ -268,6 +301,21 @@ function applyGroupTemplates(
   return { ...winner, templates }
 }
 
+function preservePrivateGroup(winner: StoreGroup, other: StoreGroup): StoreGroup {
+  if (winner.visibility === 'private') {
+    if (!winner.ownerId && other.ownerId) return { ...winner, ownerId: other.ownerId }
+    if (!winner.storeIds && other.storeIds) return { ...winner, storeIds: other.storeIds }
+    return winner
+  }
+  if (winner.visibility === 'home' || other.visibility !== 'private') return winner
+  return {
+    ...winner,
+    visibility: 'private',
+    ...(other.ownerId ? { ownerId: other.ownerId } : {}),
+    ...(winner.storeIds ? { storeIds: winner.storeIds } : other.storeIds ? { storeIds: other.storeIds } : {}),
+  }
+}
+
 function isPlaceholderGroupName(name: string): boolean {
   return name.trim() === '' || name.trim() === 'Группа'
 }
@@ -293,17 +341,17 @@ export function mergeGroups(
     }
     // Заглушка «Группа» из списков не должна перебивать имя из catalog.
     if (isPlaceholderGroupName(group.name) && !isPlaceholderGroupName(current.name)) {
-      byId.set(group.id, applyGroupTemplates(current, group, userId, false))
+      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(current, group, userId, false), group))
       continue
     }
     if (isPlaceholderGroupName(current.name) && !isPlaceholderGroupName(group.name)) {
-      byId.set(group.id, applyGroupTemplates(group, current, userId, true))
+      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(group, current, userId, true), current))
       continue
     }
     if ((group.updatedAt ?? '') >= (current.updatedAt ?? '')) {
-      byId.set(group.id, applyGroupTemplates(group, current, userId, true))
+      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(group, current, userId, true), current))
     } else {
-      byId.set(group.id, applyGroupTemplates(current, group, userId, false))
+      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(current, group, userId, false), group))
     }
   }
   return [...byId.values()]
@@ -336,6 +384,7 @@ export function parseGroupsCatalog(raw: string | undefined): StoreGroup[] | null
         ...(icon ? { icon } : {}),
         ...(loyaltyCard ? { loyaltyCard } : {}),
         ...(templates ? { templates } : {}),
+        ...groupVisibilityFields(row),
         ...(typeof row.updatedAt === 'string' ? { updatedAt: row.updatedAt } : {}),
       })
     }

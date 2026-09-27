@@ -6,6 +6,7 @@ import {
   GROUPS_CATALOG_ID,
   groupsCatalogIdForHome,
   groupsFromStores,
+  groupVisibleTo,
   isGroupsCatalogId,
   mergeGroups,
   parseGroupsCatalog,
@@ -469,9 +470,9 @@ export async function pullRemote(): Promise<AppData> {
   // Имена групп дублируем в списках: если catalog пуст, второй телефон
   // всё равно соберёт группы из метаданных списков.
   // Catalog — приоритетнее заглушек из списков (см. mergeGroups).
-  const groups = mergeGroups(catalogGroups, groupsFromStores(storesList, groupNames), []).map(
-    (group) => groupTemplatesForUser(group, loadSession()?.userId),
-  )
+  const groups = mergeGroups(catalogGroups, groupsFromStores(storesList, groupNames), [])
+    .map((group) => groupTemplatesForUser(group, loadSession()?.userId))
+    .filter((group) => groupVisibleTo(group, loadSession()?.userId))
 
   return {
     version: 1,
@@ -506,7 +507,7 @@ export async function pushLocal(
   const ownedStores = data.stores.filter(
     (store) => (store.ownerId ?? ownerId) === ownerId,
   )
-  const groupNameById = new Map((data.groups ?? []).map((group) => [group.id, group.name]))
+  const groupById = new Map((data.groups ?? []).map((group) => [group.id, group]))
   const remoteMarkers = new Map<string, { groupId?: string; groupName?: string }>()
   if (ownedStores.length > 0) {
     const { data: existingRows } = await client
@@ -528,10 +529,13 @@ export async function pushLocal(
   }
   const storeRows = ownedStores.map((store) => {
     const remote = remoteMarkers.get(store.id)
-    const groupId = store.groupId ?? remote?.groupId
-    const groupName =
-      (groupId ? groupNameById.get(groupId) : undefined) ??
-      (store.groupId ? undefined : remote?.groupName)
+    const localGroup = store.groupId ? groupById.get(store.groupId) : undefined
+    const hideGroup = localGroup?.visibility === 'private'
+    const groupId = hideGroup ? undefined : (store.groupId ?? remote?.groupId)
+    const groupName = hideGroup
+      ? undefined
+      : ((groupId ? groupById.get(groupId)?.name : undefined) ??
+        (store.groupId ? undefined : remote?.groupName))
     return {
       id: store.id,
       home_id: homeId,
@@ -699,7 +703,9 @@ export async function pushLocal(
     throw error
   }
   return {
-    groups: mergedGroups.map((group) => groupTemplatesForUser(group, ownerId)),
+    groups: mergedGroups
+      .map((group) => groupTemplatesForUser(group, ownerId))
+      .filter((group) => groupVisibleTo(group, ownerId)),
     groupsSaved,
   }
 }

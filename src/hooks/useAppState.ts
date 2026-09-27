@@ -1008,17 +1008,21 @@ export function useAppState() {
     })
   }, [])
 
-  const addGroup = useCallback((name: string) => {
+  const addGroup = useCallback((name: string, visibility: StoreVisibility = 'home') => {
     const trimmed = name.trim()
     if (!trimmed) return undefined
     const id = newId()
     setData((current) => {
       const inferred = iconIdFromName(trimmed)
+      const owner = actorId()
       const group: StoreGroup = {
         id,
         name: trimmed,
         updatedAt: nowIso(),
         ...(inferred !== 'other' ? { icon: inferred } : {}),
+        ...(visibility === 'private'
+          ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
+          : {}),
       }
       const next = persist({ ...current, groups: [...(current.groups ?? []), group] })
       saveHomeOrder(ensureHomeOrder(next.stores, next.groups, [...loadHomeOrder(), groupHomeKey(id)]))
@@ -1136,11 +1140,44 @@ export function useAppState() {
             )
           : item,
       )
-      const next = persist({ ...current, stores })
+      const groups = (current.groups ?? []).map((group) => {
+        if (group.visibility !== 'private') return group
+        const storeIds = stores.filter((item) => item.groupId === group.id).map((item) => item.id)
+        if (JSON.stringify(storeIds) === JSON.stringify(group.storeIds ?? [])) return group
+        return withUpdatedAt({ ...group, storeIds })
+      })
+      const next = persist({ ...current, stores, groups })
       const order = loadHomeOrder().filter((key) => key !== storeId)
       if (!nextGroupId) order.push(storeId)
       saveHomeOrder(ensureHomeOrder(next.stores, next.groups ?? [], order))
       return next
+    })
+  }, [])
+
+  const setGroupVisibility = useCallback((groupId: string, visibility: StoreVisibility) => {
+    setData((current) => {
+      const group = (current.groups ?? []).find((item) => item.id === groupId)
+      if (!group) return current
+      const currentVisibility = group.visibility === 'private' ? 'private' : 'home'
+      if (currentVisibility === visibility) return current
+      const owner = actorId()
+      const groups = (current.groups ?? []).map((item) => {
+        if (item.id !== groupId) return item
+        if (visibility === 'private') {
+          const storeIds = current.stores.filter((store) => store.groupId === groupId).map((store) => store.id)
+          return withUpdatedAt({
+            ...item,
+            visibility: 'private' as const,
+            ...(owner ? { ownerId: owner } : {}),
+            storeIds,
+          })
+        }
+        const next = withUpdatedAt({ ...item, visibility: 'home' as const })
+        delete next.ownerId
+        delete next.storeIds
+        return next
+      })
+      return persist({ ...current, groups })
     })
   }, [])
 
@@ -1245,6 +1282,7 @@ export function useAppState() {
     setStoreLoyalty,
     deleteGroup,
     setStoreGroup,
+    setGroupVisibility,
     setTheme,
     setFontSize,
     setStoreInBadge,

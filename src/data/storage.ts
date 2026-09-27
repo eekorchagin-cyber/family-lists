@@ -14,7 +14,7 @@ import backup from './backup.json'
 import { isLocalHost } from './sync/codes'
 import { appendCategoryToStores, canonicalStoreIcon } from './categories'
 import { markDirty } from './sync/dirty'
-import { groupsFromStores, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker, stripStoreIcon } from './homeLayout'
+import { groupsFromStores, groupVisibilityFields, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker, stripStoreIcon } from './homeLayout'
 import { asCategoryNames, parseLoyaltyCard, stripLoyaltyMarker } from './loyalty'
 import { parseTemplateList } from './templates'
 import {
@@ -158,6 +158,7 @@ function normalizeGroup(value: unknown): StoreGroup | null {
     ...(icon ? { icon } : {}),
     ...(loyaltyCard ? { loyaltyCard } : {}),
     ...(templates ? { templates } : {}),
+    ...groupVisibilityFields(value),
     ...(typeof value.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
   }
 }

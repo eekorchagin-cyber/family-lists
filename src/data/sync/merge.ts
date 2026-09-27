@@ -1,5 +1,6 @@
 import type { AppData, Item, Store, StoreVisibility } from '../../types'
 import { hasLoyaltyCard } from '../loyalty'
+import { groupVisibleTo, nestStoresInPrivateGroups } from '../homeLayout'
 import { mergeTemplates } from '../templates'
 
 function stamp(): string {
@@ -293,7 +294,7 @@ export function mergePulledData(
 
   const groups = new Map((local.groups ?? []).map((group) => [group.id, group]))
   for (const group of remote.groups ?? []) {
-    if (deletedGroups.has(group.id)) continue
+    if (deletedGroups.has(group.id) || !groupVisibleTo(group, options.userId)) continue
     const current = groups.get(group.id)
     if (!current) {
       groups.set(group.id, group)
@@ -320,9 +321,12 @@ export function mergePulledData(
     changed = true
   }
 
-  const nextStores = applyStoreOrder(
-    [...stores.values()],
-    local.stores.map((store) => store.id),
+  const nextStores = nestStoresInPrivateGroups(
+    applyStoreOrder(
+      [...stores.values()],
+      local.stores.map((store) => store.id),
+    ),
+    [...groups.values()],
   )
   const nextStoreIds = new Set(nextStores.map((store) => store.id))
   // Не снимаем groupId, если карточки группы ещё нет: иначе список
