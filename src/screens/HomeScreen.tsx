@@ -24,6 +24,34 @@ import { APP_VERSION } from '../data/version'
 import type { Person } from '../data/sync/forwardApi'
 import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
 
+function CommandButton({
+  glyph,
+  label,
+  ariaLabel,
+  danger,
+  onClick,
+}: {
+  glyph: string
+  label: string
+  ariaLabel?: string
+  danger?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={danger ? 'command-button command-button--danger' : 'command-button'}
+      aria-label={ariaLabel ?? label}
+      onClick={onClick}
+    >
+      <span className="command-glyph" aria-hidden="true">
+        {glyph}
+      </span>
+      <span className="command-label">{label}</span>
+    </button>
+  )
+}
+
 type HomeScreenProps = {
   stores: Store[]
   groups: StoreGroup[]
@@ -785,87 +813,76 @@ export function HomeScreen({
         <div className="overlay overlay--capture" role="presentation" onClick={() => setManaging(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <h2>{managing.store.name}</h2>
-            <div className="choice-row">
-              <button
-                type="button"
-                className="button-secondary"
+            <div className="command-row">
+              <CommandButton
+                glyph="✎"
+                label="Имя"
+                ariaLabel="Переименовать"
                 onClick={() => {
                   setRenamingStore(managing.store)
                   setManaging(null)
                 }}
-              >
-                Переименовать
-              </button>
-              <button
-                type="button"
-                className="button-secondary"
+              />
+              <CommandButton
+                glyph="😀"
+                label="Значок"
                 onClick={() => {
                   setPickingStoreIcon(managing.store)
                   setManaging(null)
                 }}
-              >
-                Значок
-              </button>
-              <button
-                type="button"
-                className="button-secondary"
+              />
+              <CommandButton
+                glyph="💳"
+                label="Карта"
+                ariaLabel="Бонусная карта"
                 onClick={() => {
                   setEditingStoreCard(managing.store)
                   setManaging(null)
                 }}
-              >
-                Бонусная карта
-              </button>
+              />
               {!managing.store.incomingFrom ? (
-                <button
-                  type="button"
-                  className="button-secondary"
+                <CommandButton
+                  glyph="↳"
+                  label="В группу"
                   onClick={() => {
                     setMovingStore(managing.store)
                     setManaging(null)
                   }}
-                >
-                  В группу…
-                </button>
+                />
               ) : null}
               {managing.store.groupId && !managing.store.incomingFrom ? (
-                <button
-                  type="button"
-                  className="button-secondary"
+                <CommandButton
+                  glyph="↑"
+                  label="Наверх"
+                  ariaLabel="На первый уровень"
                   onClick={() => {
                     onSetStoreGroup(managing.store.id, null)
                     setManaging(null)
                   }}
-                >
-                  На первый уровень
-                </button>
+                />
               ) : null}
               {syncEnabled && onForwardList ? (
-                <button
-                  type="button"
-                  className="button-secondary"
+                <CommandButton
+                  glyph="↗"
+                  label="Отправить"
+                  ariaLabel="Переслать"
                   onClick={() => {
                     setForwardNote(null)
                     setForwardingStore(managing.store)
                     setManaging(null)
                   }}
-                >
-                  Переслать…
-                </button>
+                />
               ) : null}
-              <button
-                type="button"
-                className="button-danger"
+              <CommandButton
+                glyph="🗑"
+                label="Удалить"
+                danger
                 onClick={() => {
                   setDeletingStore(managing.store)
                   setManaging(null)
                 }}
-              >
-                Удалить
-              </button>
-              <button type="button" className="button-secondary" onClick={() => setManaging(null)}>
-                Отмена
-              </button>
+              />
+              <CommandButton glyph="✕" label="Отмена" onClick={() => setManaging(null)} />
             </div>
           </div>
         </div>
@@ -909,60 +926,52 @@ export function HomeScreen({
                 </p>
               </>
             ) : null}
-            <div className="choice-row">
-              <button
-                type="button"
-                className="button-secondary"
+            <div className="command-row">
+              <CommandButton
+                glyph="✎"
+                label="Имя"
+                ariaLabel="Переименовать"
                 onClick={() => {
                   setRenamingGroup(managing.group)
                   setManaging(null)
                 }}
-              >
-                Переименовать
-              </button>
-              <button
-                type="button"
-                className="button-secondary"
+              />
+              <CommandButton
+                glyph="😀"
+                label="Значок"
                 onClick={() => {
                   setPickingGroupIcon(managing.group)
                   setManaging(null)
                 }}
-              >
-                Значок
-              </button>
-              <button
-                type="button"
-                className="button-secondary"
+              />
+              <CommandButton
+                glyph="💳"
+                label="Карта"
+                ariaLabel="Бонусная карта"
                 onClick={() => {
                   setEditingGroupCard(managing.group)
                   setManaging(null)
                 }}
-              >
-                Бонусная карта
-              </button>
-              <button
-                type="button"
-                className="button-secondary"
+              />
+              <CommandButton
+                glyph="📋"
+                label="Шаблоны"
                 onClick={() => {
                   setTemplateGroupId(managing.group.id)
                   setManaging(null)
                 }}
-              >
-                Шаблоны
-              </button>
-              <button
-                type="button"
-                className="button-danger"
+              />
+              <CommandButton
+                glyph="🗑"
+                label="Удалить"
+                ariaLabel="Удалить группу"
+                danger
                 onClick={() => {
                   setDeletingGroup(managing.group)
                   setManaging(null)
                 }}
-              >
-                Удалить группу
-              </button>
-              <button type="button" className="button-secondary" onClick={() => setManaging(null)}>
-                Отмена
-              </button>
+              />
+              <CommandButton glyph="✕" label="Отмена" onClick={() => setManaging(null)} />
             </div>
           </div>
         </div>
