@@ -140,6 +140,7 @@ export function HomeScreen({
   const [deletingGroup, setDeletingGroup] = useState<StoreGroup | null>(null)
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [newGroupVisibility, setNewGroupVisibility] = useState<StoreVisibility>('home')
+  const [editingGroupVisibility, setEditingGroupVisibility] = useState<StoreVisibility>('home')
   const [pickingGroupIcon, setPickingGroupIcon] = useState<StoreGroup | null>(null)
   const [pickingStoreIcon, setPickingStoreIcon] = useState<Store | null>(null)
   const [editingGroupCard, setEditingGroupCard] = useState<StoreGroup | null>(null)
@@ -619,7 +620,10 @@ export function HomeScreen({
                       type="button"
                       className="qty-button store-menu"
                       aria-label={`Изменить группу ${row.group.name}`}
-                      onClick={() => setManaging({ kind: 'group', group: row.group })}
+                      onClick={() => {
+                        setEditingGroupVisibility(row.group.visibility === 'private' ? 'private' : 'home')
+                        setManaging({ kind: 'group', group: row.group })
+                      }}
                     >
                       ⋯
                     </button>
@@ -834,31 +838,29 @@ export function HomeScreen({
                 <div className="choice-row">
                   <button
                     type="button"
-                    className={managing.group.visibility === 'private' ? 'choice active' : 'choice'}
-                    onClick={() => {
-                      onSetGroupVisibility(managing.group.id, 'private')
-                      setManaging({
-                        kind: 'group',
-                        group: { ...managing.group, visibility: 'private' },
-                      })
-                    }}
+                    className={editingGroupVisibility === 'private' ? 'choice active' : 'choice'}
+                    onClick={() => setEditingGroupVisibility('private')}
                   >
                     Только я
                   </button>
                   <button
                     type="button"
-                    className={managing.group.visibility !== 'private' ? 'choice active' : 'choice'}
-                    onClick={() => {
-                      onSetGroupVisibility(managing.group.id, 'home')
-                      setManaging({
-                        kind: 'group',
-                        group: { ...managing.group, visibility: 'home' },
-                      })
-                    }}
+                    className={editingGroupVisibility === 'home' ? 'choice active' : 'choice'}
+                    onClick={() => setEditingGroupVisibility('home')}
                   >
                     Весь дом
                   </button>
                 </div>
+                <button
+                  type="button"
+                  className="button-primary"
+                  onClick={() => {
+                    onSetGroupVisibility(managing.group.id, editingGroupVisibility)
+                    setManaging(null)
+                  }}
+                >
+                  Сохранить
+                </button>
                 <p className="hint">
                   «Только я» — группа видна лишь вам, и на ваших телефонах с кодом T. Списки внутри неё у семьи остаются на первом уровне.
                 </p>
