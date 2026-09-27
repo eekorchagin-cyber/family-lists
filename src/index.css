@@ -142,7 +142,7 @@ ul {
 .header-title-button {
   width: 100%;
   min-width: 0;
-  min-height: 48px;
+  min-height: 43px;
   border: 0;
   padding: 0 4px;
   background: transparent;
@@ -218,7 +218,7 @@ ul {
 }
 
 .header-done {
-  min-height: 48px;
+  min-height: 43px;
   border: 0;
   padding: 0 4px;
   background: transparent;
@@ -235,8 +235,8 @@ ul {
 .icon-button {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 43px;
+  height: 43px;
   border: 0;
   background: transparent;
   border-radius: 14px;
@@ -337,8 +337,8 @@ ul {
 .choice,
 .settings-nav-row {
   width: 100%;
-  min-height: 64px;
-  padding: 14px 16px;
+  min-height: 43px;
+  padding: 8px 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--bg);
@@ -348,7 +348,7 @@ ul {
 
 .suggestion {
   width: 100%;
-  min-height: 44px;
+  min-height: 43px;
   padding: 6px 14px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -412,6 +412,9 @@ ul {
 .store-row--updated {
   border-color: var(--accent);
   border-width: 2px;
+  height: 43px;
+  padding-top: 7px;
+  padding-bottom: 7px;
 }
 
 .store-handle {
@@ -513,7 +516,7 @@ ul {
 }
 
 .store-row--nested {
-  min-height: 56px;
+  min-height: 43px;
 }
 
 .store-row--group {
@@ -530,8 +533,8 @@ ul {
 
 
 .store-menu {
-  width: 48px;
-  min-height: 64px;
+  width: 43px;
+  min-height: 43px;
   flex-shrink: 0;
 }
 
@@ -540,7 +543,7 @@ ul {
   color: #ef4444;
   background: transparent;
   border-radius: 14px;
-  min-height: 56px;
+  min-height: 43px;
   padding: 0 16px;
   cursor: pointer;
 }
@@ -635,8 +638,8 @@ ul {
 }
 
 .category-mark-button {
-  width: 48px;
-  height: 48px;
+  width: 43px;
+  height: 43px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -654,8 +657,8 @@ ul {
 }
 
 .icon-swatch {
-  width: 48px;
-  height: 48px;
+  width: 43px;
+  height: 43px;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--bg);
@@ -718,7 +721,7 @@ ul {
   color: var(--accent-text);
   border-radius: 14px;
   padding: 0 16px;
-  min-height: 56px;
+  min-height: 43px;
   font-weight: 650;
 }
 
@@ -731,13 +734,13 @@ ul {
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 14px;
-  min-height: 56px;
+  min-height: 43px;
   padding: 0 16px;
 }
 
 .input {
   width: 100%;
-  min-height: 56px;
+  min-height: 43px;
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 0 14px;
@@ -751,7 +754,7 @@ ul {
   align-self: flex-end;
   flex-shrink: 0;
   margin: 0 16px calc(16px + env(safe-area-inset-bottom));
-  min-height: 56px;
+  min-height: 43px;
   padding: 0 20px;
   border-radius: 999px;
   background: var(--fab);
@@ -816,6 +819,7 @@ ul {
 
 .scope-option {
   flex: 1;
+  min-height: 43px;
   padding: 8px 4px;
   font-size: 14px;
   background: transparent;
@@ -981,8 +985,8 @@ button.category-name-input {
 }
 
 .reorder-buttons .qty-button {
-  width: 48px;
-  min-height: 48px;
+  width: 43px;
+  min-height: 43px;
 }
 
 .reorder-buttons .qty-button:disabled {
@@ -1003,7 +1007,7 @@ button.category-name-input {
 
 .template-action {
   flex-shrink: 0;
-  min-height: 56px;
+  min-height: 43px;
   padding: 0 12px;
 }
 
@@ -1147,7 +1151,7 @@ button.category-name-input {
 .catalog-main {
   flex: 1;
   min-width: 0;
-  min-height: 44px;
+  min-height: 43px;
   padding: 6px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -1191,14 +1195,14 @@ button.category-name-input {
 }
 
 .category-edit-row .qty-button {
-  width: 48px;
-  min-height: 48px;
+  width: 43px;
+  min-height: 43px;
   flex-shrink: 0;
 }
 
 .catalog-row .qty-button {
-  width: 44px;
-  min-height: 44px;
+  width: 43px;
+  min-height: 43px;
   flex-shrink: 0;
 }
 
@@ -1367,7 +1371,7 @@ button.category-name-input {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 56px;
+  min-height: 43px;
   padding: 12px 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);

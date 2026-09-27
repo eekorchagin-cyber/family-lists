@@ -881,17 +881,17 @@ export function HomeScreen({
                   >
                     Весь дом
                   </button>
+                  <button
+                    type="button"
+                    className="button-primary"
+                    onClick={() => {
+                      onSetGroupVisibility(managing.group.id, editingGroupVisibility)
+                      setManaging(null)
+                    }}
+                  >
+                    Сохранить
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="button-primary"
-                  onClick={() => {
-                    onSetGroupVisibility(managing.group.id, editingGroupVisibility)
-                    setManaging(null)
-                  }}
-                >
-                  Сохранить
-                </button>
                 <p className="hint">
                   «Только я» — группа видна лишь вам, и на ваших телефонах с кодом T. Списки внутри неё у семьи остаются на первом уровне.
                 </p>
