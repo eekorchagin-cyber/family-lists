@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { AddIconButton } from '../components/AddIconButton'
 import { CategoryMark } from '../components/CategoryMark'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { CategoryMarkPicker } from '../components/CategoryMarkPicker'
 import { GroupTemplatesDialog } from '../components/GroupTemplatesDialog'
 import { Header } from '../components/Header'
