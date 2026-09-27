@@ -258,7 +258,7 @@ export function groupsFromStores(
 ): StoreGroup[] {
   const byId = new Map<string, StoreGroup>()
   for (const store of stores) {
-    if (!store.groupId) continue
+    if (store.incomingFrom || !store.groupId) continue
     if (byId.has(store.groupId)) continue
     const name = groupNames.get(store.groupId)?.trim()
     byId.set(store.groupId, {

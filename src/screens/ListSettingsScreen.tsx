@@ -253,7 +253,7 @@ export function ListSettingsScreen({
                 if (event.key === 'Enter') event.currentTarget.blur()
               }}
             />
-            {syncEnabled && onVisibility ? (
+            {syncEnabled && onVisibility && !store.incomingFrom ? (
               <>
                 <p className="field-label">Кто видит</p>
                 <div className="choice-row">
@@ -277,6 +277,10 @@ export function ListSettingsScreen({
                   всем участникам семьи.
                 </p>
               </>
+            ) : store.incomingFrom ? (
+              <p className="hint">
+                Этот список вам переслали. Он только ваш и не входит в списки семьи.
+              </p>
             ) : null}
             {onSetLoyalty ? (
               <>

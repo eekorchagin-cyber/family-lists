@@ -8,6 +8,7 @@ import { Header } from '../components/Header'
 import { BackIcon } from '../components/NavIcons'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { SyncPanel } from '../components/SyncPanel'
+import { PeoplePanel } from '../components/PeoplePanel'
 import { SyncPhoneGuide } from '../components/SyncPhoneGuide'
 import { UserGuide } from '../components/UserGuide'
 import { globalCategories, groupCatalog, sortCatalog } from '../data/catalog'
@@ -29,11 +30,12 @@ import type { AccessInfo } from '../data/sync/api'
 import { sessionInFamily, type HomeMember, type SyncSession } from '../data/sync/session'
 import type { CatalogEntry, Category, FontSize, Settings, Store, StoreGroup, Theme } from '../types'
 
-type SettingsSection = 'guide' | 'appearance' | 'categories' | 'catalog' | 'sync' | 'transfer' | 'about'
+type SettingsSection = 'guide' | 'appearance' | 'categories' | 'catalog' | 'sync' | 'people' | 'transfer' | 'about'
 
 const SECTIONS: { id: Exclude<SettingsSection, 'guide'>; title: string; hint: string }[] = [
   { id: 'appearance', title: 'Оформление', hint: 'Тема, шрифт и число на ярлыке' },
   { id: 'sync', title: 'Семья', hint: 'Коды, облако и приглашения' },
+  { id: 'people', title: 'Люди', hint: 'Код для пересылки списков' },
   { id: 'categories', title: 'Категории', hint: 'Общие — добавить в любой список' },
   { id: 'catalog', title: 'Товары', hint: 'Справочник' },
   { id: 'transfer', title: 'Экспорт / импорт', hint: 'Наименования в таблице Excel' },
@@ -44,6 +46,7 @@ const SECTION_TITLES: Record<SettingsSection, string> = {
   guide: 'Как пользоваться',
   appearance: 'Оформление',
   sync: 'Семья',
+  people: 'Люди',
   categories: 'Категории',
   catalog: 'Товары',
   transfer: 'Экспорт / импорт',
@@ -96,6 +99,18 @@ type SettingsScreenProps = {
     onClearError: () => void
     onDeleteAccount: () => void
   }
+  people: {
+    configured: boolean
+    signedIn: boolean
+    myCode: string | null
+    people: { userId: string; code: string; name: string }[]
+    busy: boolean
+    error: string | null
+    onAdd: (code: string) => Promise<void>
+    onRemove: (userId: string) => Promise<void>
+    onRefresh: () => Promise<void>
+    onClearError: () => void
+  }
 }
 
 export function SettingsScreen({
@@ -118,6 +133,7 @@ export function SettingsScreen({
   onDeleteCatalog,
   onImportCatalog,
   sync,
+  people,
 }: SettingsScreenProps) {
   const [section, setSection] = useState<SettingsSection | null>(
     sync.initialCode ? 'sync' : null,
@@ -146,7 +162,7 @@ export function SettingsScreen({
     const listed: { store: Store; groupName?: string }[] = []
     const seen = new Set<string>()
     for (const row of rows) {
-      if (row.kind !== 'store') continue
+      if (row.kind !== 'store' || row.store.incomingFrom) continue
       seen.add(row.store.id)
       listed.push({
         store: row.store,
@@ -156,7 +172,7 @@ export function SettingsScreen({
       })
     }
     for (const store of stores) {
-      if (seen.has(store.id)) continue
+      if (seen.has(store.id) || store.incomingFrom) continue
       listed.push({
         store,
         ...(store.groupId && groupName.has(store.groupId)
@@ -281,6 +297,11 @@ export function SettingsScreen({
             </p>
           ) : section === 'sync' ? (
             <SyncPhoneGuide />
+          ) : section === 'people' ? (
+            <p>
+              Код на U отправляют сообщением. Присланный список приходит отдельно и не смешивается
+              со списками семьи.
+            </p>
           ) : section === 'transfer' ? (
             <p>
               Экспорт сохраняет названия товаров и категории. При импорте товар с уже известным
@@ -383,6 +404,21 @@ export function SettingsScreen({
             onRetry={sync.onRetry}
             onClearCode={sync.onClearCode}
             onClearError={sync.onClearError}
+          />
+        )}
+
+        {section === 'people' && (
+          <PeoplePanel
+            configured={people.configured}
+            signedIn={people.signedIn}
+            myCode={people.myCode}
+            people={people.people}
+            busy={people.busy}
+            error={people.error}
+            onAdd={people.onAdd}
+            onRemove={people.onRemove}
+            onRefresh={people.onRefresh}
+            onClearError={people.onClearError}
           />
         )}
 

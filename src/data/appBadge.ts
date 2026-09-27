@@ -40,7 +40,7 @@ export function withBadgeStore(settings: Settings, storeId: string, included: bo
 export function unboughtCount(items: Item[], stores: Store[], settings?: Settings): number {
   const excluded = new Set(settings ? excludedBadgeStoreIds(settings) : [])
   const known = new Set(
-    stores.filter((store) => !excluded.has(store.id)).map((store) => store.id),
+    stores.filter((store) => !store.incomingFrom && !excluded.has(store.id)).map((store) => store.id),
   )
   let count = 0
   for (const item of items) {

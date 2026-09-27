@@ -15,6 +15,7 @@ import {
   withGroupMarker,
   withStoreIcon,
 } from '../homeLayout'
+import { stripIncomingMarker, withIncomingMarker } from '../forward'
 import { asCategoryNames, stripLoyaltyMarker, withLoyaltyMarker } from '../loyalty'
 import { groupTemplatesForUser, templateVisible } from '../templates'
 import { nowIso } from './merge'
@@ -530,7 +531,7 @@ export async function pushLocal(
   const storeRows = ownedStores.map((store) => {
     const remote = remoteMarkers.get(store.id)
     const localGroup = store.groupId ? groupById.get(store.groupId) : undefined
-    const hideGroup = localGroup?.visibility === 'private'
+    const hideGroup = Boolean(store.incomingFrom) || localGroup?.visibility === 'private'
     const groupId = hideGroup ? undefined : (store.groupId ?? remote?.groupId)
     const groupName = hideGroup
       ? undefined
@@ -541,12 +542,17 @@ export async function pushLocal(
       home_id: homeId,
       owner_id: store.ownerId ?? ownerId,
       name: store.name,
-      visibility: store.visibility ?? 'private',
+      visibility: store.incomingFrom ? 'private' : (store.visibility ?? 'private'),
       category_sort: store.categorySort,
       category_order: store.categoryOrder,
-      category_names: withLoyaltyMarker(
-        withStoreIcon(withGroupMarker(store.categoryNames, groupId, groupName), store.icon),
-        store.loyaltyCard,
+      category_names: withIncomingMarker(
+        withLoyaltyMarker(
+          withStoreIcon(withGroupMarker(store.categoryNames, groupId, groupName), store.icon),
+          store.loyaltyCard,
+        ),
+        store.incomingFrom
+          ? { from: store.incomingFrom, deliveryId: store.incomingId || store.id }
+          : undefined,
       ),
       templates: store.templates ?? [],
       updated_at: store.updatedAt ?? at,
@@ -714,18 +720,20 @@ function storeFromRow(row: StoreRow): Store {
   const marked = stripGroupMarker(asCategoryNames(row.category_names ?? {}))
   const iconed = stripStoreIcon(marked.names)
   const loyalty = stripLoyaltyMarker(iconed.names)
+  const incoming = stripIncomingMarker(loyalty.names)
   return {
     id: row.id,
     name: row.name,
     categorySort: row.category_sort === 'alpha' ? 'alpha' : 'custom',
     categoryOrder: row.category_order ?? [],
-    categoryNames: loyalty.names,
+    categoryNames: incoming.names,
     templates: (row.templates ?? []).filter((template) =>
       templateVisible(template, loadSession()?.userId),
     ),
-    visibility: row.visibility,
+    visibility: incoming.from ? 'private' : row.visibility,
     ownerId: row.owner_id,
-    ...(marked.groupId ? { groupId: marked.groupId } : {}),
+    ...(incoming.from ? { incomingFrom: incoming.from, incomingId: incoming.deliveryId || row.id } : {}),
+    ...(incoming.from ? {} : marked.groupId ? { groupId: marked.groupId } : {}),
     ...(iconed.icon ? { icon: iconed.icon } : {}),
     ...(loyalty.card ? { loyaltyCard: loyalty.card } : {}),
     updatedAt: row.updated_at,

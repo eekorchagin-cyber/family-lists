@@ -21,7 +21,9 @@ import {
   saveHomeOrder,
 } from '../data/homeLayout'
 import { withLoyaltyMarker } from '../data/loyalty'
+import { rememberIncomingDismissed } from '../data/forward'
 import { queueDeleted } from '../data/sync/deletes'
+import { queueInboxDismiss } from '../data/sync/forwardApi'
 import { markDirty } from '../data/sync/dirty'
 import { applyStoreOrder, nowIso, withUpdatedAt } from '../data/sync/merge'
 import { loadSession } from '../data/sync/session'
@@ -43,6 +45,12 @@ import type {
 
 function newId(): string {
   return crypto.randomUUID()
+}
+
+function mergeBadgeExclusions(current: AppData['settings'], incoming: AppData['settings']): AppData['settings'] {
+  const extra = incoming.badgeExcludedStoreIds ?? []
+  if (extra.length === 0) return current
+  return extra.reduce((settings, storeId) => withBadgeStore(settings, storeId, false), current)
 }
 
 function actorId(): string | undefined {
@@ -195,8 +203,14 @@ export function useAppState() {
 
   const deleteStore = useCallback((storeId: string) => {
     setData((current) => {
-      if (!current.stores.some((store) => store.id === storeId)) return current
+      const store = current.stores.find((item) => item.id === storeId)
+      if (!store) return current
       queueDeleted('stores', storeId)
+      if (store.incomingFrom) {
+        const deliveryId = store.incomingId || store.id
+        rememberIncomingDismissed(deliveryId)
+        queueInboxDismiss(deliveryId)
+      }
       for (const item of current.items) {
         if (item.storeId === storeId) queueDeleted('items', item.id)
       }
@@ -1171,7 +1185,7 @@ export function useAppState() {
   const setStoreGroup = useCallback((storeId: string, groupId: string | null) => {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
-      if (!store) return current
+      if (!store || store.incomingFrom) return current
       const nextGroupId = groupId && (current.groups ?? []).some((group) => group.id === groupId) ? groupId : undefined
       if ((store.groupId ?? undefined) === nextGroupId) return current
       const stores = current.stores.map((item) =>
@@ -1260,21 +1274,22 @@ export function useAppState() {
   const setStoreVisibility = useCallback((storeId: string, visibility: StoreVisibility) => {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
-      if (!store || store.visibility === visibility) return current
+      if (!store || store.incomingFrom || store.visibility === visibility) return current
       return persist(patchStore(current, storeId, { visibility }))
     })
   }, [])
 
   const replaceData = useCallback((next: AppData, opts?: { takeCloudOrder?: boolean }) => {
     setData((current) => {
+      const settings = mergeBadgeExclusions(current.settings, next.settings)
       if (opts?.takeCloudOrder) {
         saveStoreOrder(next.stores.map((store) => store.id))
-        return persist({ ...next, settings: current.settings }, 'sync')
+        return persist({ ...next, settings }, 'sync')
       }
       const saved = loadStoreOrder()
       const orderedIds = saved.length > 0 ? saved : current.stores.map((store) => store.id)
       const stores = applyStoreOrder(next.stores, orderedIds)
-      return persist({ ...next, settings: current.settings, stores }, 'sync')
+      return persist({ ...next, settings, stores }, 'sync')
     })
   }, [])
 

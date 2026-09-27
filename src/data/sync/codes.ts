@@ -1,7 +1,7 @@
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 export const PUBLIC_APP_URL = 'https://eekorchagin-cyber.github.io/family-lists'
 
-export type CodeKind = 'invite' | 'pairing' | 'access'
+export type CodeKind = 'invite' | 'pairing' | 'access' | 'contact'
 
 export function randomCode(length = 6): string {
   const bytes = new Uint8Array(length)
@@ -49,6 +49,7 @@ export function kindFromCode(code: string): CodeKind | null {
   if (raw.startsWith('D')) return 'invite'
   if (raw.startsWith('T')) return 'pairing'
   if (raw.startsWith('P')) return 'access'
+  if (raw.startsWith('U')) return 'contact'
   return null
 }
 

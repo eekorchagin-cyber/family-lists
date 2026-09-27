@@ -27,6 +27,21 @@ import {
 import { supabaseConfigured } from '../data/sync/client'
 import { wipeDeviceData } from '../data/storage'
 import { kindFromCode } from '../data/sync/codes'
+import { applyForwardedLists, buildForwardPayload } from '../data/forward'
+import {
+  addContact,
+  ensureContactCode,
+  flushInboxDismissals,
+  forwardErrorMessage,
+  isForwardUnavailable,
+  loadCachedContactCode,
+  loadCachedPeople,
+  loadContacts,
+  pullInbox,
+  removeContact,
+  sendList,
+  type Person,
+} from '../data/sync/forwardApi'
 import { DIRTY_EVENT } from '../data/sync/dirty'
 import { deletedItemIds, peekDeletes } from '../data/sync/deletes'
 import { isQuietSyncFailure, isQuietSyncMessage, syncErrorMessage } from '../data/sync/errors'
@@ -79,6 +94,10 @@ export function useSync(
   const [accessInfo, setAccessInfo] = useState<AccessInfo | null>(null)
   const [updatedStoreIds, setUpdatedStoreIds] = useState<string[]>(() => loadUpdatedStoreIds())
   const [error, setError] = useState<string | null>(null)
+  const [people, setPeople] = useState<Person[]>(() => loadCachedPeople())
+  const [myContactCode, setMyContactCode] = useState<string | null>(() => loadCachedContactCode())
+  const [forwardError, setForwardError] = useState<string | null>(null)
+  const forwardOffRef = useRef(false)
   const [busy, setBusy] = useState(false)
   const [mergePending, setMergePending] = useState<MergePending | null>(null)
   const quietFailsRef = useRef(0)
@@ -308,14 +327,46 @@ export function useSync(
         replaceRef.current(next)
       }
       const toPush = changed ? next : dataRef.current
+      let snapshot = toPush
       if (dirtyRef.current || changed) {
         const pushed = await pushLocal(current, toPush)
         const withGroups = { ...toPush, groups: pushed.groups }
         if (JSON.stringify(pushed.groups) !== JSON.stringify(toPush.groups ?? [])) {
           replaceRef.current(withGroups)
+          snapshot = withGroups
         }
         // Если группы не записались — оставим dirty, чтобы повторить.
         dirtyRef.current = !pushed.groupsSaved
+      }
+      if (!forwardOffRef.current) {
+        try {
+          await flushInboxDismissals()
+          const [code, contacts, deliveries] = await Promise.all([
+            ensureContactCode(),
+            loadContacts(),
+            pullInbox(),
+          ])
+          setMyContactCode(code)
+          setPeople(contacts)
+          const pendingIds = new Set(peekDeletes().stores)
+          const applied = applyForwardedLists(
+            snapshot,
+            deliveries.filter((delivery) => !pendingIds.has(delivery.id)),
+            current.userId,
+          )
+          if (applied.addedIds.length > 0) {
+            snapshot = applied.next
+            replaceRef.current(applied.next)
+            markStoresUpdated(applied.addedIds)
+            try {
+              await pushLocal(current, applied.next)
+            } catch {
+              dirtyRef.current = true
+            }
+          }
+        } catch (caught) {
+          if (isForwardUnavailable(caught)) forwardOffRef.current = true
+        }
       }
       const saved = { ...current, lastPulledAt: nowIso(), displayName: profile.displayName }
       saveSession(saved)
@@ -481,6 +532,10 @@ export function useSync(
       const existing = loadSession()
       if (existing && !existing.frozen && !existing.leftByUser) return 'already'
       const kind = kindFromCode(code)
+      if (kind === 'contact') {
+        setError('Это код человека на U. Его вводят в Настройки → Люди, а не при входе в семью.')
+        return 'error'
+      }
       if (existing?.frozen && (kind === 'invite' || kind === 'access')) {
         setError(
           'Этот телефон уже был в семье. Нужен код на T (Мой второй телефон), а не приглашение на D и не код на P.',
@@ -777,8 +832,70 @@ export function useSync(
     quietFailsRef.current = 0
     missingProfileRef.current = 0
     reclaimTriedRef.current = false
+    forwardOffRef.current = false
     await tick()
   }, [tick])
+
+  const refreshPeople = useCallback(async () => {
+    const current = loadSession()
+    if (!configured || !current || current.frozen || !current.homeId) return
+    forwardOffRef.current = false
+    try {
+      await restoreSession(current)
+      const [code, contacts] = await Promise.all([ensureContactCode(), loadContacts()])
+      setMyContactCode(code)
+      setPeople(contacts)
+      setForwardError(null)
+    } catch (caught) {
+      if (isForwardUnavailable(caught)) forwardOffRef.current = true
+      setForwardError(forwardErrorMessage(caught))
+    }
+  }, [configured])
+
+  const addPerson = useCallback(async (code: string) => {
+    const current = loadSession()
+    if (!current) throw new Error('not signed in')
+    setForwardError(null)
+    try {
+      await restoreSession(current)
+      await addContact(code, current.userId)
+      setPeople(await loadContacts())
+    } catch (caught) {
+      const message = forwardErrorMessage(caught)
+      setForwardError(message)
+      throw new Error(message)
+    }
+  }, [])
+
+  const removePerson = useCallback(async (userId: string) => {
+    const current = loadSession()
+    if (!current) return
+    try {
+      await restoreSession(current)
+      await removeContact(userId)
+      setPeople(await loadContacts())
+      setForwardError(null)
+    } catch (caught) {
+      setForwardError(forwardErrorMessage(caught))
+    }
+  }, [])
+
+  const forwardStore = useCallback(async (storeId: string, code: string) => {
+    const current = loadSession()
+    if (!current) throw new Error('not signed in')
+    const local = dataRef.current
+    const store = local.stores.find((item) => item.id === storeId)
+    if (!store) throw new Error('no list')
+    const payload = buildForwardPayload(store, local.items, local.categories)
+    try {
+      await restoreSession(current)
+      await sendList(code, payload.name, payload)
+    } catch (caught) {
+      const message = forwardErrorMessage(caught)
+      setForwardError(message)
+      throw new Error(message)
+    }
+  }, [])
 
   return {
     configured,
@@ -808,6 +925,14 @@ export function useSync(
     leave,
     takeOver,
     retry,
+    people,
+    myContactCode,
+    forwardError,
+    refreshPeople,
+    addPerson,
+    removePerson,
+    forwardStore,
+    clearForwardError: () => setForwardError(null),
     clearError: () => {
       dismissedErrorRef.current = errorRef.current
       setError(null)

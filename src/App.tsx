@@ -129,6 +129,8 @@ function App() {
     onSkipBadge: badge.skip,
     settings: data.settings,
     onOpenSettings: () => setScreen({ name: 'settings' as const }),
+    people: sync.people,
+    onForwardList: (storeId: string, code: string) => sync.forwardStore(storeId, code),
     onOpenStore: (storeId: string) => setScreen({ name: 'store' as const, storeId }),
     onStartAddStore: () => setScreen({ name: 'newStore' as const }),
     onAddGroup: (name, visibility) => addGroup(name, visibility),
@@ -233,6 +235,18 @@ function App() {
             },
             onClearError: sync.clearError,
             onDeleteAccount: () => void sync.deleteAccount(),
+          }}
+          people={{
+            configured: sync.configured,
+            signedIn: Boolean(sync.session && !sync.session.frozen),
+            myCode: sync.myContactCode,
+            people: sync.people,
+            busy: sync.busy,
+            error: sync.forwardError,
+            onAdd: (code) => sync.addPerson(code),
+            onRemove: (userId) => sync.removePerson(userId),
+            onRefresh: () => sync.refreshPeople(),
+            onClearError: sync.clearForwardError,
           }}
         />
         {overlay}

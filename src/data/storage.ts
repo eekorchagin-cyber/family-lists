@@ -15,6 +15,7 @@ import { isLocalHost } from './sync/codes'
 import { appendCategoryToStores, canonicalStoreIcon } from './categories'
 import { markDirty } from './sync/dirty'
 import { groupsFromStores, groupVisibilityFields, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker, stripStoreIcon } from './homeLayout'
+import { stripIncomingMarker } from './forward'
 import { asCategoryNames, parseLoyaltyCard, stripLoyaltyMarker } from './loyalty'
 import { parseTemplateList } from './templates'
 import {
@@ -115,10 +116,17 @@ function normalizeStore(value: unknown): Store | null {
   const marked = stripGroupMarker(normalizeCategoryNames(value.categoryNames))
   const iconed = stripStoreIcon(marked.names)
   const loyalty = stripLoyaltyMarker(iconed.names)
+  const incoming = stripIncomingMarker(loyalty.names)
+  const incomingFrom =
+    typeof value.incomingFrom === 'string' && value.incomingFrom.trim()
+      ? value.incomingFrom.trim()
+      : incoming.from
   const groupId =
-    typeof value.groupId === 'string' && value.groupId.trim()
-      ? value.groupId.trim()
-      : marked.groupId
+    incomingFrom
+      ? undefined
+      : typeof value.groupId === 'string' && value.groupId.trim()
+        ? value.groupId.trim()
+        : marked.groupId
   const loyaltyCard = parseLoyaltyCard(value.loyaltyCard) ?? loyalty.card
   const rawIcon =
     typeof value.icon === 'string' && value.icon.trim()
@@ -132,10 +140,14 @@ function normalizeStore(value: unknown): Store | null {
     categoryOrder: Array.isArray(value.categoryOrder)
       ? value.categoryOrder.filter((id): id is string => typeof id === 'string')
       : defaults.categoryOrder,
-    categoryNames: loyalty.names,
+    categoryNames: incoming.names,
     templates: normalizeTemplates(value),
-    visibility: value.visibility === 'home' ? 'home' : 'private',
+    visibility: incomingFrom || value.visibility !== 'home' ? 'private' : 'home',
     ...(typeof value.ownerId === 'string' ? { ownerId: value.ownerId } : {}),
+    ...(incomingFrom ? { incomingFrom } : {}),
+    ...((incoming.deliveryId || (incomingFrom && value.id))
+      ? { incomingId: incoming.deliveryId || value.id }
+      : {}),
     ...(groupId ? { groupId } : {}),
     ...(icon ? { icon } : {}),
     ...(loyaltyCard ? { loyaltyCard } : {}),

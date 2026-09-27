@@ -64,6 +64,9 @@ export type Store = {
   templates: NamedTemplate[]
   visibility?: StoreVisibility
   ownerId?: string
+  /** Присланный список: отдельная копия, не список семьи. */
+  incomingFrom?: string
+  incomingId?: string
   /** Если задан — список лежит внутри группы (второй уровень). */
   groupId?: string
   icon?: string

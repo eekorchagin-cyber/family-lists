@@ -21,6 +21,7 @@ import {
 } from '../data/homeLayout'
 import { resolveLoyaltyCard } from '../data/loyalty'
 import { APP_VERSION } from '../data/version'
+import type { Person } from '../data/sync/forwardApi'
 import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
 
 type HomeScreenProps = {
@@ -69,6 +70,8 @@ type HomeScreenProps = {
   onAllowBadge?: () => void
   onSkipBadge?: () => void
   settings: Settings
+  people?: Person[]
+  onForwardList?: (storeId: string, code: string) => Promise<void>
 }
 
 const LONG_PRESS_MS = 450
@@ -136,12 +139,17 @@ export function HomeScreen({
   onAllowBadge,
   onSkipBadge,
   settings,
+  people = [],
+  onForwardList,
 }: HomeScreenProps) {
   const [managing, setManaging] = useState<Managing | null>(null)
   const [movingStore, setMovingStore] = useState<Store | null>(null)
   const [renamingStore, setRenamingStore] = useState<Store | null>(null)
   const [renamingGroup, setRenamingGroup] = useState<StoreGroup | null>(null)
   const [deletingStore, setDeletingStore] = useState<Store | null>(null)
+  const [forwardingStore, setForwardingStore] = useState<Store | null>(null)
+  const [forwardNote, setForwardNote] = useState<string | null>(null)
+  const [forwardBusy, setForwardBusy] = useState(false)
   const [deletingGroup, setDeletingGroup] = useState<StoreGroup | null>(null)
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [newGroupVisibility, setNewGroupVisibility] = useState<StoreVisibility>('home')
@@ -694,11 +702,14 @@ export function HomeScreen({
                       {syncEnabled && store.visibility !== 'home' ? (
                         <span className="store-local-mark">личное</span>
                       ) : null}
+                      {store.incomingFrom ? (
+                        <span className="store-local-mark">присланный</span>
+                      ) : null}
                     </span>
                     {(unboughtByStoreId.get(store.id) ?? 0) > 0 ? (
                       <span
                         className={
-                          isStoreInBadge(store.id, settings)
+                          isStoreInBadge(store.id, settings) && !store.incomingFrom
                             ? 'store-unbought-count'
                             : 'store-unbought-count store-unbought-count--outline'
                         }
@@ -793,17 +804,19 @@ export function HomeScreen({
               >
                 Бонусная карта
               </button>
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() => {
-                  setMovingStore(managing.store)
-                  setManaging(null)
-                }}
-              >
-                В группу…
-              </button>
-              {managing.store.groupId ? (
+              {!managing.store.incomingFrom ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => {
+                    setMovingStore(managing.store)
+                    setManaging(null)
+                  }}
+                >
+                  В группу…
+                </button>
+              ) : null}
+              {managing.store.groupId && !managing.store.incomingFrom ? (
                 <button
                   type="button"
                   className="button-secondary"
@@ -813,6 +826,19 @@ export function HomeScreen({
                   }}
                 >
                   На первый уровень
+                </button>
+              ) : null}
+              {syncEnabled && onForwardList ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => {
+                    setForwardNote(null)
+                    setForwardingStore(managing.store)
+                    setManaging(null)
+                  }}
+                >
+                  Переслать…
                 </button>
               ) : null}
               <button
@@ -926,6 +952,69 @@ export function HomeScreen({
                 Отмена
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {forwardingStore ? (
+        <div
+          className="overlay overlay--capture"
+          role="presentation"
+          onClick={() => {
+            if (forwardBusy) return
+            setForwardingStore(null)
+            setForwardNote(null)
+          }}
+        >
+          <div className="dialog" onClick={(event) => event.stopPropagation()}>
+            <h2>Переслать</h2>
+            <p className="hint">
+              «{forwardingStore.name}» уйдёт копией. У человека появится отдельный новый список, не
+              список его семьи.
+            </p>
+            {people.length === 0 ? (
+              <p className="hint">Сначала добавьте человека: Настройки → Люди → код из сообщения.</p>
+            ) : (
+              <ul className="choice-row sheet-list">
+                {people.map((person) => (
+                  <li key={person.userId}>
+                    <button
+                      type="button"
+                      className="choice"
+                      disabled={forwardBusy || !onForwardList}
+                      onClick={() => {
+                        if (!onForwardList) return
+                        setForwardBusy(true)
+                        setForwardNote(null)
+                        void onForwardList(forwardingStore.id, person.code)
+                          .then(() => {
+                            setForwardNote(`Список отправлен: ${person.name}`)
+                          })
+                          .catch((caught: unknown) => {
+                            const message = caught instanceof Error ? caught.message : 'Не удалось отправить'
+                            setForwardNote(message)
+                          })
+                          .finally(() => setForwardBusy(false))
+                      }}
+                    >
+                      {person.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {forwardNote ? <p className="hint">{forwardNote}</p> : null}
+            <button
+              type="button"
+              className="button-secondary"
+              disabled={forwardBusy}
+              onClick={() => {
+                setForwardingStore(null)
+                setForwardNote(null)
+              }}
+            >
+              Закрыть
+            </button>
           </div>
         </div>
       ) : null}

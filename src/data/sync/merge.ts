@@ -1,4 +1,5 @@
 import type { AppData, Item, Store, StoreVisibility } from '../../types'
+import { sealIncomingStore } from '../forward'
 import { hasLoyaltyCard } from '../loyalty'
 import { groupVisibleTo, nestStoresInPrivateGroups } from '../homeLayout'
 import { mergeTemplates } from '../templates'
@@ -71,8 +72,17 @@ function mergeStore(local: Store, remote: Store, userId?: string): Store {
     } else next = keepLoyalty(local, local, remote)
   }
   const templates = mergeTemplates(local.templates, next.templates, userId)
-  if (JSON.stringify(templates) === JSON.stringify(next.templates ?? [])) return next
-  return { ...next, templates }
+  const withTemplates =
+    JSON.stringify(templates) === JSON.stringify(next.templates ?? [])
+      ? next
+      : { ...next, templates }
+  const incomingFrom = local.incomingFrom || remote.incomingFrom
+  if (!incomingFrom) return withTemplates
+  return sealIncomingStore({
+    ...withTemplates,
+    incomingFrom,
+    incomingId: local.incomingId || remote.incomingId || local.id,
+  })
 }
 
 function sameStoreMeta(a: Store, b: Store): boolean {
@@ -352,9 +362,16 @@ export function mergeByStoreName(device: AppData, cloud: AppData): AppData {
   const storeIdMap = new Map<string, string>()
 
   for (const localStore of device.stores) {
+    if (localStore.incomingFrom) {
+      stores.push(localStore)
+      items.push(...device.items.filter((item) => item.storeId === localStore.id))
+      storeIdMap.set(localStore.id, localStore.id)
+      continue
+    }
     const remote = stores.find(
       (store) =>
         !usedRemote.has(store.id) &&
+        !store.incomingFrom &&
         store.name.trim().toLowerCase() === localStore.name.trim().toLowerCase(),
     )
     if (!remote) {
@@ -424,12 +441,18 @@ export function adoptLocalStores(
   const at = nowIso()
   return {
     ...data,
-    stores: data.stores.map((store) => ({
-      ...store,
-      ownerId: store.ownerId ?? userId,
-      visibility: store.ownerId ? (store.visibility ?? 'private') : visibility,
-      updatedAt: store.updatedAt ?? at,
-    })),
+    stores: data.stores.map((store) =>
+      sealIncomingStore({
+        ...store,
+        ownerId: store.ownerId ?? userId,
+        visibility: store.incomingFrom
+          ? 'private'
+          : store.ownerId
+            ? (store.visibility ?? 'private')
+            : visibility,
+        updatedAt: store.updatedAt ?? at,
+      }),
+    ),
     items: data.items.map((item) => ({
       ...item,
       addedBy: item.addedBy ?? userId,
