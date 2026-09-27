@@ -13,7 +13,7 @@ import { parseItem } from '../data/parseItem'
 import { formatQty, parseQty } from '../data/qty'
 import { resolveLoyaltyCard } from '../data/loyalty'
 import type { HomeMember } from '../data/sync/session'
-import type { Category, Item, ParsedItem, Store, StoreGroup } from '../types'
+import type { Category, Item, ParsedItem, Store, StoreGroup, StoreVisibility } from '../types'
 
 type StoreScreenProps = {
   store: Store
@@ -31,7 +31,8 @@ type StoreScreenProps = {
   onUpdateItem: (itemId: string, patch: Partial<Pick<Item, 'qty' | 'unit' | 'categoryId'>>) => void
   onClearBought: () => void
   completedEmpty?: boolean
-  onSaveTemplate: (name: string, items?: Item[]) => void
+  onSaveTemplate: (name: string, items?: Item[], visibility?: StoreVisibility) => void
+  syncEnabled?: boolean
   members?: HomeMember[]
   myId?: string
   thisListUpdated?: boolean
@@ -59,6 +60,7 @@ export function StoreScreen({
   onClearBought,
   completedEmpty = false,
   onSaveTemplate,
+  syncEnabled = false,
   members = [],
   myId,
   thisListUpdated = false,
@@ -74,6 +76,7 @@ export function StoreScreen({
   const [unit, setUnit] = useState('шт')
   const [addingCategory, setAddingCategory] = useState(false)
   const [namingTemplate, setNamingTemplate] = useState(false)
+  const [templateVisibility, setTemplateVisibility] = useState<StoreVisibility>('home')
   const [renamingStore, setRenamingStore] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
   const [showingCard, setShowingCard] = useState(false)
@@ -512,6 +515,7 @@ export function StoreScreen({
                 onClick={() => {
                   if (!completionArmed) return
                   templateSnapshot.current = items.map((item) => ({ ...item }))
+                  setTemplateVisibility('home')
                   setShowCompletion(false)
                   setNamingTemplate(true)
                 }}
@@ -531,13 +535,36 @@ export function StoreScreen({
           initial={`Шаблон ${(store.templates?.length ?? 0) + 1}`}
           confirmLabel="Сохранить"
           inputId="store-template-name"
+          extra={
+            syncEnabled ? (
+              <>
+                <p className="field-label">Кто видит</p>
+                <div className="choice-row">
+                  <button
+                    type="button"
+                    className={templateVisibility === 'private' ? 'choice active' : 'choice'}
+                    onClick={() => setTemplateVisibility('private')}
+                  >
+                    Только я
+                  </button>
+                  <button
+                    type="button"
+                    className={templateVisibility === 'home' ? 'choice active' : 'choice'}
+                    onClick={() => setTemplateVisibility('home')}
+                  >
+                    Весь дом
+                  </button>
+                </div>
+              </>
+            ) : null
+          }
           onClose={() => {
             setNamingTemplate(false)
             templateSnapshot.current = null
             if (allDone && !completionHandled.current) setShowCompletion(true)
           }}
           onConfirm={(name) => {
-            onSaveTemplate(name, templateSnapshot.current ?? items)
+            onSaveTemplate(name, templateSnapshot.current ?? items, templateVisibility)
             templateSnapshot.current = null
             setNamingTemplate(false)
             rememberDismiss()

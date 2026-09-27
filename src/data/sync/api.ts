@@ -15,6 +15,7 @@ import {
   withStoreIcon,
 } from '../homeLayout'
 import { asCategoryNames, stripLoyaltyMarker, withLoyaltyMarker } from '../loyalty'
+import { groupTemplatesForUser, templateVisible } from '../templates'
 import { nowIso } from './merge'
 import { loadSession, type HomeMember, type SyncSession } from './session'
 
@@ -468,7 +469,9 @@ export async function pullRemote(): Promise<AppData> {
   // Имена групп дублируем в списках: если catalog пуст, второй телефон
   // всё равно соберёт группы из метаданных списков.
   // Catalog — приоритетнее заглушек из списков (см. mergeGroups).
-  const groups = mergeGroups(catalogGroups, groupsFromStores(storesList, groupNames), [])
+  const groups = mergeGroups(catalogGroups, groupsFromStores(storesList, groupNames), []).map(
+    (group) => groupTemplatesForUser(group, loadSession()?.userId),
+  )
 
   return {
     version: 1,
@@ -627,7 +630,7 @@ export async function pushLocal(
         : legacyGroups && legacyGroups.length > 0
           ? legacyGroups
           : (homeGroups ?? legacyGroups ?? [])
-    mergedGroups = mergeGroups(remoteGroups, data.groups ?? [], pending.groups)
+    mergedGroups = mergeGroups(remoteGroups, data.groups ?? [], pending.groups, ownerId)
     const groupsAt =
       mergedGroups.map((group) => group.updatedAt ?? '').sort().at(-1) || at
     const groupsPayload = JSON.stringify(mergedGroups)
@@ -695,7 +698,10 @@ export async function pushLocal(
     restoreDeletes(pending)
     throw error
   }
-  return { groups: mergedGroups, groupsSaved }
+  return {
+    groups: mergedGroups.map((group) => groupTemplatesForUser(group, ownerId)),
+    groupsSaved,
+  }
 }
 
 function storeFromRow(row: StoreRow): Store {
@@ -708,7 +714,9 @@ function storeFromRow(row: StoreRow): Store {
     categorySort: row.category_sort === 'alpha' ? 'alpha' : 'custom',
     categoryOrder: row.category_order ?? [],
     categoryNames: loyalty.names,
-    templates: row.templates ?? [],
+    templates: (row.templates ?? []).filter((template) =>
+      templateVisible(template, loadSession()?.userId),
+    ),
     visibility: row.visibility,
     ownerId: row.owner_id,
     ...(marked.groupId ? { groupId: marked.groupId } : {}),

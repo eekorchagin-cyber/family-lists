@@ -20,7 +20,7 @@ type ListSettingsSection = 'list' | 'categories' | 'templates' | 'transfer'
 const SECTIONS: { id: ListSettingsSection; title: string; hint: string }[] = [
   { id: 'list', title: 'Список', hint: 'Название, кто видит и удаление' },
   { id: 'categories', title: 'Категории', hint: 'Отделы этого списка' },
-  { id: 'templates', title: 'Шаблоны', hint: 'Из любого списка' },
+  { id: 'templates', title: 'Шаблоны', hint: 'Для семьи или только для меня' },
   { id: 'transfer', title: 'В другой список', hint: 'Копирование и перенос' },
 ]
 
@@ -66,7 +66,9 @@ type ListSettingsScreenProps = {
   onApplyTemplate: (templateId: string) => void
   onRenameTemplate: (templateId: string, name: string) => void
   onDeleteTemplate: (templateId: string) => void
-  onSaveTemplate: (name: string) => void
+  onSaveTemplate: (name: string, visibility: StoreVisibility) => void
+  onSetTemplateVisibility: (templateId: string, visibility: StoreVisibility) => void
+  myId?: string
   onCopyToStore: (storeId: string) => void
   onMoveToStore: (storeId: string) => void
   groups?: StoreGroup[]
@@ -95,6 +97,8 @@ export function ListSettingsScreen({
   onRenameTemplate,
   onDeleteTemplate,
   onSaveTemplate,
+  onSetTemplateVisibility,
+  myId,
   onCopyToStore,
   onMoveToStore,
   groups = [],
@@ -109,6 +113,7 @@ export function ListSettingsScreen({
   const [editingScope, setEditingScope] = useState<Category | null>(null)
   const [removing, setRemoving] = useState<Category | null>(null)
   const [namingTemplate, setNamingTemplate] = useState(false)
+  const [templateVisibility, setTemplateVisibility] = useState<StoreVisibility>('home')
   const [transferring, setTransferring] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [storeName, setStoreName] = useState(store.name)
@@ -142,8 +147,8 @@ export function ListSettingsScreen({
   const title = section ? SECTION_TITLES[section] : 'Настройки'
   const goBack = section ? () => setSection(null) : onBack
   const templates = useMemo(
-    () => sharedTemplates([store, ...otherStores]),
-    [otherStores, store],
+    () => sharedTemplates([store, ...otherStores], myId, groups),
+    [groups, myId, otherStores, store],
   )
 
   return (
@@ -385,7 +390,14 @@ export function ListSettingsScreen({
               <p className="hint">Пока нет шаблонов ни в одном списке</p>
             ) : (
               <ul className="template-list">
-                {templates.map(({ storeId, storeName, template }) => (
+                {templates.map(({ storeId, storeName, template, groupId }) => {
+                  const sourceStore =
+                    storeId === store.id
+                      ? store
+                      : otherStores.find((item) => item.id === storeId)
+                  const ownsStore =
+                    !sourceStore?.ownerId || !myId || sourceStore.ownerId === myId
+                  return (
                   <li key={template.id} className="template-row">
                     <div className="template-copy">
                       <input
@@ -401,8 +413,28 @@ export function ListSettingsScreen({
                           onRenameTemplate(template.id, next)
                         }}
                       />
-                      {storeId !== store.id ? (
+                      {groupId ? (
+                        <span className="settings-nav-hint">из группы {storeName}</span>
+                      ) : storeId !== store.id ? (
                         <span className="settings-nav-hint">из списка {storeName}</span>
+                      ) : null}
+                      {syncEnabled && (ownsStore || template.visibility === 'private') ? (
+                        ownsStore ? (
+                          <button
+                            type="button"
+                            className="text-button"
+                            onClick={() =>
+                              onSetTemplateVisibility(
+                                template.id,
+                                template.visibility === 'private' ? 'home' : 'private',
+                              )
+                            }
+                          >
+                            {template.visibility === 'private' ? 'Только я' : 'Весь дом'}
+                          </button>
+                        ) : (
+                          <span className="settings-nav-hint">Только я</span>
+                        )
                       ) : null}
                     </div>
                     <button
@@ -421,13 +453,17 @@ export function ListSettingsScreen({
                       ×
                     </button>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             )}
             <button
               type="button"
               className="button-secondary add-category"
-              onClick={() => setNamingTemplate(true)}
+              onClick={() => {
+                setTemplateVisibility('home')
+                setNamingTemplate(true)
+              }}
             >
               Сохранить текущий список
             </button>
@@ -501,9 +537,32 @@ export function ListSettingsScreen({
           initial={`Шаблон ${(store.templates?.length ?? 0) + 1}`}
           confirmLabel="Сохранить"
           inputId="list-template-name"
+          extra={
+            syncEnabled ? (
+              <>
+                <p className="field-label">Кто видит</p>
+                <div className="choice-row">
+                  <button
+                    type="button"
+                    className={templateVisibility === 'private' ? 'choice active' : 'choice'}
+                    onClick={() => setTemplateVisibility('private')}
+                  >
+                    Только я
+                  </button>
+                  <button
+                    type="button"
+                    className={templateVisibility === 'home' ? 'choice active' : 'choice'}
+                    onClick={() => setTemplateVisibility('home')}
+                  >
+                    Весь дом
+                  </button>
+                </div>
+              </>
+            ) : null
+          }
           onClose={() => setNamingTemplate(false)}
           onConfirm={(name) => {
-            onSaveTemplate(name)
+            onSaveTemplate(name, templateVisibility)
             setNamingTemplate(false)
           }}
         />

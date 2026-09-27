@@ -1,5 +1,6 @@
 import type { AppData, Item, Store, StoreVisibility } from '../../types'
 import { hasLoyaltyCard } from '../loyalty'
+import { mergeTemplates } from '../templates'
 
 function stamp(): string {
   return new Date().toISOString()
@@ -52,22 +53,25 @@ function keepLoyalty(next: Store, local: Store, remote: Store): Store {
 
 function mergeStore(local: Store, remote: Store, userId?: string): Store {
   const ownerId = remote.ownerId ?? local.ownerId
-  // Чужой список: облако — источник правды (группа, имя, категории).
-  // Иначе локальные правки на втором телефоне «перебивают» вложенность.
-  if (userId && ownerId && ownerId !== userId) return keepLoyalty(remote, local, remote)
-  const localAt = local.updatedAt ?? ''
-  const remoteAt = remote.updatedAt ?? ''
-  if (remoteAt > localAt) return keepLoyalty(remote, local, remote)
-  if (localAt > remoteAt) {
-    if (remote.groupId && !local.groupId) {
-      return keepLoyalty({ ...local, groupId: remote.groupId }, local, remote)
-    }
-    return keepLoyalty(local, local, remote)
+  let next: Store
+  if (userId && ownerId && ownerId !== userId) {
+    next = keepLoyalty(remote, local, remote)
+  } else {
+    const localAt = local.updatedAt ?? ''
+    const remoteAt = remote.updatedAt ?? ''
+    if (remoteAt > localAt) next = keepLoyalty(remote, local, remote)
+    else if (localAt > remoteAt) {
+      next =
+        remote.groupId && !local.groupId
+          ? keepLoyalty({ ...local, groupId: remote.groupId }, local, remote)
+          : keepLoyalty(local, local, remote)
+    } else if (remote.groupId && !local.groupId) {
+      next = keepLoyalty({ ...local, groupId: remote.groupId }, local, remote)
+    } else next = keepLoyalty(local, local, remote)
   }
-  if (remote.groupId && !local.groupId) {
-    return keepLoyalty({ ...local, groupId: remote.groupId }, local, remote)
-  }
-  return keepLoyalty(local, local, remote)
+  const templates = mergeTemplates(local.templates, next.templates, userId)
+  if (JSON.stringify(templates) === JSON.stringify(next.templates ?? [])) return next
+  return { ...next, templates }
 }
 
 function sameStoreMeta(a: Store, b: Store): boolean {
@@ -299,7 +303,12 @@ export function mergePulledData(
         if (store.groupId === group.id) markStore(store.id)
       }
     } else if ((group.updatedAt ?? '') > (current.updatedAt ?? '')) {
-      groups.set(group.id, group)
+      if (current.templates || group.templates) {
+        const templates = mergeTemplates(current.templates, group.templates, options.userId)
+        groups.set(group.id, { ...group, templates })
+      } else {
+        groups.set(group.id, group)
+      }
       changed = true
     }
   }

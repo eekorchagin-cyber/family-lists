@@ -16,6 +16,7 @@ import { appendCategoryToStores, canonicalStoreIcon } from './categories'
 import { markDirty } from './sync/dirty'
 import { groupsFromStores, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker, stripStoreIcon } from './homeLayout'
 import { asCategoryNames, parseLoyaltyCard, stripLoyaltyMarker } from './loyalty'
+import { parseTemplateList } from './templates'
 import {
   createDefaultData,
   DEFAULT_CATEGORIES,
@@ -90,20 +91,9 @@ function isTemplateItem(value: unknown): value is TemplateItem {
   )
 }
 
-function isNamedTemplate(value: unknown): value is NamedTemplate {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.name === 'string' &&
-    Array.isArray(value.items) &&
-    value.items.every(isTemplateItem)
-  )
-}
-
 function normalizeTemplates(value: Record<string, unknown>): NamedTemplate[] {
-  if (Array.isArray(value.templates)) {
-    return value.templates.filter(isNamedTemplate)
-  }
+  const named = parseTemplateList(value.templates)
+  if (named) return named
   if (Array.isArray(value.template)) {
     const items = value.template.filter(isTemplateItem)
     if (items.length === 0) return []
@@ -161,11 +151,13 @@ function normalizeGroup(value: unknown): StoreGroup | null {
   if (!name) return null
   const loyaltyCard = parseLoyaltyCard(value.loyaltyCard)
   const icon = typeof value.icon === 'string' ? value.icon.trim() : ''
+  const templates = parseTemplateList(value.templates)
   return {
     id: value.id,
     name,
     ...(icon ? { icon } : {}),
     ...(loyaltyCard ? { loyaltyCard } : {}),
+    ...(templates ? { templates } : {}),
     ...(typeof value.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
   }
 }

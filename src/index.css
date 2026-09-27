@@ -1305,6 +1305,13 @@ button.category-name-input {
   width: 100%;
 }
 
+.template-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .loyalty-sheet {
   background: #fff;
   color: #111;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { AddIconButton } from '../components/AddIconButton'
 import { CategoryMark } from '../components/CategoryMark'
 import { CategoryMarkPicker } from '../components/CategoryMarkPicker'
-import { ConfirmDialog } from '../components/ConfirmDialog'
+import { GroupTemplatesDialog } from '../components/GroupTemplatesDialog'
 import { Header } from '../components/Header'
 import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
 import { NameDialog } from '../components/NameDialog'
@@ -21,7 +21,7 @@ import {
 } from '../data/homeLayout'
 import { resolveLoyaltyCard } from '../data/loyalty'
 import { APP_VERSION } from '../data/version'
-import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup } from '../types'
+import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
 
 type HomeScreenProps = {
   stores: Store[]
@@ -41,9 +41,15 @@ type HomeScreenProps = {
   onSetGroupLoyalty: (groupId: string, card: LoyaltyCard | undefined) => void
   onSetStoreLoyalty: (storeId: string, card: LoyaltyCard | undefined) => void
   onSetStoreGroup: (storeId: string, groupId: string | null) => void
+  onSaveGroupTemplate: (
+    groupId: string,
+    draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
+  ) => void
+  onDeleteGroupTemplate: (groupId: string, templateId: string) => void
   onReorderStores: (orderedIds: string[]) => void
   onReorderHome: (orderedKeys: string[]) => void
   syncEnabled?: boolean
+  myId?: string
   syncConfigured?: boolean
   displayName?: string
   frozen?: boolean
@@ -103,9 +109,12 @@ export function HomeScreen({
   onSetGroupLoyalty,
   onSetStoreLoyalty,
   onSetStoreGroup,
+  onSaveGroupTemplate,
+  onDeleteGroupTemplate,
   onReorderStores,
   onReorderHome,
   syncEnabled = false,
+  myId,
   syncConfigured = true,
   displayName,
   frozen = false,
@@ -131,6 +140,7 @@ export function HomeScreen({
   const [pickingGroupIcon, setPickingGroupIcon] = useState<StoreGroup | null>(null)
   const [pickingStoreIcon, setPickingStoreIcon] = useState<Store | null>(null)
   const [editingGroupCard, setEditingGroupCard] = useState<StoreGroup | null>(null)
+  const [templateGroupId, setTemplateGroupId] = useState<string | null>(null)
   const [editingStoreCard, setEditingStoreCard] = useState<Store | null>(null)
   const [addingMenu, setAddingMenu] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => loadCollapsedGroups())
@@ -844,6 +854,16 @@ export function HomeScreen({
               </button>
               <button
                 type="button"
+                className="button-secondary"
+                onClick={() => {
+                  setTemplateGroupId(managing.group.id)
+                  setManaging(null)
+                }}
+              >
+                Шаблоны
+              </button>
+              <button
+                type="button"
                 className="button-danger"
                 onClick={() => {
                   setDeletingGroup(managing.group)
@@ -902,6 +922,21 @@ export function HomeScreen({
             onAddGroup(next)
             setCreatingGroup(false)
           }}
+        />
+      ) : null}
+
+      {templateGroupId ? (
+        <GroupTemplatesDialog
+          group={groups.find((group) => group.id === templateGroupId) ?? {
+            id: templateGroupId,
+            name: 'Группа',
+          }}
+          categories={categories}
+          syncEnabled={syncEnabled}
+          myId={myId}
+          onClose={() => setTemplateGroupId(null)}
+          onSave={(draft) => onSaveGroupTemplate(templateGroupId, draft)}
+          onDelete={(templateId) => onDeleteGroupTemplate(templateGroupId, templateId)}
         />
       ) : null}
 

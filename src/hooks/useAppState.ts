@@ -25,17 +25,19 @@ import { queueDeleted } from '../data/sync/deletes'
 import { markDirty } from '../data/sync/dirty'
 import { applyStoreOrder, nowIso, withUpdatedAt } from '../data/sync/merge'
 import { loadSession } from '../data/sync/session'
-import { findSharedTemplate, mapTemplateCategoryId } from '../data/templates'
+import { findSharedTemplate, mapTemplateCategoryId, type SharedTemplate } from '../data/templates'
 import type {
   AppData,
   CatalogEntry,
   CategorySort,
   FontSize,
   Item,
+  NamedTemplate,
   Settings,
   Store,
   StoreGroup,
   StoreVisibility,
+  TemplateItem,
   Theme,
 } from '../types'
 
@@ -83,6 +85,18 @@ function patchStore(current: AppData, storeId: string, patch: Partial<Store>): A
       store.id === storeId ? withUpdatedAt({ ...store, ...patch }) : store,
     ),
   }
+}
+
+function writeTemplates(current: AppData, found: SharedTemplate, templates: NamedTemplate[]): AppData {
+  if (found.groupId) {
+    return {
+      ...current,
+      groups: (current.groups ?? []).map((group) =>
+        group.id === found.groupId ? withUpdatedAt({ ...group, templates }) : group,
+      ),
+    }
+  }
+  return patchStore(current, found.storeId, { templates })
 }
 
 export function useAppState() {
@@ -624,7 +638,8 @@ export function useAppState() {
     })
   }, [rememberCleared])
 
-  const saveTemplate = useCallback((storeId: string, name: string, snapshot?: Item[]) => {
+  const saveTemplate = useCallback(
+    (storeId: string, name: string, snapshot?: Item[], visibility: StoreVisibility = 'home') => {
     const trimmed = name.trim()
     if (!trimmed) return
     setData((current) => {
@@ -639,11 +654,19 @@ export function useAppState() {
         unit: item.unit,
       }))
       if (items.length === 0) return current
+      const owner = actorId()
       return persist(
         patchStore(current, storeId, {
           templates: [
             ...(store.templates ?? []),
-            { id: newId(), name: trimmed, items },
+            {
+              id: newId(),
+              name: trimmed,
+              items,
+              ...(visibility === 'private'
+                ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
+                : {}),
+            },
           ],
         }),
       )
@@ -653,7 +676,7 @@ export function useAppState() {
   const applyTemplate = useCallback((storeId: string, templateId: string) => {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
-      const found = findSharedTemplate(current.stores, templateId)
+      const found = findSharedTemplate(current.stores, templateId, current.groups ?? [])
       if (!store || !found) return current
       const template = {
         ...found.template,
@@ -710,31 +733,119 @@ export function useAppState() {
     const trimmed = name.trim()
     if (!trimmed) return
     setData((current) => {
-      const found = findSharedTemplate(current.stores, templateId)
+      const found = findSharedTemplate(current.stores, templateId, current.groups ?? [])
       if (!found) return current
-      const store = current.stores.find((item) => item.id === found.storeId)
-      if (!store) return current
+      const source = found.groupId
+        ? (current.groups ?? []).find((group) => group.id === found.groupId)?.templates
+        : current.stores.find((item) => item.id === found.storeId)?.templates
+      if (!source) return current
       return persist(
-        patchStore(current, found.storeId, {
-          templates: (store.templates ?? []).map((item) =>
-            item.id === templateId ? { ...item, name: trimmed } : item,
-          ),
-        }),
+        writeTemplates(
+          current,
+          found,
+          source.map((item) => (item.id === templateId ? { ...item, name: trimmed } : item)),
+        ),
+      )
+    })
+  }, [])
+
+  const setTemplateVisibility = useCallback((templateId: string, visibility: StoreVisibility) => {
+    setData((current) => {
+      const found = findSharedTemplate(current.stores, templateId, current.groups ?? [])
+      if (!found) return current
+      const source = found.groupId
+        ? (current.groups ?? []).find((group) => group.id === found.groupId)?.templates
+        : current.stores.find((item) => item.id === found.storeId)?.templates
+      if (!source) return current
+      const owner = actorId()
+      return persist(
+        writeTemplates(
+          current,
+          found,
+          source.map((item) => {
+            if (item.id !== templateId) return item
+            if (visibility === 'private') {
+              return { ...item, visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
+            }
+            const next = { ...item, visibility: 'home' as const }
+            delete next.ownerId
+            return next
+          }),
+        ),
       )
     })
   }, [])
 
   const deleteTemplate = useCallback((templateId: string) => {
     setData((current) => {
-      const found = findSharedTemplate(current.stores, templateId)
+      const found = findSharedTemplate(current.stores, templateId, current.groups ?? [])
       if (!found) return current
-      const store = current.stores.find((item) => item.id === found.storeId)
-      if (!store) return current
+      const source = found.groupId
+        ? (current.groups ?? []).find((group) => group.id === found.groupId)?.templates
+        : current.stores.find((item) => item.id === found.storeId)?.templates
+      if (!source) return current
       return persist(
-        patchStore(current, found.storeId, {
-          templates: (store.templates ?? []).filter((item) => item.id !== templateId),
-        }),
+        writeTemplates(
+          current,
+          found,
+          source.filter((item) => item.id !== templateId),
+        ),
       )
+    })
+  }, [])
+
+  const saveGroupTemplate = useCallback(
+    (
+      groupId: string,
+      draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
+    ) => {
+      const trimmed = draft.name.trim()
+      const items = draft.items
+        .map((item) => ({
+          name: item.name.trim(),
+          categoryId: item.categoryId,
+          qty: item.qty,
+          unit: item.unit.trim() || 'шт',
+        }))
+        .filter((item) => item.name && item.qty > 0)
+      if (!trimmed || items.length === 0) return
+      const owner = actorId()
+      const template: NamedTemplate = {
+        id: draft.id || newId(),
+        name: trimmed,
+        items,
+        ...(draft.visibility === 'private'
+          ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
+          : {}),
+      }
+      setData((current) => {
+        const groups = (current.groups ?? []).map((group) => {
+          if (group.id !== groupId) return group
+          const templates = group.templates ?? []
+          const exists = templates.some((item) => item.id === template.id)
+          return withUpdatedAt({
+            ...group,
+            templates: exists
+              ? templates.map((item) => (item.id === template.id ? template : item))
+              : [...templates, template],
+          })
+        })
+        return persist({ ...current, groups })
+      })
+    },
+    [],
+  )
+
+  const deleteGroupTemplate = useCallback((groupId: string, templateId: string) => {
+    setData((current) => {
+      const groups = (current.groups ?? []).map((group) => {
+        if (group.id !== groupId) return group
+        return withUpdatedAt({
+          ...group,
+          templates: (group.templates ?? []).filter((item) => item.id !== templateId),
+        })
+      })
+      return persist({ ...current, groups })
     })
   }, [])
 
@@ -1117,9 +1228,12 @@ export function useAppState() {
     unmarkBought,
     clearBought,
     saveTemplate,
+    setTemplateVisibility,
     applyTemplate,
     renameTemplate,
     deleteTemplate,
+    saveGroupTemplate,
+    deleteGroupTemplate,
     transferItems,
     reorderStores,
     reorderHome,

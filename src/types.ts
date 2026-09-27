@@ -23,6 +23,9 @@ export type NamedTemplate = {
   id: string
   name: string
   items: TemplateItem[]
+  /** Нет поля или «home» — шаблон виден всей семье. */
+  visibility?: StoreVisibility
+  ownerId?: string
 }
 
 export type StoreVisibility = 'private' | 'home'
@@ -43,6 +46,7 @@ export type StoreGroup = {
   name: string
   icon?: string
   loyaltyCard?: LoyaltyCard
+  templates?: NamedTemplate[]
   updatedAt?: string
 }
 

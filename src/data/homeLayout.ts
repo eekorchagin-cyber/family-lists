@@ -1,5 +1,6 @@
 import type { Store, StoreGroup } from '../types'
 import { parseLoyaltyCard } from './loyalty'
+import { parseTemplateList } from './templates'
 
 export const HOME_ORDER_KEY = 'pokupki-home-order'
 export const GROUP_COLLAPSED_KEY = 'pokupki-group-collapsed'
@@ -237,6 +238,36 @@ export function groupsFromStores(
 }
 
 
+function applyGroupTemplates(
+  winner: StoreGroup,
+  other: StoreGroup,
+  userId: string | undefined,
+  keepOwnFromOther: boolean,
+): StoreGroup {
+  if (!winner.templates) {
+    if (other.templates?.length) return { ...winner, templates: other.templates }
+    return winner
+  }
+  const templates = [...winner.templates]
+  const ids = new Set(templates.map((template) => template.id))
+  for (const template of other.templates ?? []) {
+    if (ids.has(template.id)) continue
+    const foreign =
+      template.visibility === 'private' &&
+      Boolean(template.ownerId) &&
+      Boolean(userId) &&
+      template.ownerId !== userId
+    const ownPrivate =
+      keepOwnFromOther &&
+      template.visibility === 'private' &&
+      (!template.ownerId || !userId || template.ownerId === userId)
+    if (!foreign && !ownPrivate) continue
+    templates.push(template)
+    ids.add(template.id)
+  }
+  return { ...winner, templates }
+}
+
 function isPlaceholderGroupName(name: string): boolean {
   return name.trim() === '' || name.trim() === 'Группа'
 }
@@ -245,6 +276,7 @@ export function mergeGroups(
   remote: StoreGroup[],
   local: StoreGroup[],
   deletedIds: Iterable<string> = [],
+  userId?: string,
 ): StoreGroup[] {
   const deleted = new Set(deletedIds)
   const byId = new Map<string, StoreGroup>()
@@ -261,14 +293,17 @@ export function mergeGroups(
     }
     // Заглушка «Группа» из списков не должна перебивать имя из catalog.
     if (isPlaceholderGroupName(group.name) && !isPlaceholderGroupName(current.name)) {
+      byId.set(group.id, applyGroupTemplates(current, group, userId, false))
       continue
     }
     if (isPlaceholderGroupName(current.name) && !isPlaceholderGroupName(group.name)) {
-      byId.set(group.id, group)
+      byId.set(group.id, applyGroupTemplates(group, current, userId, true))
       continue
     }
     if ((group.updatedAt ?? '') >= (current.updatedAt ?? '')) {
-      byId.set(group.id, group)
+      byId.set(group.id, applyGroupTemplates(group, current, userId, true))
+    } else {
+      byId.set(group.id, applyGroupTemplates(current, group, userId, false))
     }
   }
   return [...byId.values()]
@@ -294,11 +329,13 @@ export function parseGroupsCatalog(raw: string | undefined): StoreGroup[] | null
       if (typeof row.id !== 'string' || typeof row.name !== 'string') continue
       const icon = typeof row.icon === 'string' ? row.icon.trim() : ''
       const loyaltyCard = parseLoyaltyCard(row.loyaltyCard)
+      const templates = parseTemplateList(row.templates)
       groups.push({
         id: row.id,
         name: row.name,
         ...(icon ? { icon } : {}),
         ...(loyaltyCard ? { loyaltyCard } : {}),
+        ...(templates ? { templates } : {}),
         ...(typeof row.updatedAt === 'string' ? { updatedAt: row.updatedAt } : {}),
       })
     }

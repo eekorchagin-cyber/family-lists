@@ -45,9 +45,12 @@ function App() {
     unmarkBought,
     clearBought,
     saveTemplate,
+    setTemplateVisibility,
     applyTemplate,
     renameTemplate,
     deleteTemplate,
+    saveGroupTemplate,
+    deleteGroupTemplate,
     transferItems,
     reorderStores,
     reorderHome,
@@ -135,6 +138,9 @@ function App() {
     onSetStoreLoyalty: setStoreLoyalty,
     onDeleteGroup: deleteGroup,
     onSetStoreGroup: setStoreGroup,
+    onSaveGroupTemplate: saveGroupTemplate,
+    onDeleteGroupTemplate: deleteGroupTemplate,
+    myId: sync.session?.userId,
     onReorderStores: reorderStores,
     onReorderHome: reorderHome,
   }
@@ -293,7 +299,9 @@ function App() {
             }}
             onRenameTemplate={(templateId, name) => renameTemplate(templateId, name)}
             onDeleteTemplate={(templateId) => deleteTemplate(templateId)}
-            onSaveTemplate={(name) => saveTemplate(store.id, name)}
+            onSaveTemplate={(name, visibility) => saveTemplate(store.id, name, undefined, visibility)}
+            onSetTemplateVisibility={setTemplateVisibility}
+            myId={sync.session?.userId}
             onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
             onMoveToStore={(storeId) => transferItems(store.id, storeId, 'move')}
             groups={data.groups ?? []}
@@ -350,7 +358,10 @@ function App() {
           onUpdateItem={updateItem}
           onClearBought={() => clearBought(store.id)}
           completedEmpty={clearedStoreIds.includes(store.id)}
-          onSaveTemplate={(name, snapshot) => saveTemplate(store.id, name, snapshot)}
+          onSaveTemplate={(name, snapshot, visibility) =>
+            saveTemplate(store.id, name, snapshot, visibility)
+          }
+          syncEnabled={syncEnabled}
           otherStores={data.stores.filter((item) => item.id !== store.id)}
           groups={data.groups ?? []}
           onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}

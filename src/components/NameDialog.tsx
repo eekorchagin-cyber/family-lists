@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { canAutofocus } from '../data/viewport'
 
 type NameDialogProps = {
@@ -8,6 +8,7 @@ type NameDialogProps = {
   initial?: string
   confirmLabel: string
   inputId?: string
+  extra?: ReactNode
   onClose: () => void
   onConfirm: (name: string) => void
 }
@@ -19,6 +20,7 @@ export function NameDialog({
   initial = '',
   confirmLabel,
   inputId = 'name-dialog-input',
+  extra,
   onClose,
   onConfirm,
 }: NameDialogProps) {
@@ -53,6 +55,7 @@ export function NameDialog({
           placeholder={placeholder}
           autoFocus={canAutofocus()}
         />
+        {extra}
         <div className="dialog-actions">
           <button type="button" className="button-secondary" onClick={onClose}>
             Отмена
