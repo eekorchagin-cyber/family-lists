@@ -46,6 +46,10 @@ type HomeScreenProps = {
     groupId: string,
     draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
   ) => void
+  onSaveStoreTemplate: (
+    storeId: string,
+    draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
+  ) => void
   onDeleteGroupTemplate: (groupId: string, templateId: string) => void
   onReorderStores: (orderedIds: string[]) => void
   onReorderHome: (orderedKeys: string[]) => void
@@ -112,6 +116,7 @@ export function HomeScreen({
   onSetStoreGroup,
   onSetGroupVisibility,
   onSaveGroupTemplate,
+  onSaveStoreTemplate,
   onDeleteGroupTemplate,
   onReorderStores,
   onReorderHome,
@@ -999,11 +1004,13 @@ export function HomeScreen({
             id: templateGroupId,
             name: 'Группа',
           }}
+          stores={stores.filter((store) => store.groupId === templateGroupId)}
           categories={categories}
           syncEnabled={syncEnabled}
           myId={myId}
           onClose={() => setTemplateGroupId(null)}
           onSave={(draft) => onSaveGroupTemplate(templateGroupId, draft)}
+          onSaveStore={(storeId, draft) => onSaveStoreTemplate(storeId, draft)}
           onDelete={(templateId) => onDeleteGroupTemplate(templateGroupId, templateId)}
         />
       ) : null}

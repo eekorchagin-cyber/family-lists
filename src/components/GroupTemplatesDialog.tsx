@@ -2,32 +2,37 @@ import { useState } from 'react'
 import { parseItem } from '../data/parseItem'
 import { formatQty } from '../data/qty'
 import { templateVisible } from '../data/templates'
-import type { Category, NamedTemplate, StoreGroup, StoreVisibility, TemplateItem } from '../types'
+import type { Category, NamedTemplate, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
 
 type Draft = {
   id?: string
   name: string
   items: TemplateItem[]
   visibility: StoreVisibility
+  storeId?: string
 }
 
 type GroupTemplatesDialogProps = {
   group: StoreGroup
+  stores?: Store[]
   categories: Category[]
   syncEnabled?: boolean
   myId?: string
   onClose: () => void
   onSave: (draft: Draft) => void
+  onSaveStore: (storeId: string, draft: Draft) => void
   onDelete: (templateId: string) => void
 }
 
 export function GroupTemplatesDialog({
   group,
+  stores = [],
   categories,
   syncEnabled = false,
   myId,
   onClose,
   onSave,
+  onSaveStore,
   onDelete,
 }: GroupTemplatesDialogProps) {
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -36,6 +41,14 @@ export function GroupTemplatesDialog({
   const categoryOptions = options.length > 0 ? options : categories
   const [categoryId, setCategoryId] = useState(categoryOptions[0]?.id ?? 'other')
   const templates = (group.templates ?? []).filter((template) => templateVisible(template, myId))
+  const rows = [
+    ...templates.map((template) => ({ template, storeId: undefined as string | undefined, storeName: undefined as string | undefined })),
+    ...stores.flatMap((store) =>
+      (store.templates ?? [])
+        .filter((template) => templateVisible(template, myId))
+        .map((template) => ({ template, storeId: store.id, storeName: store.name })),
+    ),
+  ]
 
   function startCreate() {
     setProduct('')
@@ -46,13 +59,14 @@ export function GroupTemplatesDialog({
     })
   }
 
-  function startEdit(template: NamedTemplate) {
+  function startEdit(template: NamedTemplate, storeId?: string) {
     setProduct('')
     setDraft({
       id: template.id,
       name: template.name,
       items: template.items.map((item) => ({ ...item })),
       visibility: template.visibility === 'private' ? 'private' : 'home',
+      ...(storeId ? { storeId } : {}),
     })
   }
 
@@ -177,7 +191,8 @@ export function GroupTemplatesDialog({
                 className="button-primary"
                 disabled={!draft.name.trim() || draft.items.length === 0}
                 onClick={() => {
-                  onSave(draft)
+                  if (draft.storeId) onSaveStore(draft.storeId, draft)
+                  else onSave(draft)
                   setDraft(null)
                 }}
               >
@@ -187,15 +202,16 @@ export function GroupTemplatesDialog({
           </>
         ) : (
           <>
-            {templates.length === 0 ? (
+            {rows.length === 0 ? (
               <p className="hint">В группе пока нет шаблонов. Шаблон можно подставить в любой список.</p>
             ) : (
               <ul className="template-list">
-                {templates.map((template) => (
-                  <li key={template.id} className="template-row">
+                {rows.map(({ template, storeId, storeName }) => (
+                  <li key={`${storeId ?? group.id}:${template.id}`} className="template-row">
                     <div className="template-copy">
                       <span>{template.name}</span>
                       <span className="settings-nav-hint">
+                        {storeName ? `из списка ${storeName} · ` : ''}
                         товаров: {template.items.length}
                         {syncEnabled
                           ? template.visibility === 'private'
@@ -204,7 +220,7 @@ export function GroupTemplatesDialog({
                           : ''}
                       </span>
                     </div>
-                    <button type="button" className="button-secondary template-action" onClick={() => startEdit(template)}>
+                    <button type="button" className="button-secondary template-action" onClick={() => startEdit(template, storeId)}>
                       Изменить
                     </button>
                     <button

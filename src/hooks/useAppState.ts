@@ -836,6 +836,47 @@ export function useAppState() {
     [],
   )
 
+  const saveStoreTemplate = useCallback(
+    (
+      storeId: string,
+      draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
+    ) => {
+      const trimmed = draft.name.trim()
+      const items = draft.items
+        .map((item) => ({
+          name: item.name.trim(),
+          categoryId: item.categoryId,
+          qty: item.qty,
+          unit: item.unit.trim() || 'шт',
+        }))
+        .filter((item) => item.name && item.qty > 0)
+      if (!trimmed || items.length === 0) return
+      const owner = actorId()
+      const template: NamedTemplate = {
+        id: draft.id || newId(),
+        name: trimmed,
+        items,
+        ...(draft.visibility === 'private'
+          ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
+          : {}),
+      }
+      setData((current) => {
+        const store = current.stores.find((item) => item.id === storeId)
+        if (!store) return current
+        const templates = store.templates ?? []
+        const exists = templates.some((item) => item.id === template.id)
+        return persist(
+          patchStore(current, storeId, {
+            templates: exists
+              ? templates.map((item) => (item.id === template.id ? template : item))
+              : [...templates, template],
+          }),
+        )
+      })
+    },
+    [],
+  )
+
   const deleteGroupTemplate = useCallback((groupId: string, templateId: string) => {
     setData((current) => {
       const groups = (current.groups ?? []).map((group) => {
@@ -1270,6 +1311,7 @@ export function useAppState() {
     renameTemplate,
     deleteTemplate,
     saveGroupTemplate,
+    saveStoreTemplate,
     deleteGroupTemplate,
     transferItems,
     reorderStores,
