@@ -71,7 +71,11 @@ export function loadCollapsedGroups(): Record<string, boolean> {
 }
 
 export function saveCollapsedGroups(map: Record<string, boolean>): void {
-  localStorage.setItem(GROUP_COLLAPSED_KEY, JSON.stringify(map))
+  const collapsed: Record<string, true> = {}
+  for (const [id, value] of Object.entries(map)) {
+    if (value) collapsed[id] = true
+  }
+  localStorage.setItem(GROUP_COLLAPSED_KEY, JSON.stringify(collapsed))
 }
 
 export function ensureHomeOrder(

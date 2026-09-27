@@ -63,6 +63,7 @@ const ICON_LABELS: Record<string, string> = {
   ozon: 'OZON',
   redsale: 'RedSale',
   kumtigey: 'Кум-Тигей',
+  gubernskie: 'Губернские Аптеки',
   businessTrip: 'Командировка',
   seaVacation: 'Отпуск на море',
   mountainVacation: 'Отпуск в горах',

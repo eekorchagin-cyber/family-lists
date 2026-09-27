@@ -270,6 +270,17 @@ export function SeaVacationIcon() {
   )
 }
 
+/** Губернские Аптеки: зелёный квадрат и белый крест */
+export function GubernskieAptekiIcon() {
+  return (
+    <IconSvg>
+      <rect x="2.3" y="2.3" width="19.4" height="19.4" rx="5.4" fill="#1f8f4a" stroke="#1c1917" strokeWidth="1.2" />
+      <rect x="9.55" y="5.15" width="4.9" height="13.7" rx="1.55" fill="#f8fafc" />
+      <rect x="5.15" y="9.55" width="13.7" height="4.9" rx="1.55" fill="#f8fafc" />
+    </IconSvg>
+  )
+}
+
 /** Отпуск в горах */
 export function MountainVacationIcon() {
   return (
@@ -295,6 +306,7 @@ export const GROUP_SPECIAL_ICONS: Partial<Record<CategoryIconId, () => ReactNode
   ozon: () => <OzonIcon />,
   redsale: () => <RedSaleIcon />,
   kumtigey: () => <KumTigeyIcon />,
+  gubernskie: () => <GubernskieAptekiIcon />,
   businessTrip: () => <BusinessTripIcon />,
   seaVacation: () => <SeaVacationIcon />,
   mountainVacation: () => <MountainVacationIcon />,

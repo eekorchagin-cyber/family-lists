@@ -162,28 +162,25 @@ export function HomeScreen({
   storesRef.current = stores
   homeOrderRef.current = homeOrder
 
+  const collapsedRef = useRef(collapsed)
+  collapsedRef.current = collapsed
+
   useEffect(() => {
     setHomeOrder(ensureHomeOrder(stores, groups, loadHomeOrder()))
   }, [groups, stores])
 
-  // Если внутри свёрнутой группы обновился список — раскроем группу,
-  // чтобы была видна и подсветка списка, и подсветка самой группы.
   useEffect(() => {
-    if (updatedStoreIds.length === 0) return
-    setCollapsed((current) => {
-      let changed = false
-      const next = { ...current }
-      for (const store of stores) {
-        if (!store.groupId || !updatedStoreIds.includes(store.id)) continue
-        if (!next[store.groupId]) continue
-        next[store.groupId] = false
-        changed = true
-      }
-      if (!changed) return current
-      saveCollapsedGroups(next)
-      return next
-    })
-  }, [stores, updatedStoreIds])
+    const persist = () => saveCollapsedGroups(collapsedRef.current)
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') persist()
+    }
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', persist)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', persist)
+    }
+  }, [])
 
   const updatedGroupIds = useMemo(() => {
     const ids = new Set<string>()

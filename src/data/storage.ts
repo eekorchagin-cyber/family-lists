@@ -12,7 +12,7 @@ import type {
 import { catalogFromItems, mergeCatalogFromItems } from './catalog'
 import backup from './backup.json'
 import { isLocalHost } from './sync/codes'
-import { appendCategoryToStores } from './categories'
+import { appendCategoryToStores, canonicalStoreIcon } from './categories'
 import { markDirty } from './sync/dirty'
 import { groupsFromStores, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker, stripStoreIcon } from './homeLayout'
 import { asCategoryNames, parseLoyaltyCard, stripLoyaltyMarker } from './loyalty'
@@ -130,10 +130,11 @@ function normalizeStore(value: unknown): Store | null {
       ? value.groupId.trim()
       : marked.groupId
   const loyaltyCard = parseLoyaltyCard(value.loyaltyCard) ?? loyalty.card
-  const icon =
+  const rawIcon =
     typeof value.icon === 'string' && value.icon.trim()
       ? value.icon.trim()
       : iconed.icon
+  const icon = canonicalStoreIcon(value.name, rawIcon)
   return {
     id: value.id,
     name: value.name,

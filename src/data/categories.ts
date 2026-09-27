@@ -37,6 +37,7 @@ export const GROUP_ICONS = [
   { id: 'ozon', glyph: '', keywords: ['ozon', 'озон'] },
   { id: 'redsale', glyph: '', keywords: ['redsale', 'red sale', 'redsail', 'редсейл'] },
   { id: 'kumtigey', glyph: '', keywords: ['кум-тигей', 'кум тигей', 'кумтигей'] },
+  { id: 'gubernskie', glyph: '', keywords: ['губернск'] },
   { id: 'seaVacation', glyph: '', keywords: ['отпуск на море', 'на море', 'пляж'] },
   { id: 'mountainVacation', glyph: '', keywords: ['отпуск в горах', 'в горах'] },
   { id: 'businessTrip', glyph: '', keywords: ['командиров'] },
@@ -139,8 +140,15 @@ export function iconIdFromName(name: string): CategoryIconId {
   return 'other'
 }
 
+export function canonicalStoreIcon(name: string, icon: string | undefined): string | undefined {
+  const inferred = iconIdFromName(name)
+  if (inferred === 'gubernskie' && (!icon || icon === 'pharmacy' || icon === 'other')) return 'gubernskie'
+  return icon
+}
+
 export function resolvedGroupIcon(group: { name: string; icon?: string }): CategoryIconId | undefined {
-  if (group.icon && isCategoryIconId(group.icon)) return group.icon
+  const icon = canonicalStoreIcon(group.name, group.icon)
+  if (icon && isCategoryIconId(icon)) return icon
   const inferred = iconIdFromName(group.name)
   return inferred === 'other' ? undefined : inferred
 }
