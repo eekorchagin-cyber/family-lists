@@ -36,6 +36,17 @@ const KINDS: { id: LoyaltyKind; title: string }[] = [
   { id: 'app', title: 'Приложение' },
 ]
 
+function sameCard(a: LoyaltyCard | undefined, b: LoyaltyCard | undefined): boolean {
+  if (!a || !b) return false
+  return (
+    a.kind === b.kind &&
+    a.value === b.value &&
+    (a.label ?? '') === (b.label ?? '') &&
+    (a.format ?? '') === (b.format ?? '') &&
+    (a.image ?? '') === (b.image ?? '')
+  )
+}
+
 export function LoyaltyCardEditor({
   title = 'Бонусная карта',
   initial,
@@ -44,13 +55,14 @@ export function LoyaltyCardEditor({
   onClose,
   onSave,
 }: LoyaltyCardEditorProps) {
-  const [kind, setKind] = useState<LoyaltyKind>(initial?.kind ?? 'barcode')
-  const [value, setValue] = useState(initial?.value ?? '')
-  const [label, setLabel] = useState(initial?.label ?? '')
-  const [format, setFormat] = useState(initial?.format ?? '')
-  const [image, setImage] = useState(initial?.image ?? '')
+  const shown = initial ?? inherited
+  const [kind, setKind] = useState<LoyaltyKind>(shown?.kind ?? 'barcode')
+  const [value, setValue] = useState(shown?.value ?? '')
+  const [label, setLabel] = useState(shown?.label ?? '')
+  const [format, setFormat] = useState(shown?.format ?? '')
+  const [image, setImage] = useState(shown?.image ?? '')
   const [scanError, setScanError] = useState('')
-  const initialShortcut = parseShortcutName(initial?.value ?? '')
+  const initialShortcut = parseShortcutName(shown?.value ?? '')
   const [shortcutName, setShortcutName] = useState(initialShortcut)
   const cameraRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -121,6 +133,7 @@ export function LoyaltyCardEditor({
           ...(kind !== 'app' && image ? { image } : {}),
         }
       : undefined
+  const inheritedOnly = !initial && sameCard(card, inherited)
 
   async function onPick(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -196,7 +209,10 @@ export function LoyaltyCardEditor({
         <h2>{title}</h2>
         {inherited && !initial ? (
           <p className="hint">
-            Сейчас действует карта {inheritedLabel ?? 'группы'}. Своя карта списка её заменит.
+            {inherited.kind === 'app' && parseShortcutName(inherited.value)
+              ? `Это карта ${inheritedLabel ?? 'группы'}, команда ${parseShortcutName(inherited.value)}. Она на месте. `
+              : `Это карта ${inheritedLabel ?? 'группы'}. Она на месте. `}
+            «Сохранить» закрепит копию только за этим списком.
           </p>
         ) : null}
         <p className="field-label">Вид</p>
@@ -347,7 +363,9 @@ export function LoyaltyCardEditor({
         {card ? <LoyaltyCardView card={card} /> : null}
         <div
           className={
-            initial || card ? 'dialog-actions dialog-actions--loyalty' : 'dialog-actions'
+            initial || (card && !inheritedOnly)
+              ? 'dialog-actions dialog-actions--loyalty'
+              : 'dialog-actions'
           }
         >
           <button type="button" className="button-secondary" onClick={onClose}>
@@ -356,14 +374,14 @@ export function LoyaltyCardEditor({
           <button
             type="button"
             className="button-primary"
-            disabled={!card}
+            disabled={!card || inheritedOnly}
             onClick={() => {
               if (card) onSave(card)
             }}
           >
             Сохранить
           </button>
-          {initial || card ? (
+          {initial || (card && !inheritedOnly) ? (
             <button
               type="button"
               className="button-danger dialog-actions-remove"

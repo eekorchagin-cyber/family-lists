@@ -1069,6 +1069,10 @@ button.category-name-input {
   gap: 10px;
 }
 
+.input + .choice-row {
+  margin-top: 10px;
+}
+
 .choice.active,
 .category-chip.active {
   border-color: var(--accent);

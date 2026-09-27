@@ -1,6 +1,6 @@
 import { BarcodeSvg } from './BarcodeSvg'
 import { QrImage } from './QrImage'
-import { loyaltyAppError, loyaltyAppHref, openLoyaltyApp } from '../data/loyaltyApps'
+import { loyaltyAppError, loyaltyAppHref, openLoyaltyApp, parseShortcutName } from '../data/loyaltyApps'
 import type { LoyaltyCard } from '../types'
 
 export function LoyaltyCardView({
@@ -12,11 +12,12 @@ export function LoyaltyCardView({
   large?: boolean
   showOpen?: boolean
 }) {
-  const label = card.label?.trim() || card.value
+  const shortcut = card.kind === 'app' ? parseShortcutName(card.value) : ''
+  const label = card.label?.trim() || shortcut || card.value
   if (card.kind === 'app') {
     return (
       <div className={large ? 'loyalty-view loyalty-view--large' : 'loyalty-view'}>
-        {card.label ? <p className="loyalty-view-label">{card.label}</p> : null}
+        {label ? <p className="loyalty-view-label">{label}</p> : null}
         {showOpen ? (
           <button
             type="button"
