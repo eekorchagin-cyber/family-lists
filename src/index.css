@@ -460,6 +460,17 @@ ul {
   opacity: 0.7;
 }
 
+.store-local-mark--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35em;
+  padding: 0 4px;
+  font-size: 0.95em;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
 .store-unbought-count {
   flex-shrink: 0;
   margin-left: auto;

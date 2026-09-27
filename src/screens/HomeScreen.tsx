@@ -612,7 +612,10 @@ export function HomeScreen({
                         ) : null}
                         <span className="store-name-text">{row.group.name}</span>
                         {syncEnabled && row.group.visibility === 'private' ? (
-                          <span className="store-local-mark">личное</span>
+                          <span className="store-local-mark store-local-mark--icon" title="личное">
+                            <span aria-hidden="true">🔒</span>
+                            <span className="visually-hidden">личное</span>
+                          </span>
                         ) : null}
                         <span className="store-local-mark">{nestedCount}</span>
                       </span>
@@ -697,13 +700,22 @@ export function HomeScreen({
                       ) : null}
                       <span className="store-name-text">{store.name}</span>
                       {storeHasLocalCategories(categories, store.id) ? (
-                        <span className="store-local-mark">свои</span>
+                        <span className="store-local-mark store-local-mark--icon" title="свои">
+                          <span aria-hidden="true">✦</span>
+                          <span className="visually-hidden">свои</span>
+                        </span>
                       ) : null}
                       {syncEnabled && store.visibility !== 'home' ? (
-                        <span className="store-local-mark">личное</span>
+                        <span className="store-local-mark store-local-mark--icon" title="личное">
+                          <span aria-hidden="true">🔒</span>
+                          <span className="visually-hidden">личное</span>
+                        </span>
                       ) : null}
                       {store.incomingFrom ? (
-                        <span className="store-local-mark">присланный</span>
+                        <span className="store-local-mark store-local-mark--icon" title="присланный">
+                          <span aria-hidden="true">📩</span>
+                          <span className="visually-hidden">присланный</span>
+                        </span>
                       ) : null}
                     </span>
                     {(unboughtByStoreId.get(store.id) ?? 0) > 0 ? (
