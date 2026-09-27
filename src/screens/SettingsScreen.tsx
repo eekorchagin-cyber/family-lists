@@ -6,6 +6,7 @@ import { CategoryStyleDialog } from '../components/CategoryStyleDialog'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
 import { BackIcon } from '../components/NavIcons'
+import { MyTemplatesPanel } from '../components/MyTemplatesPanel'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { SyncPanel } from '../components/SyncPanel'
 import { PeoplePanel } from '../components/PeoplePanel'
@@ -28,22 +29,43 @@ import {
 } from '../data/catalogExcel'
 import type { AccessInfo } from '../data/sync/api'
 import { sessionInFamily, type HomeMember, type SyncSession } from '../data/sync/session'
-import type { CatalogEntry, Category, FontSize, Settings, Store, StoreGroup, Theme } from '../types'
+import type {
+  CatalogEntry,
+  Category,
+  FontSize,
+  Settings,
+  Store,
+  StoreGroup,
+  TemplateFolder,
+  TemplateItem,
+  Theme,
+} from '../types'
 
-type SettingsSection = 'guide' | 'appearance' | 'categories' | 'catalog' | 'sync' | 'people' | 'transfer' | 'about'
+type SettingsSection =
+  | 'guide'
+  | 'appearance'
+  | 'myTemplates'
+  | 'categories'
+  | 'catalog'
+  | 'sync'
+  | 'people'
+  | 'transfer'
+  | 'about'
 
 const SECTIONS: { id: Exclude<SettingsSection, 'guide'>; title: string; hint: string }[] = [
-  { id: 'appearance', title: 'Оформление', hint: 'Тема, шрифт и число на ярлыке' },
-  { id: 'sync', title: 'Семья', hint: 'Коды, облако и приглашения' },
-  { id: 'people', title: 'Люди', hint: 'Код для пересылки списков' },
   { id: 'categories', title: 'Категории', hint: 'Общие — добавить в любой список' },
   { id: 'catalog', title: 'Товары', hint: 'Справочник' },
+  { id: 'myTemplates', title: 'Мои шаблоны', hint: 'Группа и списки внутри неё' },
+  { id: 'sync', title: 'Семья', hint: 'Коды, облако и приглашения' },
+  { id: 'people', title: 'Люди', hint: 'Код для пересылки списков' },
+  { id: 'appearance', title: 'Оформление', hint: 'Тема, шрифт и число на ярлыке' },
   { id: 'transfer', title: 'Экспорт / импорт', hint: 'Наименования в таблице Excel' },
   { id: 'about', title: 'О программе', hint: 'Автор, версия и обновления' },
 ]
 
 const SECTION_TITLES: Record<SettingsSection, string> = {
   guide: 'Как пользоваться',
+  myTemplates: 'Мои шаблоны',
   appearance: 'Оформление',
   sync: 'Семья',
   people: 'Люди',
@@ -59,6 +81,16 @@ type SettingsScreenProps = {
   stores: Store[]
   groups: StoreGroup[]
   catalog: CatalogEntry[]
+  templateFolders: TemplateFolder[]
+  myId?: string
+  onAddTemplateFolder: (name: string) => void
+  onRenameTemplateFolder: (folderId: string, name: string) => void
+  onDeleteTemplateFolder: (folderId: string) => void
+  onSaveFolderTemplate: (
+    folderId: string,
+    draft: { id?: string; name: string; items: TemplateItem[] },
+  ) => void
+  onDeleteFolderTemplate: (folderId: string, templateId: string) => void
   onBack: () => void
   onTheme: (theme: Theme) => void
   onFontSize: (fontSize: FontSize) => void
@@ -119,6 +151,13 @@ export function SettingsScreen({
   stores,
   groups,
   catalog,
+  templateFolders,
+  myId,
+  onAddTemplateFolder,
+  onRenameTemplateFolder,
+  onDeleteTemplateFolder,
+  onSaveFolderTemplate,
+  onDeleteFolderTemplate,
   onBack,
   onTheme,
   onFontSize,
@@ -139,6 +178,10 @@ export function SettingsScreen({
     sync.initialCode ? 'sync' : null,
   )
   const [aboutUpdates, setAboutUpdates] = useState(false)
+  const [templatesEditing, setTemplatesEditing] = useState(false)
+  const [templateAdding, setTemplateAdding] = useState(false)
+  const [templateTitle, setTemplateTitle] = useState<string | null>(null)
+  const [newFolderRequest, setNewFolderRequest] = useState(0)
   const globals = useMemo(() => {
     const listed = globalCategories(categories)
     const source = listed.length > 0 ? listed : categories
@@ -252,7 +295,13 @@ export function SettingsScreen({
   }
 
   const title =
-    section === 'about' && aboutUpdates ? 'Информация об обновлениях' : section ? SECTION_TITLES[section] : 'Настройки'
+    section === 'about' && aboutUpdates
+      ? 'Информация об обновлениях'
+      : templateTitle && section === 'myTemplates' && templatesEditing
+        ? templateTitle
+        : section
+          ? SECTION_TITLES[section]
+          : 'Настройки'
   const about = parseAppVersion()
   const goBack = section
     ? () => {
@@ -260,7 +309,18 @@ export function SettingsScreen({
           setAboutUpdates(false)
           return
         }
+        if (section === 'myTemplates' && templateAdding) {
+          setTemplateAdding(false)
+          return
+        }
+        if (section === 'myTemplates' && templatesEditing) {
+          setTemplatesEditing(false)
+          setTemplateTitle(null)
+          return
+        }
         setAboutUpdates(false)
+        setTemplatesEditing(false)
+        setTemplateTitle(null)
         setSection(null)
       }
     : onBack
@@ -277,6 +337,8 @@ export function SettingsScreen({
         right={
           section === 'categories' ? (
             <AddIconButton ariaLabel="Новая категория" onClick={() => setAddingCategory(true)} />
+          ) : section === 'myTemplates' && !templatesEditing ? (
+            <AddIconButton ariaLabel="Новая группа" onClick={() => setNewFolderRequest((value) => value + 1)} />
           ) : section === 'catalog' ? (
             <AddIconButton ariaLabel="Новый товар" onClick={() => setEditing('new')} />
           ) : undefined
@@ -286,6 +348,11 @@ export function SettingsScreen({
             <UserGuide />
           ) : section === 'categories' ? (
               <p>Порядок отделов задаётся в каждом списке отдельно. Новая общая категория не появится в списках сама — её нужно добавить.</p>
+          ) : section === 'myTemplates' ? (
+            <p>
+              Группа собирает шаблоны. Например, «Продукты для приготовления блюд», а внутри —
+              «Продукты для плова на 8 человек». Эти шаблоны только ваши и подставляются в любой список.
+            </p>
           ) : section === 'appearance' ? (
             <p>
               Тема и размер шрифта — на этом телефоне. Число на ярлыке — сумма некупленных из
@@ -419,6 +486,27 @@ export function SettingsScreen({
             onRemove={people.onRemove}
             onRefresh={people.onRefresh}
             onClearError={people.onClearError}
+          />
+        )}
+
+        {section === 'myTemplates' && (
+          <MyTemplatesPanel
+            folders={templateFolders}
+            categories={categories}
+            myId={myId}
+            catalog={catalog}
+            editing={templatesEditing}
+            adding={templateAdding}
+            createRequest={newFolderRequest}
+            onEditingChange={setTemplatesEditing}
+            onAddingChange={setTemplateAdding}
+            onTitleChange={setTemplateTitle}
+            onAddCategory={onAddCategory}
+            onAddFolder={onAddTemplateFolder}
+            onRenameFolder={onRenameTemplateFolder}
+            onDeleteFolder={onDeleteTemplateFolder}
+            onSaveTemplate={onSaveFolderTemplate}
+            onDeleteTemplate={onDeleteFolderTemplate}
           />
         )}
 

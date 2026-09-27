@@ -109,6 +109,16 @@ export function sharedTemplates(
   return rows
 }
 
+/** Шаблоны, которые можно подставить в этот список: его группа и он сам. */
+export function templatesForList(
+  store: Store,
+  groups: StoreGroup[] = [],
+  userId?: string,
+): SharedTemplate[] {
+  const group = store.groupId ? groups.filter((row) => row.id === store.groupId) : []
+  return sharedTemplates([store], userId, group)
+}
+
 export function findSharedTemplate(
   stores: Store[],
   templateId: string,

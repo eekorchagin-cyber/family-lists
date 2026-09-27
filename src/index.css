@@ -1051,6 +1051,12 @@ button.category-name-input {
   gap: 10px;
 }
 
+.template-row .qty-button {
+  width: 43px;
+  min-height: 43px;
+  flex-shrink: 0;
+}
+
 .template-row {
   display: flex;
   align-items: center;
@@ -1061,6 +1067,62 @@ button.category-name-input {
   flex-shrink: 0;
   min-height: 43px;
   padding: 0 12px;
+  white-space: nowrap;
+}
+
+.template-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 43px;
+}
+
+.template-pick-name {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-lock-shared {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  min-height: 28px;
+  flex-shrink: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  opacity: 0.35;
+  cursor: pointer;
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+.template-pick {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.template-pick-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.template-pick-heading {
+  margin: 0 0 2px;
+  color: var(--muted);
+  font-size: 0.85em;
+  font-weight: 650;
+}
+
+.template-list--nested {
+  padding-left: 12px;
+  gap: 2px;
 }
 
 .choice-row {
@@ -1169,9 +1231,18 @@ button.category-name-input {
   border: 2px dashed var(--border);
 }
 
-.product-title {
-  font-size: 1.25em;
+.product-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 8px;
+}
+
+.product-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.25em;
+  margin-bottom: 0;
 }
 
 .qty-row {

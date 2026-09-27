@@ -7,10 +7,19 @@ export type PendingDeletes = {
   groups: string[]
   categories: string[]
   catalog: string[]
+  templateFolders: string[]
 }
 
 function empty(): PendingDeletes {
-  return { items: [], clearedItems: [], stores: [], groups: [], categories: [], catalog: [] }
+  return {
+    items: [],
+    clearedItems: [],
+    stores: [],
+    groups: [],
+    categories: [],
+    catalog: [],
+    templateFolders: [],
+  }
 }
 
 function load(): PendingDeletes {
@@ -25,6 +34,7 @@ function load(): PendingDeletes {
       groups: value.groups ?? [],
       categories: value.categories ?? [],
       catalog: value.catalog ?? [],
+      templateFolders: value.templateFolders ?? [],
     }
   } catch {
     return empty()
@@ -64,5 +74,6 @@ export function restoreDeletes(pending: PendingDeletes): void {
     groups: [...new Set([...pending.groups, ...current.groups])],
     categories: [...new Set([...pending.categories, ...current.categories])],
     catalog: [...new Set([...pending.catalog, ...current.catalog])],
+    templateFolders: [...new Set([...(pending.templateFolders ?? []), ...(current.templateFolders ?? [])])],
   })
 }

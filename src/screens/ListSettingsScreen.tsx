@@ -12,8 +12,18 @@ import { BackIcon } from '../components/NavIcons'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { resolveLoyaltyCard } from '../data/loyalty'
-import { sharedTemplates } from '../data/templates'
-import type { Category, CategorySort, Item, LoyaltyCard, Store, StoreGroup, StoreVisibility } from '../types'
+import { foldersForUser } from '../data/myTemplates'
+import { templatesForList } from '../data/templates'
+import type {
+  Category,
+  CategorySort,
+  Item,
+  LoyaltyCard,
+  Store,
+  StoreGroup,
+  StoreVisibility,
+  TemplateFolder,
+} from '../types'
 
 type ListSettingsSection = 'list' | 'categories' | 'templates' | 'transfer'
 
@@ -64,14 +74,13 @@ type ListSettingsScreenProps = {
   onEnableCategory: (categoryIds: string[]) => void
   onRemoveCategory: (categoryId: string) => void
   onApplyTemplate: (templateId: string) => void
-  onRenameTemplate: (templateId: string, name: string) => void
-  onDeleteTemplate: (templateId: string) => void
   onSaveTemplate: (name: string, visibility: StoreVisibility) => void
   onSetTemplateVisibility: (templateId: string, visibility: StoreVisibility) => void
   myId?: string
   onCopyToStore: (storeId: string) => void
   onMoveToStore: (storeId: string) => void
   groups?: StoreGroup[]
+  templateFolders?: TemplateFolder[]
   onSetLoyalty?: (card: LoyaltyCard | undefined) => void
   syncEnabled?: boolean
   onVisibility?: (visibility: StoreVisibility) => void
@@ -94,14 +103,13 @@ export function ListSettingsScreen({
   onEnableCategory,
   onRemoveCategory,
   onApplyTemplate,
-  onRenameTemplate,
-  onDeleteTemplate,
   onSaveTemplate,
   onSetTemplateVisibility,
   myId,
   onCopyToStore,
   onMoveToStore,
   groups = [],
+  templateFolders = [],
   onSetLoyalty,
   syncEnabled = false,
   onVisibility,
@@ -147,8 +155,20 @@ export function ListSettingsScreen({
   const title = section ? SECTION_TITLES[section] : 'Настройки'
   const goBack = section ? () => setSection(null) : onBack
   const templates = useMemo(
-    () => sharedTemplates([store, ...otherStores], myId, groups),
-    [groups, myId, otherStores, store],
+    () => templatesForList(store, groups, myId),
+    [groups, myId, store],
+  )
+  const myFolders = useMemo(
+    () => foldersForUser(templateFolders, myId).filter((folder) => folder.templates.length > 0),
+    [myId, templateFolders],
+  )
+  const groupTemplateRows = useMemo(
+    () => templates.filter((row) => row.groupId),
+    [templates],
+  )
+  const listTemplateRows = useMemo(
+    () => templates.filter((row) => !row.groupId),
+    [templates],
   )
 
   return (
@@ -195,8 +215,9 @@ export function ListSettingsScreen({
             </>
           ) : section === 'templates' ? (
             <p>
-              Шаблон, сохранённый в любом списке или группе, можно подставить сюда. Категории
-              подбираются по названию отдела.
+              Стрелка вниз подставляет товары шаблона в этот список. Замок — шаблон виден
+              только вам, как личный список. То же самое есть на странице списка, кнопка
+              «Из шаблона».
             </p>
           ) : section === 'transfer' && otherStores.length > 0 ? (
             <p>
@@ -390,76 +411,104 @@ export function ListSettingsScreen({
 
         {section === 'templates' && (
           <section className="settings-block">
-            {templates.length === 0 ? (
-              <p className="hint">Пока нет шаблонов ни в одном списке</p>
+            {templates.length === 0 && myFolders.length === 0 ? (
+              <p className="hint">Пока нет шаблонов.</p>
             ) : (
-              <ul className="template-list">
-                {templates.map(({ storeId, storeName, template, groupId }) => {
-                  const sourceStore =
-                    storeId === store.id
-                      ? store
-                      : otherStores.find((item) => item.id === storeId)
-                  const ownsStore =
-                    !sourceStore?.ownerId || !myId || sourceStore.ownerId === myId
-                  return (
-                  <li key={template.id} className="template-row">
-                    <div className="template-copy">
-                      <input
-                        className="input category-name-input"
-                        defaultValue={template.name}
-                        aria-label={`Название шаблона ${template.name}`}
-                        onBlur={(event) => {
-                          const next = event.target.value.trim()
-                          if (!next) {
-                            event.target.value = template.name
-                            return
-                          }
-                          onRenameTemplate(template.id, next)
-                        }}
-                      />
-                      {groupId ? (
-                        <span className="settings-nav-hint">из группы {storeName}</span>
-                      ) : storeId !== store.id ? (
-                        <span className="settings-nav-hint">из списка {storeName}</span>
-                      ) : null}
-                      {syncEnabled && (ownsStore || template.visibility === 'private') ? (
-                        ownsStore ? (
-                          <button
-                            type="button"
-                            className="text-button"
-                            onClick={() =>
-                              onSetTemplateVisibility(
-                                template.id,
-                                template.visibility === 'private' ? 'home' : 'private',
+              <div className="template-pick-groups">
+                {myFolders.length > 0 ? (
+                  <section className="template-pick-group">
+                    <h3 className="template-pick-heading">Из моих шаблонов</h3>
+                    <ul className="template-list template-list--nested">
+                      {myFolders.flatMap((folder) =>
+                        folder.templates.map((template) => (
+                          <li key={template.id} className="template-pick-row">
+                            <span className="template-pick-name">{template.name}</span>
+                            <span className="store-local-mark store-local-mark--icon" title="личное">
+                              <span aria-hidden="true">🔒</span>
+                              <span className="visually-hidden">личное</span>
+                            </span>
+                            <button
+                              type="button"
+                              className="qty-button store-menu"
+                              aria-label={`Добавить в список: ${template.name}, ${folder.name}`}
+                              onClick={() => onApplyTemplate(template.id)}
+                            >
+                              <span aria-hidden="true">↓</span>
+                            </button>
+                          </li>
+                        )),
+                      )}
+                    </ul>
+                  </section>
+                ) : null}
+                {[
+                  { title: 'Из шаблонов группы', rows: groupTemplateRows },
+                  { title: 'Из шаблонов списка', rows: listTemplateRows },
+                ]
+                  .filter((block) => block.rows.length > 0)
+                  .map((block) => (
+                  <section key={block.title} className="template-pick-group">
+                    <h3 className="template-pick-heading">{block.title}</h3>
+                    <ul className="template-list template-list--nested">
+                      {block.rows.map(({ storeId, storeName, template }) => {
+                        const sourceStore =
+                          storeId === store.id
+                            ? store
+                            : otherStores.find((item) => item.id === storeId)
+                        const ownsStore =
+                          !sourceStore?.ownerId || !myId || sourceStore.ownerId === myId
+                        const personal = template.visibility === 'private'
+                        const canToggle = syncEnabled && (ownsStore || personal)
+                        return (
+                          <li key={template.id} className="template-pick-row">
+                            <span className="template-pick-name">{template.name}</span>
+                            {personal ? (
+                              canToggle && ownsStore ? (
+                                <button
+                                  type="button"
+                                  className="store-local-mark store-local-mark--icon"
+                                  title="личное"
+                                  aria-label="Только я"
+                                  onClick={() => onSetTemplateVisibility(template.id, 'home')}
+                                >
+                                  <span aria-hidden="true">🔒</span>
+                                </button>
+                              ) : (
+                                <span className="store-local-mark store-local-mark--icon" title="личное">
+                                  <span aria-hidden="true">🔒</span>
+                                  <span className="visually-hidden">личное</span>
+                                </span>
                               )
-                            }
-                          >
-                            {template.visibility === 'private' ? 'Только я' : 'Весь дом'}
-                          </button>
-                        ) : (
-                          <span className="settings-nav-hint">Только я</span>
+                            ) : canToggle && ownsStore ? (
+                              <button
+                                type="button"
+                                className="template-lock-shared"
+                                title="Весь дом"
+                                aria-label="Весь дом"
+                                onClick={() => onSetTemplateVisibility(template.id, 'private')}
+                              >
+                                <span aria-hidden="true">🔒</span>
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="qty-button store-menu"
+                              aria-label={
+                                storeName
+                                  ? `Добавить в список: ${template.name}, ${storeName}`
+                                  : `Добавить в список: ${template.name}`
+                              }
+                              onClick={() => onApplyTemplate(template.id)}
+                            >
+                              <span aria-hidden="true">↓</span>
+                            </button>
+                          </li>
                         )
-                      ) : null}
-                    </div>
-                    <button
-                      type="button"
-                      className="button-secondary template-action"
-                      onClick={() => onApplyTemplate(template.id)}
-                    >
-                      Заполнить
-                    </button>
-                    <button
-                      type="button"
-                      className="qty-button"
-                      aria-label={`Удалить шаблон ${template.name}`}
-                      onClick={() => onDeleteTemplate(template.id)}
-                    >
-                      ×
-                    </button>
-                  </li>
-                  )
-                })}
-              </ul>
+                      })}
+                    </ul>
+                  </section>
+                ))}
+              </div>
             )}
             <button
               type="button"

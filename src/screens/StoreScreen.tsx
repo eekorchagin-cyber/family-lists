@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { CategoryMark } from '../components/CategoryMark'
+import { ApplyTemplateDialog } from '../components/ApplyTemplateDialog'
 import { Header } from '../components/Header'
 import { LongPressButton } from '../components/LongPressButton'
 import { LoyaltyCardSheet } from '../components/LoyaltyCardView'
@@ -9,11 +10,13 @@ import { QtyRow } from '../components/QtyRow'
 import { BackIcon, CardIcon, SettingsIcon, TransferIcon } from '../components/NavIcons'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
+import { foldersForUser } from '../data/myTemplates'
 import { parseItem } from '../data/parseItem'
 import { formatQty, parseQty } from '../data/qty'
 import { resolveLoyaltyCard } from '../data/loyalty'
+import { templatesForList } from '../data/templates'
 import type { HomeMember } from '../data/sync/session'
-import type { Category, Item, ParsedItem, Store, StoreGroup, StoreVisibility } from '../types'
+import type { Category, Item, ParsedItem, Store, StoreGroup, StoreVisibility, TemplateFolder } from '../types'
 
 type StoreScreenProps = {
   store: Store
@@ -39,6 +42,8 @@ type StoreScreenProps = {
   onDismissStoreUpdate?: () => void
   otherStores?: Store[]
   groups?: StoreGroup[]
+  templateFolders?: TemplateFolder[]
+  onApplyTemplate?: (templateId: string) => void
   onCopyToStore?: (storeId: string) => void
   onMoveToStore?: (storeId: string) => void
 }
@@ -67,6 +72,8 @@ export function StoreScreen({
   onDismissStoreUpdate,
   otherStores = [],
   groups = [],
+  templateFolders = [],
+  onApplyTemplate,
   onCopyToStore,
   onMoveToStore,
 }: StoreScreenProps) {
@@ -80,6 +87,7 @@ export function StoreScreen({
   const [renamingStore, setRenamingStore] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
   const [showingCard, setShowingCard] = useState(false)
+  const [pickingTemplate, setPickingTemplate] = useState(false)
   const [transferring, setTransferring] = useState(false)
   const [completionArmed, setCompletionArmed] = useState(false)
   const completionHandled = useRef(false)
@@ -104,6 +112,17 @@ export function StoreScreen({
     [boughtItems],
   )
   const loyalty = useMemo(() => resolveLoyaltyCard(store, groups), [groups, store])
+  const shared = useMemo(
+    () => templatesForList(store, groups, myId),
+    [groups, myId, store],
+  )
+  const myTemplateRows = useMemo(
+    () =>
+      foldersForUser(templateFolders, myId).flatMap((folder) =>
+        folder.templates.map((template) => ({ folder, template })),
+      ),
+    [myId, templateFolders],
+  )
 
   useEffect(() => {
     if (activeItems.length > 0) {
@@ -221,7 +240,7 @@ export function StoreScreen({
         title={store.name}
         updated={thisListUpdated}
         onTitleLongPress={() => setRenamingStore(true)}
-        help="Введите товар и нажмите «Далее». Можно сразу указать количество, например: Молоко: 2 шт. Нажмите товар, чтобы отметить купленным; нажмите купленный ещё раз, чтобы вернуть. Стрелки вверху — скопировать или перенести некупленные в другой список."
+        help="Введите товар и нажмите «Далее». Можно сразу указать количество, например: Молоко: 2 шт. «Из шаблона» подставляет сразу несколько товаров. Нажмите товар, чтобы отметить купленным; нажмите купленный ещё раз, чтобы вернуть. Стрелки вверху — скопировать или перенести некупленные в другой список."
         left={
           <button
             type="button"
@@ -284,6 +303,13 @@ export function StoreScreen({
               Далее
             </button>
           </form>
+          <button
+            type="button"
+            className="button-secondary template-pick"
+            onClick={() => setPickingTemplate(true)}
+          >
+            Из шаблона
+          </button>
         </div>
 
         {loyalty ? (
@@ -605,6 +631,17 @@ export function StoreScreen({
           card={loyalty.card}
           source={loyalty.source}
           onClose={() => setShowingCard(false)}
+        />
+      ) : null}
+      {pickingTemplate ? (
+        <ApplyTemplateDialog
+          templates={shared}
+          myRows={myTemplateRows}
+          onApply={(templateId) => {
+            onApplyTemplate?.(templateId)
+            setPickingTemplate(false)
+          }}
+          onClose={() => setPickingTemplate(false)}
         />
       ) : null}
     </div>

@@ -2,7 +2,9 @@ import type { AppData, Item, Store, StoreVisibility } from '../../types'
 import { sealIncomingStore } from '../forward'
 import { hasLoyaltyCard } from '../loyalty'
 import { groupVisibleTo, nestStoresInPrivateGroups } from '../homeLayout'
+import { mergeTemplateFolders } from '../myTemplates'
 import { mergeTemplates } from '../templates'
+import { peekDeletes } from './deletes'
 
 function stamp(): string {
   return new Date().toISOString()
@@ -331,6 +333,15 @@ export function mergePulledData(
     changed = true
   }
 
+  const templateFolders = mergeTemplateFolders(
+    remote.templateFolders ?? [],
+    local.templateFolders ?? [],
+    peekDeletes().templateFolders,
+  )
+  if (JSON.stringify(templateFolders) !== JSON.stringify(local.templateFolders ?? [])) {
+    changed = true
+  }
+
   const nextStores = nestStoresInPrivateGroups(
     applyStoreOrder(
       [...stores.values()],
@@ -351,6 +362,7 @@ export function mergePulledData(
       categories: [...categories.values()],
       catalog: [...catalog.values()],
       items: [...items.values()],
+      templateFolders,
     },
   }
 }
@@ -430,6 +442,7 @@ export function mergeByStoreName(device: AppData, cloud: AppData): AppData {
     items,
     categories: [...categories.values()],
     catalog,
+    templateFolders: mergeTemplateFolders(cloud.templateFolders ?? [], device.templateFolders ?? []),
   }
 }
 

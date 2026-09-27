@@ -15,6 +15,7 @@ import { isLocalHost } from './sync/codes'
 import { appendCategoryToStores, canonicalStoreIcon } from './categories'
 import { markDirty } from './sync/dirty'
 import { groupsFromStores, groupVisibilityFields, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker, stripStoreIcon } from './homeLayout'
+import { isMyTemplatesCatalogId, parseTemplateFolders } from './myTemplates'
 import { stripIncomingMarker } from './forward'
 import { asCategoryNames, parseLoyaltyCard, stripLoyaltyMarker } from './loyalty'
 import { parseTemplateList } from './templates'
@@ -257,8 +258,13 @@ export function migrate(raw: unknown): AppData {
   if (groups.length === 0 && groupsEntry) {
     groups = parseGroupsCatalog(groupsEntry.name) ?? []
   }
+  let templateFolders = parseTemplateFolders(raw.templateFolders)
+  const templatesEntry = catalogRaw.find((entry) => isMyTemplatesCatalogId(entry.id))
+  if (templateFolders.length === 0 && templatesEntry) {
+    templateFolders = parseTemplateFolders(templatesEntry.name)
+  }
   const catalog = mergeCatalogFromItems(
-    catalogRaw.filter((entry) => !isGroupsCatalogId(entry.id)),
+    catalogRaw.filter((entry) => !isGroupsCatalogId(entry.id) && !isMyTemplatesCatalogId(entry.id)),
     items,
   )
   // Если карточек групп нет, но у списков есть groupId — восстановим группы-заглушки.
@@ -272,6 +278,7 @@ export function migrate(raw: unknown): AppData {
     categories,
     catalog,
     settings: normalizeSettings(raw.settings),
+    templateFolders,
   }
 }
 

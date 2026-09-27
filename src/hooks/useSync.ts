@@ -330,8 +330,15 @@ export function useSync(
       let snapshot = toPush
       if (dirtyRef.current || changed) {
         const pushed = await pushLocal(current, toPush)
-        const withGroups = { ...toPush, groups: pushed.groups }
-        if (JSON.stringify(pushed.groups) !== JSON.stringify(toPush.groups ?? [])) {
+        const withGroups = {
+          ...toPush,
+          groups: pushed.groups,
+          templateFolders: pushed.templateFolders ?? toPush.templateFolders ?? [],
+        }
+        const groupsChanged = JSON.stringify(pushed.groups) !== JSON.stringify(toPush.groups ?? [])
+        const foldersChanged =
+          JSON.stringify(withGroups.templateFolders) !== JSON.stringify(toPush.templateFolders ?? [])
+        if (groupsChanged || foldersChanged) {
           replaceRef.current(withGroups)
           snapshot = withGroups
         }

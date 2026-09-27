@@ -691,10 +691,14 @@ export function useAppState() {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       const found = findSharedTemplate(current.stores, templateId, current.groups ?? [])
-      if (!store || !found) return current
+      const folderTemplate = (current.templateFolders ?? [])
+        .flatMap((folder) => folder.templates)
+        .find((template) => template.id === templateId)
+      const source = found?.template ?? folderTemplate
+      if (!store || !source) return current
       const template = {
-        ...found.template,
-        items: found.template.items.map((entry) => ({
+        ...source,
+        items: source.items.map((entry) => ({
           ...entry,
           categoryId: mapTemplateCategoryId(entry, store, current.categories),
         })),
@@ -788,6 +792,108 @@ export function useAppState() {
         ),
       )
     })
+  }, [])
+
+  const addTemplateFolder = useCallback((name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const owner = actorId()
+    setData((current) =>
+      persist({
+        ...current,
+        templateFolders: [
+          ...(current.templateFolders ?? []),
+          {
+            id: newId(),
+            name: trimmed,
+            templates: [],
+            ...(owner ? { ownerId: owner } : {}),
+            updatedAt: nowIso(),
+          },
+        ],
+      }),
+    )
+  }, [])
+
+  const renameTemplateFolder = useCallback((folderId: string, name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setData((current) =>
+      persist({
+        ...current,
+        templateFolders: (current.templateFolders ?? []).map((folder) =>
+          folder.id === folderId ? { ...folder, name: trimmed, updatedAt: nowIso() } : folder,
+        ),
+      }),
+    )
+  }, [])
+
+  const deleteTemplateFolder = useCallback((folderId: string) => {
+    queueDeleted('templateFolders', folderId)
+    setData((current) =>
+      persist({
+        ...current,
+        templateFolders: (current.templateFolders ?? []).filter((folder) => folder.id !== folderId),
+      }),
+    )
+  }, [])
+
+  const saveFolderTemplate = useCallback(
+    (folderId: string, draft: { id?: string; name: string; items: TemplateItem[] }) => {
+      const trimmed = draft.name.trim()
+      const items = draft.items
+        .map((item) => ({
+          name: item.name.trim(),
+          categoryId: item.categoryId,
+          qty: item.qty,
+          unit: item.unit.trim() || 'шт',
+        }))
+        .filter((item) => item.name && item.qty > 0)
+      if (!trimmed || (items.length === 0 && !draft.id)) return
+      const owner = actorId()
+      const template: NamedTemplate = {
+        id: draft.id || newId(),
+        name: trimmed,
+        items,
+        visibility: 'private',
+        ...(owner ? { ownerId: owner } : {}),
+      }
+      setData((current) =>
+        persist({
+          ...current,
+          templateFolders: (current.templateFolders ?? []).map((folder) => {
+            if (folder.id !== folderId) return folder
+            const templates = folder.templates ?? []
+            const exists = templates.some((item) => item.id === template.id)
+            return {
+              ...folder,
+              updatedAt: nowIso(),
+              templates: exists
+                ? templates.map((item) => (item.id === template.id ? template : item))
+                : [...templates, template],
+            }
+          }),
+        }),
+      )
+    },
+    [],
+  )
+
+  const deleteFolderTemplate = useCallback((folderId: string, templateId: string) => {
+    setData((current) =>
+      persist({
+        ...current,
+        templateFolders: (current.templateFolders ?? []).map((folder) =>
+          folder.id === folderId
+            ? {
+                ...folder,
+                updatedAt: nowIso(),
+                templates: folder.templates.filter((item) => item.id !== templateId),
+              }
+            : folder,
+        ),
+      }),
+    )
   }, [])
 
   const deleteTemplate = useCallback((templateId: string) => {
@@ -1326,6 +1432,11 @@ export function useAppState() {
     renameTemplate,
     deleteTemplate,
     saveGroupTemplate,
+    addTemplateFolder,
+    renameTemplateFolder,
+    deleteTemplateFolder,
+    saveFolderTemplate,
+    deleteFolderTemplate,
     saveStoreTemplate,
     deleteGroupTemplate,
     transferItems,

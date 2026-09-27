@@ -47,9 +47,13 @@ function App() {
     saveTemplate,
     setTemplateVisibility,
     applyTemplate,
-    renameTemplate,
     deleteTemplate,
     saveGroupTemplate,
+    addTemplateFolder,
+    renameTemplateFolder,
+    deleteTemplateFolder,
+    saveFolderTemplate,
+    deleteFolderTemplate,
     saveStoreTemplate,
     deleteGroupTemplate,
     transferItems,
@@ -193,6 +197,13 @@ function App() {
           stores={data.stores}
           groups={data.groups ?? []}
           catalog={data.catalog ?? []}
+          templateFolders={data.templateFolders ?? []}
+          myId={sync.session?.userId}
+          onAddTemplateFolder={addTemplateFolder}
+          onRenameTemplateFolder={renameTemplateFolder}
+          onDeleteTemplateFolder={deleteTemplateFolder}
+          onSaveFolderTemplate={saveFolderTemplate}
+          onDeleteFolderTemplate={deleteFolderTemplate}
           onBack={() => {
             clearStoredEnterCode()
             setEnterCode(null)
@@ -315,14 +326,13 @@ function App() {
               applyTemplate(store.id, templateId)
               setScreen({ name: 'store', storeId: store.id })
             }}
-            onRenameTemplate={(templateId, name) => renameTemplate(templateId, name)}
-            onDeleteTemplate={(templateId) => deleteTemplate(templateId)}
             onSaveTemplate={(name, visibility) => saveTemplate(store.id, name, undefined, visibility)}
             onSetTemplateVisibility={setTemplateVisibility}
             myId={sync.session?.userId}
             onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
             onMoveToStore={(storeId) => transferItems(store.id, storeId, 'move')}
             groups={data.groups ?? []}
+            templateFolders={data.templateFolders ?? []}
             onSetLoyalty={(card) => setStoreLoyalty(store.id, card)}
           />
           {overlay}
@@ -382,6 +392,8 @@ function App() {
           syncEnabled={syncEnabled}
           otherStores={data.stores.filter((item) => item.id !== store.id)}
           groups={data.groups ?? []}
+          templateFolders={data.templateFolders ?? []}
+          onApplyTemplate={(templateId) => applyTemplate(store.id, templateId)}
           onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
           onMoveToStore={(storeId) => transferItems(store.id, storeId, 'move')}
         />

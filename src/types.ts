@@ -28,6 +28,15 @@ export type NamedTemplate = {
   ownerId?: string
 }
 
+/** Группа в «Мои шаблоны»: внутри неё лежат шаблоны списков. */
+export type TemplateFolder = {
+  id: string
+  name: string
+  templates: NamedTemplate[]
+  ownerId?: string
+  updatedAt?: string
+}
+
 export type StoreVisibility = 'private' | 'home'
 
 export type LoyaltyKind = 'barcode' | 'qr' | 'app'
@@ -111,6 +120,8 @@ export type AppData = {
   categories: Category[]
   catalog: CatalogEntry[]
   settings: Settings
+  /** Личные группы шаблонов из «Мои шаблоны». */
+  templateFolders?: TemplateFolder[]
 }
 
 export type ParsedItem = {

@@ -275,7 +275,6 @@ function applyGroupTemplates(
   winner: StoreGroup,
   other: StoreGroup,
   userId: string | undefined,
-  keepOwnFromOther: boolean,
 ): StoreGroup {
   if (!winner.templates) {
     if (other.templates?.length) return { ...winner, templates: other.templates }
@@ -283,6 +282,7 @@ function applyGroupTemplates(
   }
   const templates = [...winner.templates]
   const ids = new Set(templates.map((template) => template.id))
+  // Своего шаблона, которого нет в более новой копии, не возвращаем: его удалили.
   for (const template of other.templates ?? []) {
     if (ids.has(template.id)) continue
     const foreign =
@@ -290,11 +290,7 @@ function applyGroupTemplates(
       Boolean(template.ownerId) &&
       Boolean(userId) &&
       template.ownerId !== userId
-    const ownPrivate =
-      keepOwnFromOther &&
-      template.visibility === 'private' &&
-      (!template.ownerId || !userId || template.ownerId === userId)
-    if (!foreign && !ownPrivate) continue
+    if (!foreign) continue
     templates.push(template)
     ids.add(template.id)
   }
@@ -341,17 +337,17 @@ export function mergeGroups(
     }
     // Заглушка «Группа» из списков не должна перебивать имя из catalog.
     if (isPlaceholderGroupName(group.name) && !isPlaceholderGroupName(current.name)) {
-      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(current, group, userId, false), group))
+      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(current, group, userId), group))
       continue
     }
     if (isPlaceholderGroupName(current.name) && !isPlaceholderGroupName(group.name)) {
-      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(group, current, userId, true), current))
+      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(group, current, userId), current))
       continue
     }
     if ((group.updatedAt ?? '') >= (current.updatedAt ?? '')) {
-      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(group, current, userId, true), current))
+      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(group, current, userId), current))
     } else {
-      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(current, group, userId, false), group))
+      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(current, group, userId), group))
     }
   }
   return [...byId.values()]

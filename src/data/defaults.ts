@@ -53,5 +53,6 @@ export function createDefaultData(): AppData {
     categories: DEFAULT_CATEGORIES,
     catalog: [],
     settings: { ...DEFAULT_SETTINGS },
+    templateFolders: [],
   }
 }

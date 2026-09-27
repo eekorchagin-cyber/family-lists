@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ConfirmDialog } from './ConfirmDialog'
 import { parseItem } from '../data/parseItem'
 import { formatQty } from '../data/qty'
 import { templateVisible } from '../data/templates'
@@ -36,9 +37,12 @@ export function GroupTemplatesDialog({
   onDelete,
 }: GroupTemplatesDialogProps) {
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [confirming, setConfirming] = useState(false)
   const [product, setProduct] = useState('')
   const options = categories.filter((category) => !category.storeId)
-  const categoryOptions = options.length > 0 ? options : categories
+  const categoryOptions = [...(options.length > 0 ? options : categories)].sort((a, b) =>
+    a.name.localeCompare(b.name, 'ru'),
+  )
   const [categoryId, setCategoryId] = useState(categoryOptions[0]?.id ?? 'other')
   const templates = (group.templates ?? []).filter((template) => templateVisible(template, myId))
   const rows = [
@@ -82,6 +86,7 @@ export function GroupTemplatesDialog({
   }
 
   return (
+    <>
     <div className="overlay overlay--capture" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
         <h2>{draft ? (draft.id ? 'Шаблон' : 'Новый шаблон') : `Шаблоны · ${group.name}`}</h2>
@@ -199,6 +204,11 @@ export function GroupTemplatesDialog({
                 Сохранить
               </button>
             </div>
+            {draft.id ? (
+              <button type="button" className="button-danger add-category" onClick={() => setConfirming(true)}>
+                Удалить шаблон
+              </button>
+            ) : null}
           </>
         ) : (
           <>
@@ -223,14 +233,6 @@ export function GroupTemplatesDialog({
                     <button type="button" className="button-secondary template-action" onClick={() => startEdit(template, storeId)}>
                       Изменить
                     </button>
-                    <button
-                      type="button"
-                      className="qty-button"
-                      aria-label={`Удалить шаблон ${template.name}`}
-                      onClick={() => onDelete(template.id)}
-                    >
-                      ×
-                    </button>
                   </li>
                 ))}
               </ul>
@@ -247,5 +249,21 @@ export function GroupTemplatesDialog({
         )}
       </div>
     </div>
+    {confirming && draft?.id ? (
+      <ConfirmDialog
+        title="Удалить шаблон?"
+        text={`Шаблон «${draft.name.trim() || 'без названия'}» исчезнет.`}
+        confirmLabel="Удалить"
+        onClose={() => setConfirming(false)}
+        onConfirm={() => {
+          const id = draft.id
+          if (!id) return
+          onDelete(id)
+          setConfirming(false)
+          setDraft(null)
+        }}
+      />
+    ) : null}
+    </>
   )
 }

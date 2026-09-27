@@ -1,7 +1,7 @@
 import type { AppData, CatalogEntry, Category, Item, Store } from '../../types'
 import { getSupabase } from './client'
 import { accessCode, deviceCode, inviteCode, kindFromCode, localAuthEmail, randomPassword } from './codes'
-import { restoreDeletes, takeDeletes } from './deletes'
+import { peekDeletes, restoreDeletes, takeDeletes } from './deletes'
 import {
   GROUPS_CATALOG_ID,
   groupsCatalogIdForHome,
@@ -17,6 +17,13 @@ import {
 } from '../homeLayout'
 import { stripIncomingMarker, withIncomingMarker } from '../forward'
 import { asCategoryNames, stripLoyaltyMarker, withLoyaltyMarker } from '../loyalty'
+import {
+  isMyTemplatesCatalogId,
+  mergeTemplateFolders,
+  myTemplatesCatalogIdForHome,
+  MY_TEMPLATES_CATALOG_ID,
+  parseTemplateFolders,
+} from '../myTemplates'
 import { groupTemplatesForUser, templateVisible } from '../templates'
 import { nowIso } from './merge'
 import { loadSession, type HomeMember, type SyncSession } from './session'
@@ -475,6 +482,14 @@ export async function pullRemote(): Promise<AppData> {
     .map((group) => groupTemplatesForUser(group, loadSession()?.userId))
     .filter((group) => groupVisibleTo(group, loadSession()?.userId))
 
+  const templatesEntry = catalogEntries.find((entry) =>
+    entry.id.startsWith(`${MY_TEMPLATES_CATALOG_ID}:`),
+  )
+  const droppedFolders = new Set(peekDeletes().templateFolders)
+  const templateFolders = parseTemplateFolders(templatesEntry?.name).filter(
+    (folder) => !droppedFolders.has(folder.id),
+  )
+
   return {
     version: 1,
     settings: { theme: 'light', fontSize: 'm' },
@@ -482,14 +497,17 @@ export async function pullRemote(): Promise<AppData> {
     groups,
     categories: ((categories.data ?? []) as CategoryRow[]).map(categoryFromRow),
     items: ((items.data ?? []) as ItemRow[]).map(itemFromRow),
-    catalog: catalogEntries.filter((entry) => !isGroupsCatalogId(entry.id)),
+    catalog: catalogEntries.filter(
+      (entry) => !isGroupsCatalogId(entry.id) && !isMyTemplatesCatalogId(entry.id),
+    ),
+    templateFolders,
   }
 }
 
 export async function pushLocal(
   session: SyncSession,
   data: AppData,
-): Promise<{ groups: AppData['groups']; groupsSaved: boolean }> {
+): Promise<{ groups: AppData['groups']; groupsSaved: boolean; templateFolders: AppData['templateFolders'] }> {
   const client = requireClient()
   const homeId = session.homeId
   const ownerId = session.userId
@@ -601,7 +619,7 @@ export async function pushLocal(
   }
 
   const catalogRows = (data.catalog ?? [])
-    .filter((entry) => !isGroupsCatalogId(entry.id))
+    .filter((entry) => !isGroupsCatalogId(entry.id) && !isMyTemplatesCatalogId(entry.id))
     .map((entry) => ({
       id: entry.id,
       home_id: homeId,
@@ -671,6 +689,49 @@ export async function pushLocal(
     console.warn('groups sync failed', groupsError)
   }
 
+  let mergedFolders = data.templateFolders ?? []
+  let foldersSaved = false
+  try {
+    const templatesId = myTemplatesCatalogIdForHome(homeId)
+    const { data: templatesRow } = await client
+      .from('catalog')
+      .select('name')
+      .eq('id', templatesId)
+      .maybeSingle()
+    const localFolders = (data.templateFolders ?? []).map((folder) =>
+      folder.ownerId ? folder : { ...folder, ownerId },
+    )
+    mergedFolders = mergeTemplateFolders(
+      parseTemplateFolders(templatesRow?.name),
+      localFolders,
+      pending.templateFolders,
+    )
+    const foldersAt = mergedFolders.map((folder) => folder.updatedAt ?? '').sort().at(-1) || at
+    const { error: foldersError } = await client.from('catalog').upsert({
+      id: templatesId,
+      home_id: homeId,
+      name: JSON.stringify(mergedFolders),
+      category_id: 'other',
+      updated_at: foldersAt,
+    })
+    if (foldersError) throw foldersError
+    foldersSaved = true
+  } catch (foldersError) {
+    console.warn('my templates sync failed', foldersError)
+    if (pending.templateFolders.length > 0) {
+      restoreDeletes({
+        items: [],
+        clearedItems: [],
+        stores: [],
+        groups: [],
+        categories: [],
+        catalog: [],
+        templateFolders: pending.templateFolders,
+      })
+    }
+  }
+  if (foldersSaved) pending.templateFolders = []
+
   try {
     if (pending.clearedItems.length > 0) {
       const { error } = await client.from('items').delete().in('id', pending.clearedItems)
@@ -699,7 +760,9 @@ export async function pushLocal(
       const { error } = await client.from('categories').delete().in('id', pending.categories)
       if (error) throw error
     }
-    const catalogDeletes = pending.catalog.filter((id) => !isGroupsCatalogId(id))
+    const catalogDeletes = pending.catalog.filter(
+      (id) => !isGroupsCatalogId(id) && !isMyTemplatesCatalogId(id),
+    )
     if (catalogDeletes.length > 0) {
       const { error } = await client.from('catalog').delete().in('id', catalogDeletes)
       if (error) throw error
@@ -713,6 +776,7 @@ export async function pushLocal(
       .map((group) => groupTemplatesForUser(group, ownerId))
       .filter((group) => groupVisibleTo(group, ownerId)),
     groupsSaved,
+    templateFolders: mergedFolders,
   }
 }
 
