@@ -48,8 +48,6 @@ export function ApplyTemplateDialog({
   onClose,
 }: ApplyTemplateDialogProps) {
   const empty = myRows.length === 0 && templates.length === 0
-  const groupRows = templates.filter((row) => row.groupId)
-  const listRows = templates.filter((row) => !row.groupId)
   const sections = [
     myRows.length > 0
       ? {
@@ -63,26 +61,13 @@ export function ApplyTemplateDialog({
           })),
         }
       : null,
-    groupRows.length > 0
+    templates.length > 0
       ? {
-          id: 'groups',
-          title: 'Из шаблонов группы',
-          rows: groupRows.map(({ template, storeName }) => ({
+          id: 'place',
+          title: 'Шаблоны этого списка',
+          rows: templates.map(({ template }) => ({
             id: template.id,
             name: template.name,
-            source: storeName,
-            personal: template.visibility === 'private',
-          })),
-        }
-      : null,
-    listRows.length > 0
-      ? {
-          id: 'lists',
-          title: 'Из шаблонов списка',
-          rows: listRows.map(({ template, storeName }) => ({
-            id: template.id,
-            name: template.name,
-            source: storeName,
             personal: template.visibility === 'private',
           })),
         }

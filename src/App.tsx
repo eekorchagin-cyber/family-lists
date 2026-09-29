@@ -369,7 +369,9 @@ function App() {
             onSaveTemplate={(name, visibility, target) =>
               saveTemplate(store.id, name, undefined, visibility, target)
             }
-            onUpdateListTemplate={(draft) => saveStoreTemplate(store.id, draft)}
+            onUpdatePlaceTemplate={(draft, groupId) =>
+              groupId ? saveGroupTemplate(groupId, draft) : saveStoreTemplate(store.id, draft)
+            }
             onDeleteListTemplate={(templateId) => deleteTemplate(templateId)}
             onSetTemplateVisibility={setTemplateVisibility}
             myId={sync.session?.userId}
