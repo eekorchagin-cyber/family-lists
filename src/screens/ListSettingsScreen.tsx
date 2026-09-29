@@ -14,13 +14,16 @@ import { categoryName, isLocalToStore } from '../data/categories'
 import { resolveLoyaltyCard } from '../data/loyalty'
 import { playConfirmSound } from '../data/sounds'
 import { foldersForUser } from '../data/myTemplates'
-import { classifyTemplateItems, templatesForList } from '../data/templates'
+import { classifyTemplateItems, templatesForList, type TemplateSaveTarget } from '../data/templates'
+import { TemplateDraftDialog } from '../components/TemplateDraftDialog'
+import { TemplateSaveFields } from '../components/TemplateSaveFields'
 import { TemplateFitDialog } from '../components/TemplateFitDialog'
 import type {
   Category,
   CategorySort,
   Item,
   LoyaltyCard,
+  NamedTemplate,
   Store,
   StoreGroup,
   StoreVisibility,
@@ -32,7 +35,7 @@ type ListSettingsSection = 'list' | 'categories' | 'templates' | 'transfer'
 const SECTIONS: { id: ListSettingsSection; title: string; hint: string }[] = [
   { id: 'list', title: 'Список', hint: 'Название, кто видит и удаление' },
   { id: 'categories', title: 'Категории', hint: 'Отделы этого списка' },
-  { id: 'templates', title: 'Шаблоны', hint: 'Для семьи или только для меня' },
+  { id: 'templates', title: 'Шаблоны', hint: 'Куда сохранить и как поправить' },
   { id: 'transfer', title: 'В другой список', hint: 'Копирование и перенос' },
 ]
 
@@ -76,7 +79,14 @@ type ListSettingsScreenProps = {
   onEnableCategory: (categoryIds: string[]) => void
   onRemoveCategory: (categoryId: string) => void
   onApplyTemplate: (templateId: string, mode?: 'all' | 'matching') => void
-  onSaveTemplate: (name: string, visibility: StoreVisibility) => void
+  onSaveTemplate: (name: string, visibility: StoreVisibility, target: TemplateSaveTarget) => void
+  onUpdateListTemplate: (draft: {
+    id?: string
+    name: string
+    items: NamedTemplate['items']
+    visibility: StoreVisibility
+  }) => void
+  onDeleteListTemplate: (templateId: string) => void
   onSetTemplateVisibility: (templateId: string, visibility: StoreVisibility) => void
   myId?: string
   onCopyToStore: (storeId: string) => void
@@ -106,6 +116,8 @@ export function ListSettingsScreen({
   onRemoveCategory,
   onApplyTemplate,
   onSaveTemplate,
+  onUpdateListTemplate,
+  onDeleteListTemplate,
   onSetTemplateVisibility,
   myId,
   onCopyToStore,
@@ -124,6 +136,8 @@ export function ListSettingsScreen({
   const [removing, setRemoving] = useState<Category | null>(null)
   const [namingTemplate, setNamingTemplate] = useState(false)
   const [templateVisibility, setTemplateVisibility] = useState<StoreVisibility>('home')
+  const [saveTarget, setSaveTarget] = useState<TemplateSaveTarget>({ kind: 'store' })
+  const [editingTemplate, setEditingTemplate] = useState<NamedTemplate | null>(null)
   const [transferring, setTransferring] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [templateFit, setTemplateFit] = useState<{ id: string; names: string[] } | null>(null)
@@ -231,9 +245,9 @@ export function ListSettingsScreen({
             </>
           ) : section === 'templates' ? (
             <p>
-              Стрелка вниз подставляет товары шаблона в этот список. Замок — шаблон виден
-              только вам, как личный список. То же самое есть на странице списка, кнопка
-              «Из шаблона».
+              Стрелка вниз подставляет товары шаблона в этот список. Название шаблона этого
+              списка открывает правку: там же его можно удалить. «Сохранить текущий список»
+              спрашивает, в какую группу шаблонов положить товары.
             </p>
           ) : section === 'transfer' && otherStores.length > 0 ? (
             <p>
@@ -458,8 +472,8 @@ export function ListSettingsScreen({
                   </section>
                 ) : null}
                 {[
-                  { title: 'Из шаблонов группы', rows: groupTemplateRows },
-                  { title: 'Из шаблонов списка', rows: listTemplateRows },
+                  { title: 'Из шаблонов группы', rows: groupTemplateRows, editable: false },
+                  { title: 'Из шаблонов списка', rows: listTemplateRows, editable: true },
                 ]
                   .filter((block) => block.rows.length > 0)
                   .map((block) => (
@@ -477,7 +491,18 @@ export function ListSettingsScreen({
                         const canToggle = syncEnabled && (ownsStore || personal)
                         return (
                           <li key={template.id} className="template-pick-row">
-                            <span className="template-pick-name">{template.name}</span>
+                            {block.editable ? (
+                              <button
+                                type="button"
+                                className="template-pick-name"
+                                aria-label={`Изменить шаблон ${template.name}`}
+                                onClick={() => setEditingTemplate(template)}
+                              >
+                                {template.name}
+                              </button>
+                            ) : (
+                              <span className="template-pick-name">{template.name}</span>
+                            )}
                             {personal ? (
                               canToggle && ownsStore ? (
                                 <button
@@ -531,6 +556,7 @@ export function ListSettingsScreen({
               className="button-secondary add-category"
               onClick={() => {
                 setTemplateVisibility('home')
+                setSaveTarget({ kind: 'store' })
                 setNamingTemplate(true)
               }}
             >
@@ -607,31 +633,21 @@ export function ListSettingsScreen({
           confirmLabel="Сохранить"
           inputId="list-template-name"
           extra={
-            syncEnabled ? (
-              <>
-                <p className="field-label">Кто видит</p>
-                <div className="choice-row">
-                  <button
-                    type="button"
-                    className={templateVisibility === 'private' ? 'choice active' : 'choice'}
-                    onClick={() => setTemplateVisibility('private')}
-                  >
-                    Только я
-                  </button>
-                  <button
-                    type="button"
-                    className={templateVisibility === 'home' ? 'choice active' : 'choice'}
-                    onClick={() => setTemplateVisibility('home')}
-                  >
-                    Весь дом
-                  </button>
-                </div>
-              </>
-            ) : null
+            <TemplateSaveFields
+              store={store}
+              groups={groups}
+              folders={templateFolders}
+              myId={myId}
+              target={saveTarget}
+              onTarget={setSaveTarget}
+              syncEnabled={syncEnabled}
+              visibility={templateVisibility}
+              onVisibility={setTemplateVisibility}
+            />
           }
           onClose={() => setNamingTemplate(false)}
           onConfirm={(name) => {
-            onSaveTemplate(name, templateVisibility)
+            onSaveTemplate(name, templateVisibility, saveTarget)
             setNamingTemplate(false)
           }}
         />
@@ -675,6 +691,22 @@ export function ListSettingsScreen({
           }}
         />
       )}
+      {editingTemplate ? (
+        <TemplateDraftDialog
+          template={editingTemplate}
+          categories={[...categories, ...unusedCategories]}
+          syncEnabled={syncEnabled}
+          onClose={() => setEditingTemplate(null)}
+          onSave={(draft) => {
+            onUpdateListTemplate(draft)
+            setEditingTemplate(null)
+          }}
+          onDelete={(templateId) => {
+            onDeleteListTemplate(templateId)
+            setEditingTemplate(null)
+          }}
+        />
+      ) : null}
       {templateFit ? (
         <TemplateFitDialog
           missingNames={templateFit.names}

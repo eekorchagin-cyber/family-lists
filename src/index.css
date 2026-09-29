@@ -1104,6 +1104,18 @@ button.category-name-input {
   white-space: nowrap;
 }
 
+button.template-pick-name {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px 12px;
+  min-height: 43px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .template-lock-shared {
   display: inline-flex;
   align-items: center;

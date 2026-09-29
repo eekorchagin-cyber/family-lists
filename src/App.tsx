@@ -366,7 +366,11 @@ function App() {
               applyTemplate(store.id, templateId, mode)
               setScreen({ name: 'store', storeId: store.id })
             }}
-            onSaveTemplate={(name, visibility) => saveTemplate(store.id, name, undefined, visibility)}
+            onSaveTemplate={(name, visibility, target) =>
+              saveTemplate(store.id, name, undefined, visibility, target)
+            }
+            onUpdateListTemplate={(draft) => saveStoreTemplate(store.id, draft)}
+            onDeleteListTemplate={(templateId) => deleteTemplate(templateId)}
             onSetTemplateVisibility={setTemplateVisibility}
             myId={sync.session?.userId}
             onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
@@ -427,8 +431,8 @@ function App() {
           onUpdateItem={updateItem}
           onClearBought={() => clearBought(store.id)}
           completedEmpty={clearedStoreIds.includes(store.id)}
-          onSaveTemplate={(name, snapshot, visibility) =>
-            saveTemplate(store.id, name, snapshot, visibility)
+          onSaveTemplate={(name, snapshot, visibility, target) =>
+            saveTemplate(store.id, name, snapshot, visibility, target)
           }
           syncEnabled={syncEnabled}
           otherStores={data.stores.filter((item) => item.id !== store.id)}

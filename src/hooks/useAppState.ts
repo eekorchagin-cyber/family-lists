@@ -29,7 +29,12 @@ import { queueInboxDismiss } from '../data/sync/forwardApi'
 import { markDirty } from '../data/sync/dirty'
 import { applyStoreOrder, mergePulledData, nowIso, visibleStoreUpdates, withUpdatedAt } from '../data/sync/merge'
 import { loadSession } from '../data/sync/session'
-import { classifyTemplateItems, findSharedTemplate, type SharedTemplate } from '../data/templates'
+import {
+  classifyTemplateItems,
+  findSharedTemplate,
+  type SharedTemplate,
+  type TemplateSaveTarget,
+} from '../data/templates'
 import type {
   AppData,
   CatalogEntry,
@@ -685,7 +690,13 @@ export function useAppState() {
   }, [rememberCleared])
 
   const saveTemplate = useCallback(
-    (storeId: string, name: string, snapshot?: Item[], visibility: StoreVisibility = 'home') => {
+    (
+      storeId: string,
+      name: string,
+      snapshot?: Item[],
+      visibility: StoreVisibility = 'home',
+      target: TemplateSaveTarget = { kind: 'store' },
+    ) => {
     const trimmed = name.trim()
     if (!trimmed) return
     setData((current) => {
@@ -701,19 +712,44 @@ export function useAppState() {
       }))
       if (items.length === 0) return current
       const owner = actorId()
+      const personal = target.kind === 'folder' || visibility === 'private'
+      const template: NamedTemplate = {
+        id: newId(),
+        name: trimmed,
+        items,
+        ...(personal
+          ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
+          : {}),
+      }
+      if (target.kind === 'folder') {
+        const folders = current.templateFolders ?? []
+        if (folders.some((folder) => folder.id === target.folderId)) {
+          return persist({
+            ...current,
+            templateFolders: folders.map((folder) =>
+              folder.id === target.folderId
+                ? { ...folder, updatedAt: nowIso(), templates: [...folder.templates, template] }
+                : folder,
+            ),
+          })
+        }
+      }
+      if (target.kind === 'group') {
+        const groups = current.groups ?? []
+        if (groups.some((group) => group.id === target.groupId)) {
+          return persist({
+            ...current,
+            groups: groups.map((group) =>
+              group.id === target.groupId
+                ? withUpdatedAt({ ...group, templates: [...(group.templates ?? []), template] })
+                : group,
+            ),
+          })
+        }
+      }
       return persist(
         patchStore(current, storeId, {
-          templates: [
-            ...(store.templates ?? []),
-            {
-              id: newId(),
-              name: trimmed,
-              items,
-              ...(visibility === 'private'
-                ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
-                : {}),
-            },
-          ],
+          templates: [...(store.templates ?? []), template],
         }),
       )
     })

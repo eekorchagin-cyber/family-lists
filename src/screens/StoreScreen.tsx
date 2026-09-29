@@ -16,7 +16,8 @@ import { foldersForUser } from '../data/myTemplates'
 import { parseItem } from '../data/parseItem'
 import { formatQty, parseQty } from '../data/qty'
 import { resolveLoyaltyCard } from '../data/loyalty'
-import { classifyTemplateItems, templatesForList } from '../data/templates'
+import { classifyTemplateItems, templatesForList, type TemplateSaveTarget } from '../data/templates'
+import { TemplateSaveFields } from '../components/TemplateSaveFields'
 import type { HomeMember } from '../data/sync/session'
 import type { Category, Item, ParsedItem, Store, StoreGroup, StoreVisibility, TemplateFolder } from '../types'
 
@@ -37,7 +38,12 @@ type StoreScreenProps = {
   onUpdateItem: (itemId: string, patch: Partial<Pick<Item, 'qty' | 'unit' | 'categoryId'>>) => void
   onClearBought: () => void
   completedEmpty?: boolean
-  onSaveTemplate: (name: string, items?: Item[], visibility?: StoreVisibility) => void
+  onSaveTemplate: (
+    name: string,
+    items?: Item[],
+    visibility?: StoreVisibility,
+    target?: TemplateSaveTarget,
+  ) => void
   syncEnabled?: boolean
   members?: HomeMember[]
   myId?: string
@@ -88,6 +94,7 @@ export function StoreScreen({
   const [addingCategory, setAddingCategory] = useState(false)
   const [namingTemplate, setNamingTemplate] = useState(false)
   const [templateVisibility, setTemplateVisibility] = useState<StoreVisibility>('home')
+  const [saveTarget, setSaveTarget] = useState<TemplateSaveTarget>({ kind: 'store' })
   const [renamingStore, setRenamingStore] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
   const [showingCard, setShowingCard] = useState(false)
@@ -566,6 +573,7 @@ export function StoreScreen({
                   if (!completionArmed) return
                   templateSnapshot.current = items.map((item) => ({ ...item }))
                   setTemplateVisibility('home')
+                  setSaveTarget({ kind: 'store' })
                   setShowCompletion(false)
                   setNamingTemplate(true)
                 }}
@@ -586,27 +594,17 @@ export function StoreScreen({
           confirmLabel="Сохранить"
           inputId="store-template-name"
           extra={
-            syncEnabled ? (
-              <>
-                <p className="field-label">Кто видит</p>
-                <div className="choice-row">
-                  <button
-                    type="button"
-                    className={templateVisibility === 'private' ? 'choice active' : 'choice'}
-                    onClick={() => setTemplateVisibility('private')}
-                  >
-                    Только я
-                  </button>
-                  <button
-                    type="button"
-                    className={templateVisibility === 'home' ? 'choice active' : 'choice'}
-                    onClick={() => setTemplateVisibility('home')}
-                  >
-                    Весь дом
-                  </button>
-                </div>
-              </>
-            ) : null
+            <TemplateSaveFields
+              store={store}
+              groups={groups}
+              folders={templateFolders}
+              myId={myId}
+              target={saveTarget}
+              onTarget={setSaveTarget}
+              syncEnabled={syncEnabled}
+              visibility={templateVisibility}
+              onVisibility={setTemplateVisibility}
+            />
           }
           onClose={() => {
             setNamingTemplate(false)
@@ -614,7 +612,7 @@ export function StoreScreen({
             if (allDone && !completionHandled.current) setShowCompletion(true)
           }}
           onConfirm={(name) => {
-            onSaveTemplate(name, templateSnapshot.current ?? items, templateVisibility)
+            onSaveTemplate(name, templateSnapshot.current ?? items, templateVisibility, saveTarget)
             templateSnapshot.current = null
             setNamingTemplate(false)
             rememberDismiss()

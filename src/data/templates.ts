@@ -1,4 +1,48 @@
-import type { Category, NamedTemplate, Store, StoreGroup, TemplateItem } from '../types'
+import type { Category, NamedTemplate, Store, StoreGroup, TemplateFolder, TemplateItem } from '../types'
+
+export type TemplateSaveTarget =
+  | { kind: 'store' }
+  | { kind: 'group'; groupId: string }
+  | { kind: 'folder'; folderId: string }
+
+export type TemplateSaveChoice = {
+  target: TemplateSaveTarget
+  label: string
+}
+
+export function templateSaveChoices(
+  store: Pick<Store, 'groupId'>,
+  groups: StoreGroup[],
+  folders: TemplateFolder[],
+): TemplateSaveChoice[] {
+  const choices: TemplateSaveChoice[] = [
+    { target: { kind: 'store' }, label: 'Шаблоны этого списка' },
+  ]
+  if (store.groupId) {
+    const group = groups.find((item) => item.id === store.groupId)
+    if (group) {
+      choices.push({
+        target: { kind: 'group', groupId: group.id },
+        label: `Шаблоны группы «${group.name}»`,
+      })
+    }
+  }
+  const sorted = [...folders].sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  for (const folder of sorted) {
+    choices.push({
+      target: { kind: 'folder', folderId: folder.id },
+      label: folder.name,
+    })
+  }
+  return choices
+}
+
+export function sameSaveTarget(left: TemplateSaveTarget, right: TemplateSaveTarget): boolean {
+  if (left.kind !== right.kind) return false
+  if (left.kind === 'group' && right.kind === 'group') return left.groupId === right.groupId
+  if (left.kind === 'folder' && right.kind === 'folder') return left.folderId === right.folderId
+  return true
+}
 import { knownCategoriesForStore } from './categories'
 
 export type SharedTemplate = {
