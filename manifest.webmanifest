@@ -1,7 +1,7 @@
 {
   "name": "Возьми",
   "short_name": "Возьми",
-  "start_url": "./?v=20260927-2317",
+  "start_url": "./?v=20260929-2217",
   "scope": "./",
   "display": "standalone",
   "background_color": "#209055",
