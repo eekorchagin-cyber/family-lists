@@ -1,4 +1,10 @@
 import type { Category, Store } from '../types'
+import {
+  FILE_CATEGORY_ICONS,
+  fileCategoryIcon,
+  fileIconIdForName,
+  type FileCategoryIconId,
+} from './categoryIconFiles'
 
 export const CATEGORY_COLORS = [
   'none',
@@ -124,13 +130,13 @@ export const CATEGORY_ICONS = [
 
 export const ALL_ICONS = [...GROUP_ICONS, ...CATEGORY_ICONS]
 
-export type CategoryIconId = (typeof ALL_ICONS)[number]['id']
+export type CategoryIconId = (typeof ALL_ICONS)[number]['id'] | FileCategoryIconId
 
 export function isCategoryIconId(value: string): value is CategoryIconId {
-  return ALL_ICONS.some((icon) => icon.id === value)
+  return ALL_ICONS.some((icon) => icon.id === value) || FILE_CATEGORY_ICONS.some((icon) => icon.id === value)
 }
 
-export function iconIdFromName(name: string): CategoryIconId {
+export function coloredIconIdFromName(name: string): CategoryIconId {
   const needle = name.trim().toLowerCase().replace(/ё/g, 'е')
   for (const icon of ALL_ICONS) {
     if (icon.keywords.some((keyword) => needle.includes(keyword.replace(/ё/g, 'е')))) {
@@ -138,6 +144,30 @@ export function iconIdFromName(name: string): CategoryIconId {
     }
   }
   return 'other'
+}
+
+export function iconIdFromName(name: string): CategoryIconId {
+  const fromFile = fileIconIdForName(name)
+  if (fromFile) return fromFile
+  return coloredIconIdFromName(name)
+}
+
+/** Значок с учётом общего переключателя «Контурные / Цветные». */
+export function displayIconId(
+  name: string,
+  icon: string | undefined,
+  style?: 'contour' | 'color',
+): string {
+  if (style === 'contour') {
+    const file = fileIconIdForName(name)
+    if (file) return file
+  }
+  if (style === 'color') {
+    if (icon && isCategoryIconId(icon) && !fileCategoryIcon(icon)) return icon
+    return coloredIconIdFromName(name)
+  }
+  if (icon && isCategoryIconId(icon)) return icon
+  return iconIdFromName(name)
 }
 
 export function canonicalStoreIcon(name: string, icon: string | undefined): string | undefined {
@@ -153,12 +183,63 @@ export function resolvedGroupIcon(group: { name: string; icon?: string }): Categ
   return inferred === 'other' ? undefined : inferred
 }
 
+const FILE_CATEGORY_COLORS = CATEGORY_COLORS.filter((color) => color !== 'none')
+
+function categoryNameKey(name: string): string {
+  return name.trim().toLowerCase().replace(/ё/g, 'е')
+}
+
+/**
+ * Цветной значок меняется на контурный с тем же названием.
+ * Уже контурный значок не трогаем, даже если он выбран для другого названия.
+ */
+export function contourReplacement(name: string, icon: string | undefined): string | undefined {
+  const desired = fileIconIdForName(name)
+  if (!desired || icon === desired) return undefined
+  if (icon && FILE_CATEGORY_ICONS.some((item) => item.id === icon)) return undefined
+  if (!icon && iconIdFromName(name) === desired) return undefined
+  return desired
+}
+
+export function hasContourReplacements(data: {
+  categories: Array<Pick<Category, 'name' | 'icon'>>
+  stores: Array<{ name: string; icon?: string }>
+  groups?: Array<{ name: string; icon?: string }>
+}): boolean {
+  if (data.categories.some((category) => contourReplacement(category.name, category.icon))) return true
+  if (data.stores.some((store) => contourReplacement(store.name, store.icon))) return true
+  return (data.groups ?? []).some((group) => contourReplacement(group.name, group.icon))
+}
+
+export const CONTOUR_OFFER_KEY = 'pokupki-contour-offer-v5'
+
+/** Общие категории, которых ещё нет: имя и значок берутся из файла библиотеки. */
+export function fileCategoriesToAdd(categories: Category[], at = new Date().toISOString()): Category[] {
+  const names = new Set(
+    categories.filter((category) => !category.storeId).map((category) => categoryNameKey(category.name)),
+  )
+  return FILE_CATEGORY_ICONS.filter((icon) => !names.has(categoryNameKey(icon.name))).map((icon) => {
+    const index = Number(icon.file.slice(0, 2)) - 1
+    return {
+      id: `filecat-${icon.file.slice(0, 2)}`,
+      name: icon.name,
+      color: FILE_CATEGORY_COLORS[index % FILE_CATEGORY_COLORS.length] ?? '#6b7280',
+      icon: icon.id,
+      updatedAt: at,
+    }
+  })
+}
+
 export function categoryGlyph(category: Pick<Category, 'name' | 'icon'>): string {
+  if (category.icon && fileIconIdForName(category.name) === category.icon) return ''
+  if (category.icon && FILE_CATEGORY_ICONS.some((icon) => icon.id === category.icon)) return ''
   if (category.icon && isCategoryIconId(category.icon)) {
     const match = ALL_ICONS.find((icon) => icon.id === category.icon)
     if (match) return match.glyph
   }
-  const inferred = ALL_ICONS.find((icon) => icon.id === iconIdFromName(category.name))
+  const inferredId = iconIdFromName(category.name)
+  if (FILE_CATEGORY_ICONS.some((icon) => icon.id === inferredId)) return ''
+  const inferred = ALL_ICONS.find((icon) => icon.id === inferredId)
   return inferred?.glyph ?? '📦'
 }
 

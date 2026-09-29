@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { CategoryMark } from '../components/CategoryMark'
 import { ApplyTemplateDialog } from '../components/ApplyTemplateDialog'
+import { TemplateFitDialog } from '../components/TemplateFitDialog'
 import { Header } from '../components/Header'
 import { LongPressButton } from '../components/LongPressButton'
 import { LoyaltyCardSheet } from '../components/LoyaltyCardView'
@@ -10,11 +11,12 @@ import { QtyRow } from '../components/QtyRow'
 import { BackIcon, CardIcon, SettingsIcon, TransferIcon } from '../components/NavIcons'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
+import { playConfirmSound } from '../data/sounds'
 import { foldersForUser } from '../data/myTemplates'
 import { parseItem } from '../data/parseItem'
 import { formatQty, parseQty } from '../data/qty'
 import { resolveLoyaltyCard } from '../data/loyalty'
-import { templatesForList } from '../data/templates'
+import { classifyTemplateItems, templatesForList } from '../data/templates'
 import type { HomeMember } from '../data/sync/session'
 import type { Category, Item, ParsedItem, Store, StoreGroup, StoreVisibility, TemplateFolder } from '../types'
 
@@ -22,6 +24,7 @@ type StoreScreenProps = {
   store: Store
   items: Item[]
   categories: Category[]
+  knownCategories?: Category[]
   allNames: string[]
   onBack: () => void
   onOpenSettings: () => void
@@ -43,7 +46,7 @@ type StoreScreenProps = {
   otherStores?: Store[]
   groups?: StoreGroup[]
   templateFolders?: TemplateFolder[]
-  onApplyTemplate?: (templateId: string) => void
+  onApplyTemplate?: (templateId: string, mode?: 'all' | 'matching') => void
   onCopyToStore?: (storeId: string) => void
   onMoveToStore?: (storeId: string) => void
 }
@@ -52,6 +55,7 @@ export function StoreScreen({
   store,
   items,
   categories,
+  knownCategories = [],
   allNames,
   onBack,
   onOpenSettings,
@@ -88,6 +92,7 @@ export function StoreScreen({
   const [showCompletion, setShowCompletion] = useState(false)
   const [showingCard, setShowingCard] = useState(false)
   const [pickingTemplate, setPickingTemplate] = useState(false)
+  const [templateFit, setTemplateFit] = useState<{ id: string; names: string[] } | null>(null)
   const [transferring, setTransferring] = useState(false)
   const [completionArmed, setCompletionArmed] = useState(false)
   const completionHandled = useRef(false)
@@ -183,18 +188,30 @@ export function StoreScreen({
     rememberDismiss()
   }
 
-  const grouped = useMemo(() => {
-    return categories
-      .map((category) => ({
-        category,
-        items: activeItems.filter((item) => item.categoryId === category.id),
-      }))
-      .filter((group) => group.items.length > 0)
-  }, [categories, activeItems])
-
-  const unmatched = activeItems.filter(
-    (item) => !categories.some((category) => category.id === item.categoryId),
-  )
+  const { grouped, unmatched } = useMemo(() => {
+    const enabled = new Set(categories.map((category) => category.id))
+    const known = new Map(knownCategories.map((category) => [category.id, category]))
+    const groups = new Map<string, { category: Category; items: Item[] }>()
+    const loose: Item[] = []
+    for (const item of activeItems) {
+      const category = known.get(item.categoryId)
+      if (!category) {
+        loose.push(item)
+        continue
+      }
+      const group = groups.get(category.id)
+      if (group) group.items.push(item)
+      else groups.set(category.id, { category, items: [item] })
+    }
+    const ordered = [
+      ...categories.flatMap((category) => {
+        const group = groups.get(category.id)
+        return group ? [group] : []
+      }),
+      ...[...groups.values()].filter((group) => !enabled.has(group.category.id)),
+    ]
+    return { grouped: ordered, unmatched: loose }
+  }, [activeItems, categories, knownCategories])
 
   const suggestions = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -371,7 +388,10 @@ export function StoreScreen({
                     <li key={item.id}>
                       <LongPressButton
                         className="item-row"
-                        onClick={() => onMarkBought(item.id)}
+                        onClick={() => {
+                          playConfirmSound('bought')
+                          onMarkBought(item.id)
+                        }}
                         onLongPress={() => openEdit(item)}
                       >
                         <span className="item-main">
@@ -401,7 +421,10 @@ export function StoreScreen({
                     <li key={item.id}>
                       <LongPressButton
                         className="item-row"
-                        onClick={() => onMarkBought(item.id)}
+                        onClick={() => {
+                          playConfirmSound('bought')
+                          onMarkBought(item.id)
+                        }}
                         onLongPress={() => openEdit(item)}
                       >
                         <span className="item-main">
@@ -518,6 +541,7 @@ export function StoreScreen({
                 onClick={() => {
                   if (!completionArmed) return
                   rememberDismiss()
+                  playConfirmSound('clear')
                   onClearBought()
                 }}
               >
@@ -633,13 +657,36 @@ export function StoreScreen({
           onClose={() => setShowingCard(false)}
         />
       ) : null}
+      {templateFit ? (
+        <TemplateFitDialog
+          missingNames={templateFit.names}
+          onMatching={() => {
+            onApplyTemplate?.(templateFit.id, 'matching')
+            setTemplateFit(null)
+          }}
+          onAll={() => {
+            onApplyTemplate?.(templateFit.id, 'all')
+            setTemplateFit(null)
+          }}
+          onClose={() => setTemplateFit(null)}
+        />
+      ) : null}
       {pickingTemplate ? (
         <ApplyTemplateDialog
           templates={shared}
           myRows={myTemplateRows}
           onApply={(templateId) => {
-            onApplyTemplate?.(templateId)
+            const items =
+              myTemplateRows.find((row) => row.template.id === templateId)?.template.items ??
+              shared.find((row) => row.template.id === templateId)?.template.items
             setPickingTemplate(false)
+            if (!items || !onApplyTemplate) return
+            const fit = classifyTemplateItems(store, knownCategories, items)
+            if (fit.missingCategoryNames.length === 0) {
+              onApplyTemplate(templateId, 'all')
+              return
+            }
+            setTemplateFit({ id: templateId, names: fit.missingCategoryNames })
           }}
           onClose={() => setPickingTemplate(false)}
         />

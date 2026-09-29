@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { FILE_CATEGORY_ICONS, fileCategoryIcon, fileIconSrc } from '../data/categoryIconFiles'
 import { CATEGORY_COLORS, CATEGORY_ICONS, GROUP_ICONS } from '../data/categories'
 import {
   CategorySpecialIcon,
@@ -84,6 +86,9 @@ export function CategoryMarkPicker({
   onIcon,
   iconsOnly = false,
 }: CategoryMarkPickerProps) {
+  const [tab, setTab] = useState<'marks' | 'library'>(fileCategoryIcon(icon) ? 'library' : 'marks')
+  const marks = iconsOnly ? [...GROUP_ICONS, ...CATEGORY_ICONS] : CATEGORY_ICONS
+
   return (
     <>
       {iconsOnly ? null : (
@@ -110,22 +115,54 @@ export function CategoryMarkPicker({
         </>
       )}
       <p className="field-label">Значок</p>
+      <div className="scope-toggle icon-tabs" role="tablist" aria-label="Группы значков">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'marks'}
+          className={`scope-option${tab === 'marks' ? ' scope-option--active' : ''}`}
+          onClick={() => setTab('marks')}
+        >
+          Цветные
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'library'}
+          className={`scope-option${tab === 'library' ? ' scope-option--active' : ''}`}
+          onClick={() => setTab('library')}
+        >
+          Контурные
+        </button>
+      </div>
       <div className="icon-pick">
-        {(iconsOnly ? [...GROUP_ICONS, ...CATEGORY_ICONS] : CATEGORY_ICONS).map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={icon === item.id ? 'icon-swatch active' : 'icon-swatch'}
-            aria-label={ICON_LABELS[item.id] ?? `Значок ${item.id}`}
-            onClick={() => onIcon(item.id)}
-          >
-            {hasCategorySpecialIcon(item.id) ? (
-              <CategorySpecialIcon id={item.id} />
-            ) : (
-              item.glyph
-            )}
-          </button>
-        ))}
+        {tab === 'marks'
+          ? marks.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={icon === item.id ? 'icon-swatch active' : 'icon-swatch'}
+                aria-label={ICON_LABELS[item.id] ?? `Значок ${item.id}`}
+                onClick={() => onIcon(item.id)}
+              >
+                {hasCategorySpecialIcon(item.id) ? (
+                  <CategorySpecialIcon id={item.id} />
+                ) : (
+                  item.glyph
+                )}
+              </button>
+            ))
+          : FILE_CATEGORY_ICONS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={icon === item.id ? 'icon-swatch icon-swatch--file active' : 'icon-swatch icon-swatch--file'}
+                aria-label={item.name}
+                onClick={() => onIcon(item.id)}
+              >
+                <img src={fileIconSrc(item.file)} alt="" />
+              </button>
+            ))}
       </div>
     </>
   )

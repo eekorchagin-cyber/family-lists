@@ -24,6 +24,7 @@ import {
   signUpDevice,
   type AccessInfo,
 } from '../data/sync/api'
+import { playConfirmSound } from '../data/sounds'
 import { supabaseConfigured } from '../data/sync/client'
 import { wipeDeviceData } from '../data/storage'
 import { kindFromCode } from '../data/sync/codes'
@@ -49,6 +50,7 @@ import {
   adoptLocalStores,
   mergeByStoreName,
   mergePulledData,
+  nextLastPulledAt,
   nowIso,
   visibleStoreUpdates,
 } from '../data/sync/merge'
@@ -79,13 +81,26 @@ type MergePending = {
 export function useSync(
   data: AppData,
   replaceData: (next: AppData, opts?: { takeCloudOrder?: boolean }) => void,
+  mergeRemote: (
+    remote: AppData,
+    options: {
+      lastPulledAt: string | null
+      userId: string
+      deletedItemIds?: string[]
+      deletedStoreIds?: string[]
+      deletedGroupIds?: string[]
+    },
+  ) => { changed: boolean; visible: string[] },
 ) {
   const dataRef = useRef(data)
   const replaceRef = useRef(replaceData)
+  const mergeRemoteRef = useRef(mergeRemote)
   const dirtyRef = useRef(false)
   const busyRef = useRef(false)
+  const unpushedRetryRef = useRef(false)
   dataRef.current = data
   replaceRef.current = replaceData
+  mergeRemoteRef.current = mergeRemote
 
   const [session, setSession] = useState<SyncSession | null>(() => loadSession())
   const [members, setMembers] = useState<HomeMember[]>([])
@@ -112,6 +127,22 @@ export function useSync(
   useEffect(() => {
     saveUpdatedStoreIds(updatedStoreIds)
   }, [updatedStoreIds])
+
+  const seenItemIds = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    const ids = new Set(data.items.map((item) => item.id))
+    const userId = session?.userId
+    const seen = seenItemIds.current
+    if (!seen || !userId) {
+      seenItemIds.current = ids
+      return
+    }
+    const arrived = data.items.some(
+      (item) => !seen.has(item.id) && !item.bought && Boolean(item.addedBy) && item.addedBy !== userId,
+    )
+    seenItemIds.current = ids
+    if (arrived && document.visibilityState === 'visible') playConfirmSound('family')
+  }, [data.items, session?.userId])
 
   const markStoresUpdated = useCallback((ids: string[]) => {
     if (ids.length === 0) return
@@ -168,6 +199,7 @@ export function useSync(
     if (!configured || !current || mergePending) return
     if (busyRef.current) return
     busyRef.current = true
+    let retryUnpushed = false
     try {
       await restoreSession(current)
       let profile = await loadMyProfile()
@@ -311,24 +343,22 @@ export function useSync(
         }
       }
       const remote = await pullRemote()
-      local = dataRef.current
       const pending = peekDeletes()
-      const { next, changed } = mergePulledData(local, remote, {
+      const merged = mergeRemoteRef.current(remote, {
         lastPulledAt: current.lastPulledAt,
         userId: current.userId,
         deletedItemIds: deletedItemIds(pending),
         deletedStoreIds: pending.stores,
         deletedGroupIds: pending.groups,
       })
-      if (changed) {
-        // Только видимые изменения (имя / группа / товары), не meta категорий —
-        // иначе списки «мигают» без реальных правок товаров.
-        markStoresUpdated(visibleStoreUpdates(local, next))
-        replaceRef.current(next)
+      if (merged.visible.length > 0) {
+        markStoresUpdated(merged.visible)
       }
-      const toPush = changed ? next : dataRef.current
+      const toPush = dataRef.current
       let snapshot = toPush
-      if (dirtyRef.current || changed) {
+      let pushedSnapshot: AppData | null = null
+      if (dirtyRef.current || merged.changed) {
+        pushedSnapshot = toPush
         const pushed = await pushLocal(current, toPush)
         const withGroups = {
           ...toPush,
@@ -367,6 +397,7 @@ export function useSync(
             markStoresUpdated(applied.addedIds)
             try {
               await pushLocal(current, applied.next)
+              pushedSnapshot = applied.next
             } catch {
               dirtyRef.current = true
             }
@@ -375,7 +406,24 @@ export function useSync(
           if (isForwardUnavailable(caught)) forwardOffRef.current = true
         }
       }
-      const saved = { ...current, lastPulledAt: nowIso(), displayName: profile.displayName }
+      const now = nowIso()
+      const mark = nextLastPulledAt(
+        current.lastPulledAt,
+        dataRef.current,
+        remote,
+        pushedSnapshot,
+        now,
+      )
+      if (mark < now) {
+        dirtyRef.current = true
+        if (!unpushedRetryRef.current) {
+          unpushedRetryRef.current = true
+          retryUnpushed = true
+        }
+      } else {
+        unpushedRetryRef.current = false
+      }
+      const saved = { ...current, lastPulledAt: mark, displayName: profile.displayName }
       saveSession(saved)
       setSession(saved)
       quietFailsRef.current = 0
@@ -394,6 +442,7 @@ export function useSync(
       setError(message)
     } finally {
       busyRef.current = false
+      if (retryUnpushed) void tick()
     }
   }, [configured, freeze, markStoresUpdated, mergePending])
 

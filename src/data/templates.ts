@@ -128,6 +128,54 @@ export function findSharedTemplate(
   return sharedTemplates(stores, userId, groups).find((row) => row.template.id === templateId)
 }
 
+function sameCategoryName(left: string, right: string): boolean {
+  return left.trim().toLowerCase().replace(/ё/g, 'е') === right.trim().toLowerCase().replace(/ё/g, 'е')
+}
+
+export type TemplateFit = {
+  ready: TemplateItem[]
+  missing: TemplateItem[]
+  missingCategoryNames: string[]
+}
+
+/** Какие товары шаблона уже попадают в отделы этого списка. */
+export function classifyTemplateItems(
+  store: Pick<Store, 'id' | 'categoryOrder'>,
+  categories: Category[],
+  items: TemplateItem[],
+): TemplateFit {
+  const enabledIds = new Set(store.categoryOrder ?? [])
+  const enabled = categories.filter(
+    (category) =>
+      enabledIds.has(category.id) && (!category.storeId || category.storeId === store.id),
+  )
+  const ready: TemplateItem[] = []
+  const missing: TemplateItem[] = []
+  const names = new Set<string>()
+  for (const entry of items) {
+    const direct = enabled.find((category) => category.id === entry.categoryId)
+    if (direct) {
+      ready.push(entry)
+      continue
+    }
+    const source = categories.find((category) => category.id === entry.categoryId)
+    const byName = source
+      ? enabled.find((category) => sameCategoryName(category.name, source.name))
+      : undefined
+    if (byName) {
+      ready.push({ ...entry, categoryId: byName.id })
+      continue
+    }
+    missing.push(entry)
+    names.add(source?.name?.trim() || 'Без отдела')
+  }
+  return {
+    ready,
+    missing,
+    missingCategoryNames: [...names].sort((left, right) => left.localeCompare(right, 'ru')),
+  }
+}
+
 export function mapTemplateCategoryId(
   entry: TemplateItem,
   store: Store,

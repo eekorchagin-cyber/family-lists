@@ -33,6 +33,7 @@ import type {
   CatalogEntry,
   Category,
   FontSize,
+  IconStyle,
   Settings,
   Store,
   StoreGroup,
@@ -58,7 +59,7 @@ const SECTIONS: { id: Exclude<SettingsSection, 'guide'>; title: string; hint: st
   { id: 'myTemplates', title: 'Мои шаблоны', hint: 'Группа и списки внутри неё' },
   { id: 'sync', title: 'Семья', hint: 'Коды, облако и приглашения' },
   { id: 'people', title: 'Люди', hint: 'Код для пересылки списков' },
-  { id: 'appearance', title: 'Оформление', hint: 'Тема, шрифт и число на ярлыке' },
+  { id: 'appearance', title: 'Оформление', hint: 'Тема, шрифт, значки и число на ярлыке' },
   { id: 'transfer', title: 'Экспорт / импорт', hint: 'Наименования в таблице Excel' },
   { id: 'about', title: 'О программе', hint: 'Автор, версия и обновления' },
 ]
@@ -94,6 +95,7 @@ type SettingsScreenProps = {
   onBack: () => void
   onTheme: (theme: Theme) => void
   onFontSize: (fontSize: FontSize) => void
+  onIconStyle: (style: IconStyle) => void
   onStoreInBadge: (storeId: string, included: boolean) => void
   onBadgeIncludeNew: (include: boolean) => void
   onAllowBadge: () => void | Promise<void>
@@ -161,6 +163,7 @@ export function SettingsScreen({
   onBack,
   onTheme,
   onFontSize,
+  onIconStyle,
   onStoreInBadge,
   onBadgeIncludeNew,
   onAllowBadge,
@@ -355,8 +358,8 @@ export function SettingsScreen({
             </p>
           ) : section === 'appearance' ? (
             <p>
-              Тема и размер шрифта — на этом телефоне. Число на ярлыке — сумма некупленных из
-              отмеченных списков; тоже только этот телефон.
+              Тема, размер шрифта и вид значков — на этом телефоне. Число на ярлыке — сумма
+              некупленных из отмеченных списков; тоже только этот телефон.
             </p>
           ) : section === 'catalog' ? (
             <p>
@@ -550,6 +553,28 @@ export function SettingsScreen({
                   onClick={() => onFontSize('l')}
                 >
                   Крупный
+                </ChoiceButton>
+              </div>
+            </section>
+
+            <section className="settings-block">
+              <h2>Вид значков</h2>
+              <p className="hint">
+                Контурные подставляют рисунок из библиотеки, если у названия он есть. Цветные
+                возвращают прежние значки. Списки магазинов без такого рисунка не меняются.
+              </p>
+              <div className="choice-row">
+                <ChoiceButton
+                  active={settings.iconStyle === 'contour'}
+                  onClick={() => onIconStyle('contour')}
+                >
+                  Контурные
+                </ChoiceButton>
+                <ChoiceButton
+                  active={settings.iconStyle === 'color'}
+                  onClick={() => onIconStyle('color')}
+                >
+                  Цветные
                 </ChoiceButton>
               </div>
             </section>

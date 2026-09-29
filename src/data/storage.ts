@@ -12,7 +12,7 @@ import type {
 import { catalogFromItems, mergeCatalogFromItems } from './catalog'
 import backup from './backup.json'
 import { isLocalHost } from './sync/codes'
-import { appendCategoryToStores, canonicalStoreIcon } from './categories'
+import { appendCategoryToStores, canonicalStoreIcon, fileCategoriesToAdd } from './categories'
 import { markDirty } from './sync/dirty'
 import { groupsFromStores, groupVisibilityFields, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker, stripStoreIcon } from './homeLayout'
 import { isMyTemplatesCatalogId, parseTemplateFolders } from './myTemplates'
@@ -30,6 +30,10 @@ import {
   STORE_ORDER_KEY,
   STORAGE_KEY,
 } from './defaults'
+
+const FILE_CATEGORIES_KEY = 'pokupki-file-categories-v4'
+const FILE_CATEGORIES_V5_KEY = 'pokupki-file-categories-v5'
+const CHEESE_ICON_KEY = 'pokupki-cheese-contour'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -185,6 +189,7 @@ function normalizeSettings(value: unknown): Settings {
     theme: value.theme === 'dark' ? 'dark' : 'light',
     fontSize:
       value.fontSize === 's' || value.fontSize === 'l' ? value.fontSize : 'm',
+    ...(value.iconStyle === 'contour' || value.iconStyle === 'color' ? { iconStyle: value.iconStyle } : {}),
     ...(excluded.length > 0 ? { badgeExcludedStoreIds: excluded } : {}),
     ...(value.badgeIncludeNew === false ? { badgeIncludeNew: false } : {}),
   }
@@ -307,6 +312,57 @@ function isEmptyData(data: AppData): boolean {
   )
 }
 
+function rememberFlag(key: string) {
+  try {
+    localStorage.setItem(key, '1')
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+function flagIsSet(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1'
+  } catch {
+    return true
+  }
+}
+
+function withFileCategories(data: AppData): AppData {
+  let next = data
+  if (!flagIsSet(FILE_CATEGORIES_KEY)) {
+    const extra = fileCategoriesToAdd(next.categories)
+    rememberFlag(FILE_CATEGORIES_KEY)
+    if (extra.length > 0) next = { ...next, categories: [...next.categories, ...extra] }
+  }
+  if (!flagIsSet(FILE_CATEGORIES_V5_KEY)) {
+    const extra = fileCategoriesToAdd(next.categories).filter((category) => category.id >= 'filecat-59')
+    rememberFlag(FILE_CATEGORIES_V5_KEY)
+    if (extra.length > 0) next = { ...next, categories: [...next.categories, ...extra] }
+  }
+  if (!flagIsSet(CHEESE_ICON_KEY)) {
+    rememberFlag(CHEESE_ICON_KEY)
+    const at = new Date().toISOString()
+    let cheeseChanged = false
+    const categories = next.categories.map((category) => {
+      const name = category.name.trim().toLowerCase().replace(/ё/g, 'е')
+      if (name !== 'сыр') return category
+      if (category.icon && category.icon !== 'cheese' && category.icon !== 'other') return category
+      cheeseChanged = true
+      return { ...category, icon: 'file62', updatedAt: at }
+    })
+    if (cheeseChanged) next = { ...next, categories }
+  }
+  if (next === data) return data
+  try {
+    saveData(next)
+    markDirty()
+  } catch {
+    /* ignore quota / private mode */
+  }
+  return next
+}
+
 export function loadData(): AppData {
   try {
     if (localStorage.getItem(FRESH_START_KEY) === '1') {
@@ -320,10 +376,10 @@ export function loadData(): AppData {
           } catch {
             /* ignore quota / private mode */
           }
-          return data
+          return withFileCategories(data)
         }
       }
-      return createDefaultData()
+      return withFileCategories(createDefaultData())
     }
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
@@ -338,7 +394,7 @@ export function loadData(): AppData {
         } catch {
           // ignore quota / private mode
         }
-        return data
+        return withFileCategories(data)
       }
     }
   } catch {
@@ -352,10 +408,10 @@ export function loadData(): AppData {
     } catch {
       // ignore quota / private mode
     }
-    return recovered
+    return withFileCategories(recovered)
   }
 
-  return createDefaultData()
+  return withFileCategories(createDefaultData())
 }
 
 export function wipeDeviceData(): void {

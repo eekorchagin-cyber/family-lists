@@ -7,6 +7,7 @@ import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { catalogCategoryId, findCatalogEntry } from '../data/catalog'
+import { playConfirmSound } from '../data/sounds'
 import { formatQty, parseQty } from '../data/qty'
 import type { CatalogEntry, Category, Item, ParsedItem, Store } from '../types'
 
@@ -47,23 +48,33 @@ export function AddItemScreen({
   }, [catalog, categories, knownCategories, draft.name, items])
 
   const [categoryId, setCategoryId] = useState(suggestedCategory)
+  const [categoryQuery, setCategoryQuery] = useState('')
   const [qtyText, setQtyText] = useState(formatQty(draft.qty))
   const [unit, setUnit] = useState(draft.unit)
   const [addingCategory, setAddingCategory] = useState(false)
 
   const picker = useMemo(() => {
+    const needle = categoryQuery.trim().toLowerCase().replace(/ё/g, 'е')
+    if (needle) {
+      return knownCategories
+        .filter((category) =>
+          categoryName(category, store).toLowerCase().replace(/ё/g, 'е').includes(needle),
+        )
+        .sort((a, b) => categoryName(a, store).localeCompare(categoryName(b, store), 'ru'))
+    }
     const seen = new Set(categories.map((category) => category.id))
     const extra = knownCategories.find(
       (category) => category.id === categoryId && !seen.has(category.id),
     )
     return extra ? [extra, ...categories] : categories
-  }, [categories, categoryId, knownCategories])
+  }, [categories, categoryId, categoryQuery, knownCategories, store])
 
   const qty = parseQty(qtyText)
 
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!categoryId || qty === null) return
+    playConfirmSound('add')
     onAdd(draft.name, categoryId, qty, unit)
   }
 
@@ -97,6 +108,20 @@ export function AddItemScreen({
         />
 
         <p className="field-label">Категория</p>
+        <input
+          className="input category-search"
+          value={categoryQuery}
+          onChange={(event) => setCategoryQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.preventDefault()
+          }}
+          placeholder="Поиск категории"
+          aria-label="Поиск категории"
+          autoComplete="off"
+        />
+        {picker.length === 0 ? (
+          <p className="hint">Нет такой категории</p>
+        ) : (
         <ul className="category-list">
           {picker.map((category) => (
             <li key={category.id}>
@@ -115,6 +140,7 @@ export function AddItemScreen({
             </li>
           ))}
         </ul>
+        )}
         <button
           type="button"
           className="button-secondary add-category"

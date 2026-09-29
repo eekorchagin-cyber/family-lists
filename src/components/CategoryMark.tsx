@@ -1,4 +1,6 @@
-import { categoryGlyph, iconIdFromName, isCategoryIconId } from '../data/categories'
+import { fileCategoryIcon, fileIconSrc } from '../data/categoryIconFiles'
+import { categoryGlyph, displayIconId } from '../data/categories'
+import { useIconStyle } from '../data/iconStyle'
 import type { Category } from '../types'
 import {
   CategorySpecialIcon,
@@ -10,9 +12,8 @@ type CategoryMarkProps = {
   className?: string
 }
 
-function resolveIconId(category: Pick<Category, 'name' | 'icon'>): string {
-  if (category.icon && isCategoryIconId(category.icon)) return category.icon
-  return iconIdFromName(category.name)
+function resolveIconId(category: Pick<Category, 'name' | 'icon'>, style?: 'contour' | 'color'): string {
+  return displayIconId(category.name, category.icon, style)
 }
 
 export function CategoryMarkFace({
@@ -20,7 +21,11 @@ export function CategoryMarkFace({
 }: {
   category: Pick<Category, 'name' | 'icon'>
 }) {
-  const iconId = resolveIconId(category)
+  const iconId = resolveIconId(category, useIconStyle())
+  const fileIcon = fileCategoryIcon(iconId)
+  if (fileIcon) {
+    return <img src={fileIconSrc(fileIcon.file)} alt="" />
+  }
   if (hasCategorySpecialIcon(iconId)) {
     return <CategorySpecialIcon id={iconId} />
   }

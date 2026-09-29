@@ -21,6 +21,7 @@ import {
   type HomeRow,
 } from '../data/homeLayout'
 import { resolveLoyaltyCard } from '../data/loyalty'
+import { playConfirmSound } from '../data/sounds'
 import { APP_VERSION } from '../data/version'
 import type { Person } from '../data/sync/forwardApi'
 import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
@@ -1260,6 +1261,7 @@ export function HomeScreen({
           confirmLabel="Удалить"
           onClose={() => setDeletingStore(null)}
           onConfirm={() => {
+            playConfirmSound('delete')
             onDeleteStore(deletingStore.id)
             setDeletingStore(null)
           }}

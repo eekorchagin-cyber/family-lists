@@ -107,6 +107,53 @@ function locallyNewer(updatedAt: string | undefined, lastPulledAt: string | null
   return updatedAt > lastPulledAt
 }
 
+function justBefore(iso: string): string {
+  const time = Date.parse(iso)
+  if (Number.isNaN(time)) return iso
+  return new Date(time - 1).toISOString()
+}
+
+/**
+ * Не сдвигать lastPulledAt дальше локальных строк, которых не было ни в облаке,
+ * ни в снимке этого пуша. Иначе следующий pull сотрёт только что созданный список:
+ * его updatedAt уже меньше отметки, а на сервере его ещё нет.
+ */
+export function nextLastPulledAt(
+  previous: string | null,
+  latest: AppData,
+  remote: AppData,
+  pushed: AppData | null,
+  now: string,
+): string {
+  const stores = new Set(remote.stores.map((store) => store.id))
+  const items = new Set(remote.items.map((item) => item.id))
+  const categories = new Set(remote.categories.map((category) => category.id))
+  const catalog = new Set((remote.catalog ?? []).map((entry) => entry.id))
+  if (pushed) {
+    for (const store of pushed.stores) stores.add(store.id)
+    for (const item of pushed.items) items.add(item.id)
+    for (const category of pushed.categories) categories.add(category.id)
+    for (const entry of pushed.catalog ?? []) catalog.add(entry.id)
+  }
+
+  let mark = now
+  const consider = (updatedAt: string | undefined, acked: boolean) => {
+    if (acked || !updatedAt) return
+    if (previous && updatedAt <= previous) return
+    const before = justBefore(updatedAt)
+    if (before < mark) mark = before
+  }
+  for (const store of latest.stores) consider(store.updatedAt, stores.has(store.id))
+  for (const item of latest.items) {
+    if (item.bought) continue
+    consider(item.updatedAt, items.has(item.id))
+  }
+  for (const category of latest.categories) consider(category.updatedAt, categories.has(category.id))
+  for (const entry of latest.catalog ?? []) consider(entry.updatedAt, catalog.has(entry.id))
+  if (previous && mark < previous) return previous
+  return mark
+}
+
 export function applyStoreOrder(stores: Store[], orderedIds: string[]): Store[] {
   if (stores.length === 0 || orderedIds.length === 0) return stores
   const byId = new Map(stores.map((store) => [store.id, store]))

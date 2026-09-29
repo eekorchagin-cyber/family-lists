@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AccessScreen } from './components/AccessScreen'
 import { MergeDialog } from './components/MergeDialog'
 import { UpdateBanner } from './components/UpdateBanner'
-import { categoriesForStore, knownCategoriesForStore, sortCategories, unusedGlobalCategories } from './data/categories'
+import { categoriesForStore, CONTOUR_OFFER_KEY, hasContourReplacements, knownCategoriesForStore, sortCategories, unusedGlobalCategories } from './data/categories'
+import { publishIconStyle } from './data/iconStyle'
+import { ContourIconsDialog } from './components/ContourIconsDialog'
 import { clearStoredEnterCode, consumeEnterCode, isLocalHost, mustUseHomeScreenShortcut } from './data/sync/codes'
 import { useAppBadge } from './hooks/useAppBadge'
 import { useAppState } from './hooks/useAppState'
@@ -15,6 +17,7 @@ import { StoreScreen } from './screens/StoreScreen'
 import { AddItemScreen } from './screens/AddItemScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { ListSettingsScreen } from './screens/ListSettingsScreen'
+import { clearCrashSeen } from './components/ErrorBoundary'
 import { captureSharedAppFromLocation } from './data/loyaltyApps'
 import type { Screen } from './types'
 
@@ -22,6 +25,7 @@ function App() {
   const {
     data,
     replaceData,
+    mergeRemote,
     clearedStoreIds,
     addStore,
     renameStore,
@@ -30,6 +34,7 @@ function App() {
     addGlobalCategory,
     renameGlobalCategory,
     setCategoryStyle,
+    applyContourIcons,
     deleteGlobalCategory,
     saveCatalogEntry,
     deleteCatalogEntry,
@@ -70,19 +75,41 @@ function App() {
     setGroupVisibility,
     setTheme,
     setFontSize,
+    setIconStyle,
     setStoreInBadge,
     setBadgeIncludeNew,
     setStoreVisibility,
   } = useAppState()
-  const sync = useSync(data, replaceData)
+  const sync = useSync(data, replaceData, mergeRemote)
   const appUpdate = useAppUpdate()
   const [screen, setScreen] = useState<Screen>({ name: 'home' })
+  const [contourDone, setContourDone] = useState(() => {
+    try {
+      return localStorage.getItem(CONTOUR_OFFER_KEY) === '1'
+    } catch {
+      return true
+    }
+  })
+  function finishContourOffer(apply: boolean) {
+    try {
+      localStorage.setItem(CONTOUR_OFFER_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+    setContourDone(true)
+    if (apply) applyContourIcons()
+  }
   const [enterCode, setEnterCode] = useState<string | null>(null)
   const hadSession = useRef(Boolean(loadSession()))
 
   useEffect(() => {
     captureSharedAppFromLocation()
+    clearCrashSeen()
   }, [])
+
+  useEffect(() => {
+    publishIconStyle(data.settings.iconStyle)
+  }, [data.settings.iconStyle])
 
   useEffect(() => {
     if (mustUseHomeScreenShortcut()) return
@@ -160,6 +187,18 @@ function App() {
       {sync.mergePending ? (
         <MergeDialog busy={sync.busy} onChoose={(mode) => void sync.resolveMerge(mode)} />
       ) : null}
+      {!needsAccess &&
+      !contourDone &&
+      hasContourReplacements({
+        categories: data.categories,
+        stores: data.stores,
+        groups: data.groups,
+      }) ? (
+        <ContourIconsDialog
+          onKeep={() => finishContourOffer(false)}
+          onUpdate={() => finishContourOffer(true)}
+        />
+      ) : null}
       {appUpdate.remote ? (
         <UpdateBanner
           remote={appUpdate.remote}
@@ -211,6 +250,7 @@ function App() {
           }}
           onTheme={setTheme}
           onFontSize={setFontSize}
+          onIconStyle={setIconStyle}
           onStoreInBadge={setStoreInBadge}
           onBadgeIncludeNew={setBadgeIncludeNew}
           onAllowBadge={() => badge.allow()}
@@ -322,8 +362,8 @@ function App() {
             }
             onEnableCategory={(categoryIds) => enableCategoriesInStore(store.id, categoryIds)}
             onRemoveCategory={(categoryId) => removeCategoryFromStore(store.id, categoryId)}
-            onApplyTemplate={(templateId) => {
-              applyTemplate(store.id, templateId)
+            onApplyTemplate={(templateId, mode) => {
+              applyTemplate(store.id, templateId, mode)
               setScreen({ name: 'store', storeId: store.id })
             }}
             onSaveTemplate={(name, visibility) => saveTemplate(store.id, name, undefined, visibility)}
@@ -368,6 +408,7 @@ function App() {
           store={store}
           items={storeItems}
           categories={storeCategories}
+          knownCategories={knownCategoriesForStore(data.categories, store.id)}
           allNames={allNames}
           members={sync.members}
           myId={sync.session?.userId}
@@ -393,7 +434,7 @@ function App() {
           otherStores={data.stores.filter((item) => item.id !== store.id)}
           groups={data.groups ?? []}
           templateFolders={data.templateFolders ?? []}
-          onApplyTemplate={(templateId) => applyTemplate(store.id, templateId)}
+          onApplyTemplate={(templateId, mode) => applyTemplate(store.id, templateId, mode)}
           onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
           onMoveToStore={(storeId) => transferItems(store.id, storeId, 'move')}
         />

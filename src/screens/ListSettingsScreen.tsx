@@ -12,8 +12,10 @@ import { BackIcon } from '../components/NavIcons'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { resolveLoyaltyCard } from '../data/loyalty'
+import { playConfirmSound } from '../data/sounds'
 import { foldersForUser } from '../data/myTemplates'
-import { templatesForList } from '../data/templates'
+import { classifyTemplateItems, templatesForList } from '../data/templates'
+import { TemplateFitDialog } from '../components/TemplateFitDialog'
 import type {
   Category,
   CategorySort,
@@ -73,7 +75,7 @@ type ListSettingsScreenProps = {
   onAddCategory: (name: string, color: string, icon?: string, global?: boolean) => string
   onEnableCategory: (categoryIds: string[]) => void
   onRemoveCategory: (categoryId: string) => void
-  onApplyTemplate: (templateId: string) => void
+  onApplyTemplate: (templateId: string, mode?: 'all' | 'matching') => void
   onSaveTemplate: (name: string, visibility: StoreVisibility) => void
   onSetTemplateVisibility: (templateId: string, visibility: StoreVisibility) => void
   myId?: string
@@ -124,6 +126,7 @@ export function ListSettingsScreen({
   const [templateVisibility, setTemplateVisibility] = useState<StoreVisibility>('home')
   const [transferring, setTransferring] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [templateFit, setTemplateFit] = useState<{ id: string; names: string[] } | null>(null)
   const [storeName, setStoreName] = useState(store.name)
   const [names, setNames] = useState<Record<string, string>>(() => {
     const next: Record<string, string> = {}
@@ -162,6 +165,19 @@ export function ListSettingsScreen({
     () => foldersForUser(templateFolders, myId).filter((folder) => folder.templates.length > 0),
     [myId, templateFolders],
   )
+  function askApply(templateId: string) {
+    const items =
+      myFolders.flatMap((folder) => folder.templates).find((template) => template.id === templateId)
+        ?.items ?? templates.find((row) => row.template.id === templateId)?.template.items
+    if (!items) return
+    const fit = classifyTemplateItems(store, [...categories, ...unusedCategories], items)
+    if (fit.missingCategoryNames.length === 0) {
+      onApplyTemplate(templateId, 'all')
+      return
+    }
+    setTemplateFit({ id: templateId, names: fit.missingCategoryNames })
+  }
+
   const groupTemplateRows = useMemo(
     () => templates.filter((row) => row.groupId),
     [templates],
@@ -431,7 +447,7 @@ export function ListSettingsScreen({
                               type="button"
                               className="qty-button store-menu"
                               aria-label={`Добавить в список: ${template.name}, ${folder.name}`}
-                              onClick={() => onApplyTemplate(template.id)}
+                              onClick={() => askApply(template.id)}
                             >
                               <span aria-hidden="true">↓</span>
                             </button>
@@ -498,7 +514,7 @@ export function ListSettingsScreen({
                                   ? `Добавить в список: ${template.name}, ${storeName}`
                                   : `Добавить в список: ${template.name}`
                               }
-                              onClick={() => onApplyTemplate(template.id)}
+                              onClick={() => askApply(template.id)}
                             >
                               <span aria-hidden="true">↓</span>
                             </button>
@@ -659,13 +675,30 @@ export function ListSettingsScreen({
           }}
         />
       )}
+      {templateFit ? (
+        <TemplateFitDialog
+          missingNames={templateFit.names}
+          onMatching={() => {
+            onApplyTemplate(templateFit.id, 'matching')
+            setTemplateFit(null)
+          }}
+          onAll={() => {
+            onApplyTemplate(templateFit.id, 'all')
+            setTemplateFit(null)
+          }}
+          onClose={() => setTemplateFit(null)}
+        />
+      ) : null}
       {deleting && (
         <ConfirmDialog
           title="Удалить список?"
           text={`«${store.name}» и все его товары будут удалены.`}
           confirmLabel="Удалить"
           onClose={() => setDeleting(false)}
-          onConfirm={onDeleteStore}
+          onConfirm={() => {
+            playConfirmSound('delete')
+            onDeleteStore()
+          }}
         />
       )}
     </div>

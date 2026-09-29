@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import {
   appendCategoryToStores,
   categoriesForStore,
   ensureCategoryOrder,
+  contourReplacement,
   iconIdFromName,
   withCategoriesEnabled,
   withCategoryEnabled,
@@ -25,14 +27,15 @@ import { rememberIncomingDismissed } from '../data/forward'
 import { queueDeleted } from '../data/sync/deletes'
 import { queueInboxDismiss } from '../data/sync/forwardApi'
 import { markDirty } from '../data/sync/dirty'
-import { applyStoreOrder, nowIso, withUpdatedAt } from '../data/sync/merge'
+import { applyStoreOrder, mergePulledData, nowIso, visibleStoreUpdates, withUpdatedAt } from '../data/sync/merge'
 import { loadSession } from '../data/sync/session'
-import { findSharedTemplate, mapTemplateCategoryId, type SharedTemplate } from '../data/templates'
+import { classifyTemplateItems, findSharedTemplate, type SharedTemplate } from '../data/templates'
 import type {
   AppData,
   CatalogEntry,
   CategorySort,
   FontSize,
+  IconStyle,
   Item,
   NamedTemplate,
   Settings,
@@ -158,30 +161,33 @@ export function useAppState() {
     const trimmed = name.trim()
     if (!trimmed) return undefined
     const id = newId()
-    setData((current) => {
-      const known = new Set(
-        current.categories.filter((category) => !category.storeId).map((category) => category.id),
-      )
-      const categoryOrder =
-        categoryIds !== undefined
-          ? categoryIds.filter((categoryId) => known.has(categoryId))
-          : undefined
-      const included = countInBadge ?? badgeIncludeNewStores(current.settings)
-      return persist({
-        ...current,
-        stores: [
-          ...current.stores,
-          {
-            id,
-            name: trimmed,
-            ...emptyStoreFields(categoryOrder),
-            ownerId: actorId(),
-            visibility: actorId() ? 'home' : 'private',
-            updatedAt: nowIso(),
-            ...(iconIdFromName(trimmed) !== 'other' ? { icon: iconIdFromName(trimmed) } : {}),
-          },
-        ],
-        settings: included ? current.settings : withBadgeStore(current.settings, id, false),
+    const updatedAt = nowIso()
+    flushSync(() => {
+      setData((current) => {
+        const known = new Set(
+          current.categories.filter((category) => !category.storeId).map((category) => category.id),
+        )
+        const categoryOrder =
+          categoryIds !== undefined
+            ? categoryIds.filter((categoryId) => known.has(categoryId))
+            : undefined
+        const included = countInBadge ?? badgeIncludeNewStores(current.settings)
+        return persist({
+          ...current,
+          stores: [
+            ...current.stores,
+            {
+              id,
+              name: trimmed,
+              ...emptyStoreFields(categoryOrder),
+              ownerId: actorId(),
+              visibility: actorId() ? 'home' : 'private',
+              updatedAt,
+              ...(iconIdFromName(trimmed) !== 'other' ? { icon: iconIdFromName(trimmed) } : {}),
+            },
+          ],
+          settings: included ? current.settings : withBadgeStore(current.settings, id, false),
+        })
       })
     })
     return id
@@ -293,6 +299,32 @@ export function useAppState() {
       })
     })
     return id
+  }, [])
+
+  const applyContourIcons = useCallback(() => {
+    setData((current) => {
+      let changed = false
+      const categories = current.categories.map((category) => {
+        const icon = contourReplacement(category.name, category.icon)
+        if (!icon) return category
+        changed = true
+        return withUpdatedAt({ ...category, icon })
+      })
+      const stores = current.stores.map((store) => {
+        const icon = contourReplacement(store.name, store.icon)
+        if (!icon) return store
+        changed = true
+        return withUpdatedAt({ ...store, icon })
+      })
+      const groups = (current.groups ?? []).map((group) => {
+        const icon = contourReplacement(group.name, group.icon)
+        if (!icon) return group
+        changed = true
+        return withUpdatedAt({ ...group, icon })
+      })
+      if (!changed) return current
+      return persist({ ...current, categories, stores, groups })
+    })
   }, [])
 
   const setCategoryStyle = useCallback((
@@ -551,11 +583,11 @@ export function useAppState() {
           trimmedName,
           categoryId,
         )
-        const stores = current.stores.map((store) =>
-          store.id === storeId
-            ? withCategoryEnabled(store, categoryId, current.categories)
-            : store,
-        )
+        const stores = current.stores.map((store) => {
+          if (store.id !== storeId) return store
+          const next = withCategoryEnabled(store, categoryId, current.categories)
+          return next === store ? store : withUpdatedAt(next)
+        })
 
         if (existing) {
           return persist({
@@ -687,7 +719,11 @@ export function useAppState() {
     })
   }, [])
 
-  const applyTemplate = useCallback((storeId: string, templateId: string) => {
+  const applyTemplate = useCallback((
+    storeId: string,
+    templateId: string,
+    mode: 'all' | 'matching' = 'all',
+  ) => {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       const found = findSharedTemplate(current.stores, templateId, current.groups ?? [])
@@ -696,17 +732,13 @@ export function useAppState() {
         .find((template) => template.id === templateId)
       const source = found?.template ?? folderTemplate
       if (!store || !source) return current
-      const template = {
-        ...source,
-        items: source.items.map((entry) => ({
-          ...entry,
-          categoryId: mapTemplateCategoryId(entry, store, current.categories),
-        })),
-      }
+      const fit = classifyTemplateItems(store, current.categories, source.items)
+      const templateItems = mode === 'matching' ? fit.ready : [...fit.ready, ...fit.missing]
+      if (templateItems.length === 0) return current
       forgetCleared(storeId)
 
       let items = [...current.items]
-      for (const entry of template.items) {
+      for (const entry of templateItems) {
         const existing = items.find(
           (item) =>
             item.storeId === storeId &&
@@ -734,15 +766,18 @@ export function useAppState() {
         ...current,
         items,
         catalog: mergeCatalogFromItems(current.catalog ?? [], items),
-        stores: current.stores.map((item) =>
-          item.id === storeId
-            ? withCategoriesEnabled(
-                item,
-                template.items.map((entry) => entry.categoryId),
-                current.categories,
-              )
-            : item,
-        ),
+        stores:
+          mode === 'matching'
+            ? current.stores
+            : current.stores.map((item) => {
+                if (item.id !== storeId) return item
+                const enabled = withCategoriesEnabled(
+                  item,
+                  templateItems.map((entry) => entry.categoryId),
+                  current.categories,
+                )
+                return enabled === item ? item : withUpdatedAt(enabled)
+              }),
       })
     })
   }, [forgetCleared])
@@ -1013,38 +1048,44 @@ export function useAppState() {
   const saveCatalogEntry = useCallback((name: string, categoryId: string, entryId?: string) => {
     const trimmed = name.trim()
     if (!trimmed || !categoryId) return false
-    let saved = false
+    const catalog = data.catalog ?? []
+    const category = data.categories.find((item) => item.id === categoryId)
+    if (!category) return false
+    const duplicate = catalog.find(
+      (entry) =>
+        entry.name.toLowerCase() === trimmed.toLowerCase() &&
+        entry.id !== entryId,
+    )
+    if (duplicate) return false
+    if (entryId && !catalog.some((entry) => entry.id === entryId)) return false
     setData((current) => {
-      const catalog = current.catalog ?? []
-      const category = current.categories.find((item) => item.id === categoryId)
-      if (!category) return current
-      const duplicate = catalog.find(
+      const live = current.catalog ?? []
+      const liveCategory = current.categories.find((item) => item.id === categoryId)
+      if (!liveCategory) return current
+      const liveDuplicate = live.find(
         (entry) =>
           entry.name.toLowerCase() === trimmed.toLowerCase() &&
           entry.id !== entryId,
       )
-      if (duplicate) return current
+      if (liveDuplicate) return current
       if (entryId) {
-        const exists = catalog.some((entry) => entry.id === entryId)
-        if (!exists) return current
-        saved = true
+        if (!live.some((entry) => entry.id === entryId)) return current
         return persist({
           ...current,
-          catalog: catalog.map((entry) =>
+          catalog: live.map((entry) =>
             entry.id === entryId
               ? withUpdatedAt({ ...entry, name: trimmed, categoryId })
               : entry,
           ),
         })
       }
-      saved = true
       return persist({
         ...current,
-        catalog: [...catalog, { id: newId(), name: trimmed, categoryId, updatedAt: nowIso() }],
+        catalog: [...live, { id: newId(), name: trimmed, categoryId, updatedAt: nowIso() }],
       })
     })
-    return saved
-  }, [])
+    return true
+  }, [data])
 
   const deleteCatalogEntry = useCallback((entryId: string) => {
     setData((current) => {
@@ -1364,6 +1405,11 @@ export function useAppState() {
     [updateSettings],
   )
 
+  const setIconStyle = useCallback(
+    (iconStyle: IconStyle) => updateSettings({ iconStyle }),
+    [updateSettings],
+  )
+
   const setStoreInBadge = useCallback((storeId: string, included: boolean) => {
     setData((current) => {
       const next = withBadgeStore(current.settings, storeId, included)
@@ -1385,6 +1431,34 @@ export function useAppState() {
     })
   }, [])
 
+  const mergeRemote = useCallback((
+    remote: AppData,
+    options: {
+      lastPulledAt: string | null
+      userId: string
+      deletedItemIds?: string[]
+      deletedStoreIds?: string[]
+      deletedGroupIds?: string[]
+    },
+  ) => {
+    let changed = false
+    let visible: string[] = []
+    flushSync(() => {
+      setData((current) => {
+        const merged = mergePulledData(current, remote, options)
+        changed = merged.changed
+        if (!merged.changed) return current
+        visible = visibleStoreUpdates(current, merged.next)
+        const settings = mergeBadgeExclusions(current.settings, merged.next.settings)
+        const saved = loadStoreOrder()
+        const orderedIds = saved.length > 0 ? saved : current.stores.map((store) => store.id)
+        const stores = applyStoreOrder(merged.next.stores, orderedIds)
+        return persist({ ...merged.next, settings, stores }, 'sync')
+      })
+    })
+    return { changed, visible }
+  }, [])
+
   const replaceData = useCallback((next: AppData, opts?: { takeCloudOrder?: boolean }) => {
     setData((current) => {
       const settings = mergeBadgeExclusions(current.settings, next.settings)
@@ -1402,6 +1476,7 @@ export function useAppState() {
   return {
     data,
     replaceData,
+    mergeRemote,
     clearedStoreIds,
     addStore,
     renameStore,
@@ -1414,6 +1489,7 @@ export function useAppState() {
     removeCategoryFromStore,
     renameGlobalCategory,
     setCategoryStyle,
+    applyContourIcons,
     deleteGlobalCategory,
     saveCatalogEntry,
     deleteCatalogEntry,
@@ -1453,6 +1529,7 @@ export function useAppState() {
     setGroupVisibility,
     setTheme,
     setFontSize,
+    setIconStyle,
     setStoreInBadge,
     setBadgeIncludeNew,
     setStoreVisibility,
