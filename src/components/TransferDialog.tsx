@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Store } from '../types'
+import { DialogTitle } from './DialogTitle'
 
 type TransferDialogProps = {
   stores: Store[]
@@ -22,7 +23,7 @@ export function TransferDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <h2>В другой список</h2>
+        <DialogTitle title="В другой список" onBack={onClose} />
         {activeCount > 0 ? (
           <p className="hint">
             Переносятся только некупленные товары. Скопировать — они останутся
@@ -61,9 +62,6 @@ export function TransferDialog({
             onClick={() => onMove(targetId)}
           >
             Перенести
-          </button>
-          <button type="button" className="button-secondary" onClick={onClose}>
-            Отмена
           </button>
         </div>
       </div>

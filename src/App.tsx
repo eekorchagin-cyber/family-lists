@@ -19,7 +19,7 @@ import { SettingsScreen } from './screens/SettingsScreen'
 import { ListSettingsScreen } from './screens/ListSettingsScreen'
 import { clearCrashSeen } from './components/ErrorBoundary'
 import { captureSharedAppFromLocation } from './data/loyaltyApps'
-import type { Screen } from './types'
+import type { Screen, StoreVisibility } from './types'
 
 function App() {
   const {
@@ -60,7 +60,6 @@ function App() {
     saveFolderTemplate,
     deleteFolderTemplate,
     saveStoreTemplate,
-    deleteGroupTemplate,
     transferItems,
     reorderStores,
     reorderHome,
@@ -164,7 +163,7 @@ function App() {
     onForwardList: (storeId: string, code: string) => sync.forwardStore(storeId, code),
     onOpenStore: (storeId: string) => setScreen({ name: 'store' as const, storeId }),
     onStartAddStore: () => setScreen({ name: 'newStore' as const }),
-    onAddGroup: (name, visibility) => addGroup(name, visibility),
+    onAddGroup: (name: string, visibility?: StoreVisibility) => addGroup(name, visibility),
     onRenameStore: renameStore,
     onRenameGroup: renameGroup,
     onSetGroupIcon: setGroupIcon,
@@ -174,10 +173,7 @@ function App() {
     onDeleteGroup: deleteGroup,
     onSetStoreGroup: setStoreGroup,
     onSetGroupVisibility: setGroupVisibility,
-    onSaveGroupTemplate: saveGroupTemplate,
-    onSaveStoreTemplate: saveStoreTemplate,
-    onDeleteGroupTemplate: (_groupId, templateId) => deleteTemplate(templateId),
-    myId: sync.session?.userId,
+    onSetStoreVisibility: setStoreVisibility,
     onReorderStores: reorderStores,
     onReorderHome: reorderHome,
   }
@@ -341,7 +337,6 @@ function App() {
             unusedCategories={unusedGlobalCategories(data.categories, store)}
             items={storeItems}
             otherStores={data.stores.filter((item) => item.id !== store.id)}
-            activeCount={storeItems.filter((item) => !item.bought).length}
             syncEnabled={syncEnabled}
             onVisibility={(visibility) => setStoreVisibility(store.id, visibility)}
             onBack={() => setScreen({ name: 'store', storeId: store.id })}
@@ -362,10 +357,6 @@ function App() {
             }
             onEnableCategory={(categoryIds) => enableCategoriesInStore(store.id, categoryIds)}
             onRemoveCategory={(categoryId) => removeCategoryFromStore(store.id, categoryId)}
-            onApplyTemplate={(templateId, mode) => {
-              applyTemplate(store.id, templateId, mode)
-              setScreen({ name: 'store', storeId: store.id })
-            }}
             onSaveTemplate={(name, visibility, target) =>
               saveTemplate(store.id, name, undefined, visibility, target)
             }
@@ -375,8 +366,6 @@ function App() {
             onDeleteListTemplate={(templateId) => deleteTemplate(templateId)}
             onSetTemplateVisibility={setTemplateVisibility}
             myId={sync.session?.userId}
-            onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
-            onMoveToStore={(storeId) => transferItems(store.id, storeId, 'move')}
             groups={data.groups ?? []}
             templateFolders={data.templateFolders ?? []}
             onSetLoyalty={(card) => setStoreLoyalty(store.id, card)}

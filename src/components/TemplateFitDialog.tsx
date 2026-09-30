@@ -1,3 +1,5 @@
+import { DialogTitle } from './DialogTitle'
+
 type TemplateFitDialogProps = {
   missingNames: string[]
   onMatching: () => void
@@ -15,7 +17,7 @@ export function TemplateFitDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <h2>В списке нет таких отделов</h2>
+        <DialogTitle title="В списке нет таких отделов" onBack={onClose} />
         <p className="hint">Нет отделов: {list}. Эти товары могут не продаваться в этом магазине.</p>
         <div className="dialog-actions dialog-actions-single">
           <button type="button" className="button-secondary" onClick={onMatching}>
@@ -23,9 +25,6 @@ export function TemplateFitDialog({
           </button>
           <button type="button" className="button-primary" onClick={onAll}>
             Вставить все и добавить отделы
-          </button>
-          <button type="button" className="button-secondary" onClick={onClose}>
-            Не вставлять
           </button>
         </div>
       </div>

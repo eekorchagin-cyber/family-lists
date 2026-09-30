@@ -1,4 +1,5 @@
 import { BarcodeSvg } from './BarcodeSvg'
+import { DialogTitle } from './DialogTitle'
 import { QrImage } from './QrImage'
 import { loyaltyAppError, loyaltyAppHref, openLoyaltyApp, parseShortcutName } from '../data/loyaltyApps'
 import type { LoyaltyCard } from '../types'
@@ -76,13 +77,13 @@ export function LoyaltyCardSheet({
         className="dialog loyalty-sheet"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2>Бонусная карта</h2>
+        <DialogTitle title="Бонусная карта" onBack={onClose} />
         {source === 'group' ? (
           <p className="hint">Карта группы — у этого списка своей нет.</p>
         ) : null}
         <LoyaltyCardView card={card} large showOpen={false} />
-        <div className="dialog-actions dialog-actions-single">
-          {card.kind === 'app' ? (
+        {card.kind === 'app' ? (
+          <div className="dialog-actions dialog-actions-single">
             <button
               type="button"
               className="button-primary"
@@ -90,15 +91,8 @@ export function LoyaltyCardSheet({
             >
               Открыть приложение
             </button>
-          ) : null}
-          <button
-            type="button"
-            className={card.kind === 'app' ? 'button-secondary' : 'button-primary'}
-            onClick={onClose}
-          >
-            Закрыть
-          </button>
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )

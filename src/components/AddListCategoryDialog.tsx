@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CategoryMark } from './CategoryMark'
 import type { Category } from '../types'
+import { DialogTitle } from './DialogTitle'
 
 type AddListCategoryDialogProps = {
   categories: Category[]
@@ -29,7 +30,7 @@ export function AddListCategoryDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <h2>Добавить категорию</h2>
+        <DialogTitle title="Добавить категорию" onBack={onClose} />
         {categories.length > 0 ? (
           <>
             <p className="hint">
@@ -59,10 +60,7 @@ export function AddListCategoryDialog({
         <button type="button" className="button-secondary sheet-extra" onClick={onCreate}>
           Новая категория
         </button>
-        <div className="dialog-actions">
-          <button type="button" className="button-secondary" onClick={onClose}>
-            Отмена
-          </button>
+        <div className="dialog-actions dialog-actions-single">
           <button
             type="button"
             className="button-primary"

@@ -20,13 +20,11 @@ type Draft = {
 }
 
 function CommandButton({
-  glyph,
   label,
   ariaLabel,
   danger,
   onClick,
 }: {
-  glyph: string
   label: string
   ariaLabel?: string
   danger?: boolean
@@ -35,13 +33,14 @@ function CommandButton({
   return (
     <button
       type="button"
-      className={danger ? 'command-button command-button--danger' : 'command-button'}
+      className={
+        danger
+          ? 'command-button command-button--text command-button--danger'
+          : 'command-button command-button--text'
+      }
       aria-label={ariaLabel ?? label}
       onClick={onClick}
     >
-      <span className="command-glyph" aria-hidden="true">
-        {glyph}
-      </span>
       <span className="command-label">{label}</span>
     </button>
   )
@@ -305,7 +304,7 @@ export function MyTemplatesPanel({
               className="input search-input"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Название товара"
+              placeholder="Название"
               aria-label="Поиск товара"
               autoComplete="off"
             />
@@ -540,7 +539,6 @@ export function MyTemplatesPanel({
             <h2>{menu.folder.name}</h2>
             <div className="command-row">
               <CommandButton
-                glyph="✎"
                 label="Имя"
                 ariaLabel="Переименовать"
                 onClick={() => {
@@ -549,7 +547,6 @@ export function MyTemplatesPanel({
                 }}
               />
               <CommandButton
-                glyph="+"
                 label="Шаблон"
                 ariaLabel="Новый шаблон"
                 onClick={() => {
@@ -560,7 +557,6 @@ export function MyTemplatesPanel({
                 }}
               />
               <CommandButton
-                glyph="🗑"
                 label="Удалить"
                 ariaLabel="Удалить группу"
                 danger
@@ -569,7 +565,6 @@ export function MyTemplatesPanel({
                   setMenu(null)
                 }}
               />
-              <CommandButton glyph="✕" label="Отмена" onClick={() => setMenu(null)} />
             </div>
           </div>
         </div>
@@ -580,7 +575,6 @@ export function MyTemplatesPanel({
             <h2>{menu.template.name}</h2>
             <div className="command-row">
               <CommandButton
-                glyph="✎"
                 label="Имя"
                 ariaLabel="Переименовать"
                 onClick={() => {
@@ -596,7 +590,6 @@ export function MyTemplatesPanel({
                 }}
               />
               <CommandButton
-                glyph="✎"
                 label="Изменить"
                 onClick={() => {
                   const folderId = menu.folderId
@@ -610,7 +603,6 @@ export function MyTemplatesPanel({
                   })
                 }}
               />
-              <CommandButton glyph="✕" label="Отмена" onClick={() => setMenu(null)} />
             </div>
           </div>
         </div>

@@ -22,6 +22,7 @@ import {
   templatesForList,
   type TemplateSaveTarget,
 } from '../data/templates'
+
 import { TemplateSaveFields } from '../components/TemplateSaveFields'
 import type { HomeMember } from '../data/sync/session'
 import type { Category, Item, ParsedItem, Store, StoreGroup, StoreVisibility, TemplateFolder } from '../types'
@@ -99,6 +100,7 @@ export function StoreScreen({
   const [addingCategory, setAddingCategory] = useState(false)
   const [namingTemplate, setNamingTemplate] = useState(false)
   const [templateVisibility, setTemplateVisibility] = useState<StoreVisibility>('home')
+  const [saveTarget, setSaveTarget] = useState<TemplateSaveTarget>({ kind: 'store' })
   const [renamingStore, setRenamingStore] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
   const [showingCard, setShowingCard] = useState(false)
@@ -323,7 +325,7 @@ export function StoreScreen({
               className="input search-input"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Название товара"
+              placeholder="Название"
               aria-label="Поиск товара"
               autoComplete="off"
             />
@@ -577,6 +579,7 @@ export function StoreScreen({
                   if (!completionArmed) return
                   templateSnapshot.current = items.map((item) => ({ ...item }))
                   setTemplateVisibility('home')
+                  setSaveTarget(placeTemplateTarget(store))
                   setShowCompletion(false)
                   setNamingTemplate(true)
                 }}
@@ -598,6 +601,12 @@ export function StoreScreen({
           inputId="store-template-name"
           extra={
             <TemplateSaveFields
+              store={store}
+              groups={groups}
+              folders={templateFolders}
+              myId={myId}
+              target={saveTarget}
+              onTarget={setSaveTarget}
               syncEnabled={syncEnabled}
               visibility={templateVisibility}
               onVisibility={setTemplateVisibility}
@@ -609,12 +618,7 @@ export function StoreScreen({
             if (allDone && !completionHandled.current) setShowCompletion(true)
           }}
           onConfirm={(name) => {
-            onSaveTemplate(
-              name,
-              templateSnapshot.current ?? items,
-              templateVisibility,
-              placeTemplateTarget(store),
-            )
+            onSaveTemplate(name, templateSnapshot.current ?? items, templateVisibility, saveTarget)
             templateSnapshot.current = null
             setNamingTemplate(false)
             rememberDismiss()

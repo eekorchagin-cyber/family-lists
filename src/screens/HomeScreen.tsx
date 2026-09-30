@@ -3,7 +3,7 @@ import { AddIconButton } from '../components/AddIconButton'
 import { CategoryMark } from '../components/CategoryMark'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { CategoryMarkPicker } from '../components/CategoryMarkPicker'
-import { GroupTemplatesDialog } from '../components/GroupTemplatesDialog'
+import { DialogTitle } from '../components/DialogTitle'
 import { Header } from '../components/Header'
 import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
 import { NameDialog } from '../components/NameDialog'
@@ -24,7 +24,7 @@ import { resolveLoyaltyCard } from '../data/loyalty'
 import { playConfirmSound } from '../data/sounds'
 import { APP_VERSION } from '../data/version'
 import type { Person } from '../data/sync/forwardApi'
-import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
+import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup, StoreVisibility } from '../types'
 
 function CommandButton({
   glyph,
@@ -73,19 +73,10 @@ type HomeScreenProps = {
   onSetStoreLoyalty: (storeId: string, card: LoyaltyCard | undefined) => void
   onSetStoreGroup: (storeId: string, groupId: string | null) => void
   onSetGroupVisibility: (groupId: string, visibility: StoreVisibility) => void
-  onSaveGroupTemplate: (
-    groupId: string,
-    draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
-  ) => void
-  onSaveStoreTemplate: (
-    storeId: string,
-    draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
-  ) => void
-  onDeleteGroupTemplate: (groupId: string, templateId: string) => void
+  onSetStoreVisibility: (storeId: string, visibility: StoreVisibility) => void
   onReorderStores: (orderedIds: string[]) => void
   onReorderHome: (orderedKeys: string[]) => void
   syncEnabled?: boolean
-  myId?: string
   syncConfigured?: boolean
   displayName?: string
   frozen?: boolean
@@ -148,13 +139,10 @@ export function HomeScreen({
   onSetStoreLoyalty,
   onSetStoreGroup,
   onSetGroupVisibility,
-  onSaveGroupTemplate,
-  onSaveStoreTemplate,
-  onDeleteGroupTemplate,
+  onSetStoreVisibility,
   onReorderStores,
   onReorderHome,
   syncEnabled = false,
-  myId,
   syncConfigured = true,
   displayName,
   frozen = false,
@@ -184,10 +172,10 @@ export function HomeScreen({
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [newGroupVisibility, setNewGroupVisibility] = useState<StoreVisibility>('home')
   const [editingGroupVisibility, setEditingGroupVisibility] = useState<StoreVisibility>('home')
+  const [editingStoreVisibility, setEditingStoreVisibility] = useState<StoreVisibility>('home')
   const [pickingGroupIcon, setPickingGroupIcon] = useState<StoreGroup | null>(null)
   const [pickingStoreIcon, setPickingStoreIcon] = useState<Store | null>(null)
   const [editingGroupCard, setEditingGroupCard] = useState<StoreGroup | null>(null)
-  const [templateGroupId, setTemplateGroupId] = useState<string | null>(null)
   const [editingStoreCard, setEditingStoreCard] = useState<Store | null>(null)
   const [addingMenu, setAddingMenu] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => loadCollapsedGroups())
@@ -765,7 +753,10 @@ export function HomeScreen({
                     type="button"
                     className="qty-button store-menu"
                     aria-label={`Изменить список ${store.name}`}
-                    onClick={() => setManaging({ kind: 'store', store })}
+                    onClick={() => {
+                      setEditingStoreVisibility(store.visibility === 'private' ? 'private' : 'home')
+                      setManaging({ kind: 'store', store })
+                    }}
                   >
                     ⋯
                   </button>
@@ -780,7 +771,7 @@ export function HomeScreen({
       {addingMenu ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setAddingMenu(false)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>Добавить</h2>
+            <DialogTitle title="Добавить" onBack={() => setAddingMenu(false)} />
             <div className="choice-row">
               <button
                 type="button"
@@ -803,9 +794,6 @@ export function HomeScreen({
               >
                 Новая группа
               </button>
-              <button type="button" className="button-secondary" onClick={() => setAddingMenu(false)}>
-                Отмена
-              </button>
             </div>
           </div>
         </div>
@@ -814,7 +802,42 @@ export function HomeScreen({
       {managing?.kind === 'store' ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setManaging(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>{managing.store.name}</h2>
+            <DialogTitle title={managing.store.name} onBack={() => setManaging(null)} />
+            {syncEnabled && !managing.store.incomingFrom ? (
+              <>
+                <p className="field-label">Кто видит</p>
+                <div className="choice-row">
+                  <button
+                    type="button"
+                    className={editingStoreVisibility === 'private' ? 'choice active' : 'choice'}
+                    onClick={() => setEditingStoreVisibility('private')}
+                  >
+                    Только я
+                  </button>
+                  <button
+                    type="button"
+                    className={editingStoreVisibility === 'home' ? 'choice active' : 'choice'}
+                    onClick={() => setEditingStoreVisibility('home')}
+                  >
+                    Весь дом
+                  </button>
+                  <button
+                    type="button"
+                    className="button-primary"
+                    onClick={() => {
+                      onSetStoreVisibility(managing.store.id, editingStoreVisibility)
+                      setManaging(null)
+                    }}
+                  >
+                    Сохранить
+                  </button>
+                </div>
+                <p className="hint">
+                  «Только я» — список виден лишь вам (и на ваших телефонах с кодом T). «Весь дом» —
+                  всем участникам семьи.
+                </p>
+              </>
+            ) : null}
             <div className="command-row">
               <CommandButton
                 glyph="✎"
@@ -884,7 +907,6 @@ export function HomeScreen({
                   setManaging(null)
                 }}
               />
-              <CommandButton glyph="✕" label="Отмена" onClick={() => setManaging(null)} />
             </div>
           </div>
         </div>
@@ -893,7 +915,7 @@ export function HomeScreen({
       {managing?.kind === 'group' ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setManaging(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>{managing.group.name}</h2>
+            <DialogTitle title={managing.group.name} onBack={() => setManaging(null)} />
             {syncEnabled ? (
               <>
                 <p className="field-label">Кто видит</p>
@@ -924,7 +946,8 @@ export function HomeScreen({
                   </button>
                 </div>
                 <p className="hint">
-                  «Только я» — группа видна лишь вам, и на ваших телефонах с кодом T. Списки внутри неё у семьи остаются на первом уровне.
+                  «Только я» — группа видна лишь вам, и на ваших телефонах с кодом T. Списки внутри
+                  неё у семьи остаются на первом уровне.
                 </p>
               </>
             ) : null}
@@ -956,14 +979,6 @@ export function HomeScreen({
                 }}
               />
               <CommandButton
-                glyph="📋"
-                label="Шаблоны"
-                onClick={() => {
-                  setTemplateGroupId(managing.group.id)
-                  setManaging(null)
-                }}
-              />
-              <CommandButton
                 glyph="🗑"
                 label="Удалить"
                 ariaLabel="Удалить группу"
@@ -973,7 +988,6 @@ export function HomeScreen({
                   setManaging(null)
                 }}
               />
-              <CommandButton glyph="✕" label="Отмена" onClick={() => setManaging(null)} />
             </div>
           </div>
         </div>
@@ -990,7 +1004,11 @@ export function HomeScreen({
           }}
         >
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>Переслать</h2>
+            <DialogTitle title="Переслать" onBack={() => {
+              if (forwardBusy) return
+              setForwardingStore(null)
+              setForwardNote(null)
+            }} />
             <p className="hint">
               «{forwardingStore.name}» уйдёт копией. У человека появится отдельный новый список, не
               список его семьи.
@@ -1027,17 +1045,6 @@ export function HomeScreen({
               </ul>
             )}
             {forwardNote ? <p className="hint">{forwardNote}</p> : null}
-            <button
-              type="button"
-              className="button-secondary"
-              disabled={forwardBusy}
-              onClick={() => {
-                setForwardingStore(null)
-                setForwardNote(null)
-              }}
-            >
-              Закрыть
-            </button>
           </div>
         </div>
       ) : null}
@@ -1045,7 +1052,7 @@ export function HomeScreen({
       {movingStore ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setMovingStore(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>Куда перенести</h2>
+            <DialogTitle title="Куда перенести" onBack={() => setMovingStore(null)} />
             <div className="choice-row">
               {groups.length === 0 ? (
                 <p className="hint">Сначала создайте группу через «+».</p>
@@ -1065,9 +1072,6 @@ export function HomeScreen({
                   </button>
                 ))
               )}
-              <button type="button" className="button-secondary" onClick={() => setMovingStore(null)}>
-                Отмена
-              </button>
             </div>
           </div>
         </div>
@@ -1110,23 +1114,6 @@ export function HomeScreen({
         />
       ) : null}
 
-      {templateGroupId ? (
-        <GroupTemplatesDialog
-          group={groups.find((group) => group.id === templateGroupId) ?? {
-            id: templateGroupId,
-            name: 'Группа',
-          }}
-          stores={stores.filter((store) => store.groupId === templateGroupId)}
-          categories={categories}
-          syncEnabled={syncEnabled}
-          myId={myId}
-          onClose={() => setTemplateGroupId(null)}
-          onSave={(draft) => onSaveGroupTemplate(templateGroupId, draft)}
-          onSaveStore={(storeId, draft) => onSaveStoreTemplate(storeId, draft)}
-          onDelete={(templateId) => onDeleteGroupTemplate(templateGroupId, templateId)}
-        />
-      ) : null}
-
       {renamingStore ? (
         <NameDialog
           title="Название списка"
@@ -1161,7 +1148,7 @@ export function HomeScreen({
       {pickingGroupIcon ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setPickingGroupIcon(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>Значок группы</h2>
+            <DialogTitle title="Значок группы" onBack={() => setPickingGroupIcon(null)} />
             <CategoryMarkPicker
               iconsOnly
               color="none"
@@ -1184,11 +1171,6 @@ export function HomeScreen({
                 Без значка
               </button>
             ) : null}
-            <div className="dialog-actions">
-              <button type="button" className="button-secondary" onClick={() => setPickingGroupIcon(null)}>
-                Отмена
-              </button>
-            </div>
           </div>
         </div>
       ) : null}
@@ -1196,7 +1178,7 @@ export function HomeScreen({
       {pickingStoreIcon ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setPickingStoreIcon(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>Значок списка</h2>
+            <DialogTitle title="Значок списка" onBack={() => setPickingStoreIcon(null)} />
             <CategoryMarkPicker
               iconsOnly
               color="none"
@@ -1219,11 +1201,6 @@ export function HomeScreen({
                 Без значка
               </button>
             ) : null}
-            <div className="dialog-actions">
-              <button type="button" className="button-secondary" onClick={() => setPickingStoreIcon(null)}>
-                Отмена
-              </button>
-            </div>
           </div>
         </div>
       ) : null}

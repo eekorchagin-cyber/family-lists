@@ -3,6 +3,7 @@ import { parseItem } from '../data/parseItem'
 import { formatQty } from '../data/qty'
 import type { Category, NamedTemplate, StoreVisibility, TemplateItem } from '../types'
 import { ConfirmDialog } from './ConfirmDialog'
+import { DialogTitle } from './DialogTitle'
 
 type TemplateDraftDialogProps = {
   template: NamedTemplate
@@ -47,7 +48,7 @@ export function TemplateDraftDialog({
     <>
       <div className="overlay overlay--capture" role="presentation" onClick={onClose}>
         <div className="dialog" onClick={(event) => event.stopPropagation()}>
-          <h2>Шаблон</h2>
+          <DialogTitle title="Шаблон" onBack={onClose} />
           <label className="field-label" htmlFor="list-template-edit-name">
             Название
           </label>
@@ -135,13 +136,10 @@ export function TemplateDraftDialog({
               </select>
             ) : null}
             <button type="button" className="button-secondary" onClick={addProduct} disabled={!product.trim()}>
-              Добавить товар
+              Добавить
             </button>
           </div>
-          <div className="dialog-actions">
-            <button type="button" className="button-secondary" onClick={onClose}>
-              Назад
-            </button>
+          <div className="dialog-actions dialog-actions-single">
             <button
               type="button"
               className="button-primary"

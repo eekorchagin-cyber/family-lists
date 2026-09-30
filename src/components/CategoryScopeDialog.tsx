@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { canAutofocus } from '../data/viewport'
 import type { Category } from '../types'
+import { DialogTitle } from './DialogTitle'
 
 type CategoryScopeDialogProps = {
   category: Category
@@ -29,7 +30,7 @@ export function CategoryScopeDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <h2>{displayName || category.name}</h2>
+        <DialogTitle title={displayName || category.name} onBack={onClose} />
         <label className="field-label" htmlFor="category-scope-name">
           Название
         </label>
@@ -62,10 +63,7 @@ export function CategoryScopeDialog({
             ? 'Общая категория: её можно добавить в любой список. Здесь она останется.'
             : 'Категория останется только в этом списке.'}
         </p>
-        <div className="dialog-actions">
-          <button type="button" className="button-secondary" onClick={onClose}>
-            Отмена
-          </button>
+        <div className="dialog-actions dialog-actions-single">
           <button type="button" className="button-primary" disabled={!name.trim()} onClick={submit}>
             Готово
           </button>

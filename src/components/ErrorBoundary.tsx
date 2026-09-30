@@ -42,7 +42,7 @@ type State = { error: Error | null; copied: boolean }
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null, copied: false }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { error }
   }
 
