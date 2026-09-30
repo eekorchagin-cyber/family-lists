@@ -1,9 +1,9 @@
 import { useState, type KeyboardEvent } from 'react'
 import { canAutofocus } from '../data/viewport'
 import { CategoryMark } from './CategoryMark'
+import { DialogHeading } from './DialogHeading'
 import { NewCategoryDialog } from './NewCategoryDialog'
 import type { CatalogEntry, Category, Store } from '../types'
-import { DialogTitle } from './DialogTitle'
 
 type CatalogDialogProps = {
   entry: CatalogEntry | null
@@ -63,7 +63,7 @@ export function CatalogDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <DialogTitle title={entry ? 'Товар' : 'Новый товар'} onBack={onClose} />
+        <DialogHeading title={entry ? 'Товар' : 'Новый товар'} onClose={onClose} />
         <label className="field-label" htmlFor="catalog-name">
           Название
         </label>

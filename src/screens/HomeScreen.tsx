@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { AddIconButton } from '../components/AddIconButton'
 import { CategoryMark } from '../components/CategoryMark'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { DialogHeading } from '../components/DialogHeading'
 import { CategoryMarkPicker } from '../components/CategoryMarkPicker'
-import { DialogTitle } from '../components/DialogTitle'
+import { GroupTemplatesDialog } from '../components/GroupTemplatesDialog'
 import { Header } from '../components/Header'
 import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
 import { NameDialog } from '../components/NameDialog'
@@ -24,16 +25,14 @@ import { resolveLoyaltyCard } from '../data/loyalty'
 import { playConfirmSound } from '../data/sounds'
 import { APP_VERSION } from '../data/version'
 import type { Person } from '../data/sync/forwardApi'
-import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup, StoreVisibility } from '../types'
+import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
 
 function CommandButton({
-  glyph,
   label,
   ariaLabel,
   danger,
   onClick,
 }: {
-  glyph: string
   label: string
   ariaLabel?: string
   danger?: boolean
@@ -42,13 +41,14 @@ function CommandButton({
   return (
     <button
       type="button"
-      className={danger ? 'command-button command-button--danger' : 'command-button'}
+      className={
+        danger
+          ? 'command-button command-button--text command-button--danger'
+          : 'command-button command-button--text'
+      }
       aria-label={ariaLabel ?? label}
       onClick={onClick}
     >
-      <span className="command-glyph" aria-hidden="true">
-        {glyph}
-      </span>
       <span className="command-label">{label}</span>
     </button>
   )
@@ -74,9 +74,20 @@ type HomeScreenProps = {
   onSetStoreGroup: (storeId: string, groupId: string | null) => void
   onSetGroupVisibility: (groupId: string, visibility: StoreVisibility) => void
   onSetStoreVisibility: (storeId: string, visibility: StoreVisibility) => void
+  onOpenListTemplates: (storeId: string) => void
+  onSaveGroupTemplate: (
+    groupId: string,
+    draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
+  ) => void
+  onSaveStoreTemplate: (
+    storeId: string,
+    draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
+  ) => void
+  onDeleteGroupTemplate: (groupId: string, templateId: string) => void
   onReorderStores: (orderedIds: string[]) => void
   onReorderHome: (orderedKeys: string[]) => void
   syncEnabled?: boolean
+  myId?: string
   syncConfigured?: boolean
   displayName?: string
   frozen?: boolean
@@ -140,9 +151,14 @@ export function HomeScreen({
   onSetStoreGroup,
   onSetGroupVisibility,
   onSetStoreVisibility,
+  onOpenListTemplates,
+  onSaveGroupTemplate,
+  onSaveStoreTemplate,
+  onDeleteGroupTemplate,
   onReorderStores,
   onReorderHome,
   syncEnabled = false,
+  myId,
   syncConfigured = true,
   displayName,
   frozen = false,
@@ -176,6 +192,7 @@ export function HomeScreen({
   const [pickingGroupIcon, setPickingGroupIcon] = useState<StoreGroup | null>(null)
   const [pickingStoreIcon, setPickingStoreIcon] = useState<Store | null>(null)
   const [editingGroupCard, setEditingGroupCard] = useState<StoreGroup | null>(null)
+  const [templateGroupId, setTemplateGroupId] = useState<string | null>(null)
   const [editingStoreCard, setEditingStoreCard] = useState<Store | null>(null)
   const [addingMenu, setAddingMenu] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => loadCollapsedGroups())
@@ -754,7 +771,7 @@ export function HomeScreen({
                     className="qty-button store-menu"
                     aria-label={`Изменить список ${store.name}`}
                     onClick={() => {
-                      setEditingStoreVisibility(store.visibility === 'private' ? 'private' : 'home')
+                      setEditingStoreVisibility(store.visibility === 'home' ? 'home' : 'private')
                       setManaging({ kind: 'store', store })
                     }}
                   >
@@ -771,7 +788,7 @@ export function HomeScreen({
       {addingMenu ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setAddingMenu(false)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <DialogTitle title="Добавить" onBack={() => setAddingMenu(false)} />
+            <DialogHeading title="Добавить" onClose={() => setAddingMenu(false)} />
             <div className="choice-row">
               <button
                 type="button"
@@ -802,7 +819,7 @@ export function HomeScreen({
       {managing?.kind === 'store' ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setManaging(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <DialogTitle title={managing.store.name} onBack={() => setManaging(null)} />
+            <DialogHeading title={managing.store.name} onClose={() => setManaging(null)} />
             {syncEnabled && !managing.store.incomingFrom ? (
               <>
                 <p className="field-label">Кто видит</p>
@@ -810,37 +827,28 @@ export function HomeScreen({
                   <button
                     type="button"
                     className={editingStoreVisibility === 'private' ? 'choice active' : 'choice'}
-                    onClick={() => setEditingStoreVisibility('private')}
+                    onClick={() => {
+                      setEditingStoreVisibility('private')
+                      onSetStoreVisibility(managing.store.id, 'private')
+                    }}
                   >
                     Только я
                   </button>
                   <button
                     type="button"
                     className={editingStoreVisibility === 'home' ? 'choice active' : 'choice'}
-                    onClick={() => setEditingStoreVisibility('home')}
+                    onClick={() => {
+                      setEditingStoreVisibility('home')
+                      onSetStoreVisibility(managing.store.id, 'home')
+                    }}
                   >
                     Весь дом
                   </button>
-                  <button
-                    type="button"
-                    className="button-primary"
-                    onClick={() => {
-                      onSetStoreVisibility(managing.store.id, editingStoreVisibility)
-                      setManaging(null)
-                    }}
-                  >
-                    Сохранить
-                  </button>
                 </div>
-                <p className="hint">
-                  «Только я» — список виден лишь вам (и на ваших телефонах с кодом T). «Весь дом» —
-                  всем участникам семьи.
-                </p>
               </>
             ) : null}
             <div className="command-row">
               <CommandButton
-                glyph="✎"
                 label="Имя"
                 ariaLabel="Переименовать"
                 onClick={() => {
@@ -849,7 +857,6 @@ export function HomeScreen({
                 }}
               />
               <CommandButton
-                glyph="😀"
                 label="Значок"
                 onClick={() => {
                   setPickingStoreIcon(managing.store)
@@ -857,7 +864,6 @@ export function HomeScreen({
                 }}
               />
               <CommandButton
-                glyph="💳"
                 label="Карта"
                 ariaLabel="Бонусная карта"
                 onClick={() => {
@@ -865,9 +871,15 @@ export function HomeScreen({
                   setManaging(null)
                 }}
               />
+              <CommandButton
+                label="Шаблоны"
+                onClick={() => {
+                  onOpenListTemplates(managing.store.id)
+                  setManaging(null)
+                }}
+              />
               {!managing.store.incomingFrom ? (
                 <CommandButton
-                  glyph="↳"
                   label="В группу"
                   onClick={() => {
                     setMovingStore(managing.store)
@@ -877,7 +889,6 @@ export function HomeScreen({
               ) : null}
               {managing.store.groupId && !managing.store.incomingFrom ? (
                 <CommandButton
-                  glyph="↑"
                   label="Наверх"
                   ariaLabel="На первый уровень"
                   onClick={() => {
@@ -888,7 +899,6 @@ export function HomeScreen({
               ) : null}
               {syncEnabled && onForwardList ? (
                 <CommandButton
-                  glyph="↗"
                   label="Отправить"
                   ariaLabel="Переслать"
                   onClick={() => {
@@ -899,7 +909,6 @@ export function HomeScreen({
                 />
               ) : null}
               <CommandButton
-                glyph="🗑"
                 label="Удалить"
                 danger
                 onClick={() => {
@@ -915,7 +924,7 @@ export function HomeScreen({
       {managing?.kind === 'group' ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setManaging(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <DialogTitle title={managing.group.name} onBack={() => setManaging(null)} />
+            <DialogHeading title={managing.group.name} onClose={() => setManaging(null)} />
             {syncEnabled ? (
               <>
                 <p className="field-label">Кто видит</p>
@@ -923,37 +932,28 @@ export function HomeScreen({
                   <button
                     type="button"
                     className={editingGroupVisibility === 'private' ? 'choice active' : 'choice'}
-                    onClick={() => setEditingGroupVisibility('private')}
+                    onClick={() => {
+                      setEditingGroupVisibility('private')
+                      onSetGroupVisibility(managing.group.id, 'private')
+                    }}
                   >
                     Только я
                   </button>
                   <button
                     type="button"
                     className={editingGroupVisibility === 'home' ? 'choice active' : 'choice'}
-                    onClick={() => setEditingGroupVisibility('home')}
+                    onClick={() => {
+                      setEditingGroupVisibility('home')
+                      onSetGroupVisibility(managing.group.id, 'home')
+                    }}
                   >
                     Весь дом
                   </button>
-                  <button
-                    type="button"
-                    className="button-primary"
-                    onClick={() => {
-                      onSetGroupVisibility(managing.group.id, editingGroupVisibility)
-                      setManaging(null)
-                    }}
-                  >
-                    Сохранить
-                  </button>
                 </div>
-                <p className="hint">
-                  «Только я» — группа видна лишь вам, и на ваших телефонах с кодом T. Списки внутри
-                  неё у семьи остаются на первом уровне.
-                </p>
               </>
             ) : null}
             <div className="command-row">
               <CommandButton
-                glyph="✎"
                 label="Имя"
                 ariaLabel="Переименовать"
                 onClick={() => {
@@ -962,7 +962,6 @@ export function HomeScreen({
                 }}
               />
               <CommandButton
-                glyph="😀"
                 label="Значок"
                 onClick={() => {
                   setPickingGroupIcon(managing.group)
@@ -970,7 +969,6 @@ export function HomeScreen({
                 }}
               />
               <CommandButton
-                glyph="💳"
                 label="Карта"
                 ariaLabel="Бонусная карта"
                 onClick={() => {
@@ -979,7 +977,13 @@ export function HomeScreen({
                 }}
               />
               <CommandButton
-                glyph="🗑"
+                label="Шаблоны"
+                onClick={() => {
+                  setTemplateGroupId(managing.group.id)
+                  setManaging(null)
+                }}
+              />
+              <CommandButton
                 label="Удалить"
                 ariaLabel="Удалить группу"
                 danger
@@ -1004,11 +1008,14 @@ export function HomeScreen({
           }}
         >
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <DialogTitle title="Переслать" onBack={() => {
-              if (forwardBusy) return
-              setForwardingStore(null)
-              setForwardNote(null)
-            }} />
+            <DialogHeading
+              title="Переслать"
+              onClose={() => {
+                if (forwardBusy) return
+                setForwardingStore(null)
+                setForwardNote(null)
+              }}
+            />
             <p className="hint">
               «{forwardingStore.name}» уйдёт копией. У человека появится отдельный новый список, не
               список его семьи.
@@ -1052,7 +1059,7 @@ export function HomeScreen({
       {movingStore ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setMovingStore(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <DialogTitle title="Куда перенести" onBack={() => setMovingStore(null)} />
+            <DialogHeading title="Куда перенести" onClose={() => setMovingStore(null)} />
             <div className="choice-row">
               {groups.length === 0 ? (
                 <p className="hint">Сначала создайте группу через «+».</p>
@@ -1114,6 +1121,23 @@ export function HomeScreen({
         />
       ) : null}
 
+      {templateGroupId ? (
+        <GroupTemplatesDialog
+          group={groups.find((group) => group.id === templateGroupId) ?? {
+            id: templateGroupId,
+            name: 'Группа',
+          }}
+          stores={stores.filter((store) => store.groupId === templateGroupId)}
+          categories={categories}
+          syncEnabled={syncEnabled}
+          myId={myId}
+          onClose={() => setTemplateGroupId(null)}
+          onSave={(draft) => onSaveGroupTemplate(templateGroupId, draft)}
+          onSaveStore={(storeId, draft) => onSaveStoreTemplate(storeId, draft)}
+          onDelete={(templateId) => onDeleteGroupTemplate(templateGroupId, templateId)}
+        />
+      ) : null}
+
       {renamingStore ? (
         <NameDialog
           title="Название списка"
@@ -1148,7 +1172,7 @@ export function HomeScreen({
       {pickingGroupIcon ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setPickingGroupIcon(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <DialogTitle title="Значок группы" onBack={() => setPickingGroupIcon(null)} />
+            <DialogHeading title="Значок группы" onClose={() => setPickingGroupIcon(null)} />
             <CategoryMarkPicker
               iconsOnly
               color="none"
@@ -1178,7 +1202,7 @@ export function HomeScreen({
       {pickingStoreIcon ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setPickingStoreIcon(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <DialogTitle title="Значок списка" onBack={() => setPickingStoreIcon(null)} />
+            <DialogHeading title="Значок списка" onClose={() => setPickingStoreIcon(null)} />
             <CategoryMarkPicker
               iconsOnly
               color="none"

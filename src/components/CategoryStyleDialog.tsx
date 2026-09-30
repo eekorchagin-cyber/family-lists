@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { iconIdFromName } from '../data/categories'
 import type { Category } from '../types'
 import { CategoryMarkPicker } from './CategoryMarkPicker'
-import { DialogTitle } from './DialogTitle'
+import { DialogHeading } from './DialogHeading'
 
 type CategoryStyleDialogProps = {
   category: Category
@@ -21,7 +21,7 @@ export function CategoryStyleDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <DialogTitle title={category.name} onBack={onClose} />
+        <DialogHeading title={category.name} onClose={onClose} />
         <CategoryMarkPicker color={color} icon={icon} onColor={setColor} onIcon={setIcon} />
         <div className="dialog-actions dialog-actions-single">
           <button type="button" className="button-primary" onClick={() => onSave(color, icon)}>

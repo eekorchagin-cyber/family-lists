@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { AccessScreen } from './components/AccessScreen'
 import { MergeDialog } from './components/MergeDialog'
 import { UpdateBanner } from './components/UpdateBanner'
@@ -15,11 +15,14 @@ import { HomeScreen } from './screens/HomeScreen'
 import { NewStoreScreen } from './screens/NewStoreScreen'
 import { StoreScreen } from './screens/StoreScreen'
 import { AddItemScreen } from './screens/AddItemScreen'
-import { SettingsScreen } from './screens/SettingsScreen'
 import { ListSettingsScreen } from './screens/ListSettingsScreen'
 import { clearCrashSeen } from './components/ErrorBoundary'
 import { captureSharedAppFromLocation } from './data/loyaltyApps'
-import type { Screen, StoreVisibility } from './types'
+import type { Screen } from './types'
+
+const SettingsScreen = lazy(() =>
+  import('./screens/SettingsScreen').then((module) => ({ default: module.SettingsScreen })),
+)
 
 function App() {
   const {
@@ -50,7 +53,6 @@ function App() {
     unmarkBought,
     clearBought,
     saveTemplate,
-    setTemplateVisibility,
     applyTemplate,
     deleteTemplate,
     saveGroupTemplate,
@@ -60,6 +62,7 @@ function App() {
     saveFolderTemplate,
     deleteFolderTemplate,
     saveStoreTemplate,
+    deleteGroupTemplate,
     transferItems,
     reorderStores,
     reorderHome,
@@ -163,7 +166,7 @@ function App() {
     onForwardList: (storeId: string, code: string) => sync.forwardStore(storeId, code),
     onOpenStore: (storeId: string) => setScreen({ name: 'store' as const, storeId }),
     onStartAddStore: () => setScreen({ name: 'newStore' as const }),
-    onAddGroup: (name: string, visibility?: StoreVisibility) => addGroup(name, visibility),
+    onAddGroup: (name, visibility) => addGroup(name, visibility),
     onRenameStore: renameStore,
     onRenameGroup: renameGroup,
     onSetGroupIcon: setGroupIcon,
@@ -174,6 +177,12 @@ function App() {
     onSetStoreGroup: setStoreGroup,
     onSetGroupVisibility: setGroupVisibility,
     onSetStoreVisibility: setStoreVisibility,
+    onOpenListTemplates: (storeId: string) =>
+      setScreen({ name: 'storeSettings', storeId, section: 'templates' }),
+    onSaveGroupTemplate: saveGroupTemplate,
+    onSaveStoreTemplate: saveStoreTemplate,
+    onDeleteGroupTemplate: (_groupId, templateId) => deleteTemplate(templateId),
+    myId: sync.session?.userId,
     onReorderStores: reorderStores,
     onReorderHome: reorderHome,
   }
@@ -226,6 +235,13 @@ function App() {
   if (screen.name === 'settings') {
     return (
       <>
+        <Suspense
+          fallback={
+            <div className="screen">
+              <p className="hint">Открываю настройки…</p>
+            </div>
+          }
+        >
         <SettingsScreen
           settings={data.settings}
           categories={data.categories}
@@ -296,6 +312,7 @@ function App() {
             onClearError: sync.clearForwardError,
           }}
         />
+        </Suspense>
         {overlay}
       </>
     )
@@ -336,10 +353,10 @@ function App() {
             categories={storeCategories}
             unusedCategories={unusedGlobalCategories(data.categories, store)}
             items={storeItems}
-            otherStores={data.stores.filter((item) => item.id !== store.id)}
             syncEnabled={syncEnabled}
             onVisibility={(visibility) => setStoreVisibility(store.id, visibility)}
             onBack={() => setScreen({ name: 'store', storeId: store.id })}
+            initialSection={screen.section}
             onRenameStore={(name) => renameStore(store.id, name)}
             onDeleteStore={() => {
               deleteStore(store.id)
@@ -364,7 +381,6 @@ function App() {
               groupId ? saveGroupTemplate(groupId, draft) : saveStoreTemplate(store.id, draft)
             }
             onDeleteListTemplate={(templateId) => deleteTemplate(templateId)}
-            onSetTemplateVisibility={setTemplateVisibility}
             myId={sync.session?.userId}
             groups={data.groups ?? []}
             templateFolders={data.templateFolders ?? []}

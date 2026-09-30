@@ -1,6 +1,6 @@
 import type { SharedTemplate } from '../data/templates'
+import { DialogHeading } from './DialogHeading'
 import type { NamedTemplate, TemplateFolder } from '../types'
-import { DialogTitle } from './DialogTitle'
 
 type MyTemplateRow = {
   folder: TemplateFolder
@@ -49,11 +49,7 @@ export function ApplyTemplateDialog({
   onClose,
 }: ApplyTemplateDialogProps) {
   const empty = myRows.length === 0 && templates.length === 0
-  const sections: {
-    id: string
-    title: string
-    rows: { id: string; name: string; source?: string; personal: boolean }[]
-  }[] = [
+  const sections = [
     myRows.length > 0
       ? {
           id: 'mine',
@@ -73,16 +69,17 @@ export function ApplyTemplateDialog({
           rows: templates.map(({ template }) => ({
             id: template.id,
             name: template.name,
+            source: undefined,
             personal: template.visibility === 'private',
           })),
         }
       : null,
-  ].filter((section): section is NonNullable<typeof section> => section !== null)
+  ].filter((section) => section !== null)
 
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <DialogTitle title="Из шаблона" onBack={onClose} />
+        <DialogHeading title="Из шаблона" onClose={onClose} />
         {empty ? (
           <p className="hint">Пока нет шаблонов.</p>
         ) : (

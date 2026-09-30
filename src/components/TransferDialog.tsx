@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Store } from '../types'
-import { DialogTitle } from './DialogTitle'
+import { DialogHeading } from './DialogHeading'
 
 type TransferDialogProps = {
   stores: Store[]
@@ -23,7 +23,7 @@ export function TransferDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <DialogTitle title="В другой список" onBack={onClose} />
+        <DialogHeading title="В другой список" onClose={onClose} />
         {activeCount > 0 ? (
           <p className="hint">
             Переносятся только некупленные товары. Скопировать — они останутся

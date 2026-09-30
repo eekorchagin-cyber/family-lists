@@ -3,8 +3,11 @@ import {
   type CatalogImportRow,
   type CatalogImportSummary,
 } from './catalog'
-import { xlsxBlob, xlsxToRows } from './xlsxTable'
 import type { CatalogEntry, Category } from '../types'
+
+function loadXlsxTable() {
+  return import('./xlsxTable')
+}
 
 const PRODUCT_HEADERS = new Set([
   'товар',
@@ -18,20 +21,22 @@ const CATEGORY_HEADERS = new Set(['категория', 'category'])
 export function downloadCatalogXlsx(
   catalog: CatalogEntry[],
   categories: Category[],
-): void {
+): Promise<void> {
   const rows = [
     ['Товар', 'Категория'],
     ...catalogExportRows(catalog, categories).map((row) => [row.name, row.category]),
   ]
-  const blob = xlsxBlob(rows)
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = 'наименования-товаров.xlsx'
-  document.body.append(link)
-  link.click()
-  link.remove()
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return loadXlsxTable().then(({ xlsxBlob }) => {
+    const blob = xlsxBlob(rows)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'наименования-товаров.xlsx'
+    document.body.append(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  })
 }
 
 function headerKind(value: string): 'product' | 'category' | null {
@@ -60,6 +65,7 @@ export function rowsToCatalogImport(rows: string[][]): CatalogImportRow[] {
 
 export async function readCatalogXlsx(file: File): Promise<CatalogImportRow[]> {
   const buffer = new Uint8Array(await file.arrayBuffer())
+  const { xlsxToRows } = await loadXlsxTable()
   return rowsToCatalogImport(xlsxToRows(buffer))
 }
 

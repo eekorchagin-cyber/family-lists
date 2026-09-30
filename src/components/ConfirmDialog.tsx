@@ -1,4 +1,4 @@
-import { DialogTitle } from './DialogTitle'
+import { DialogHeading } from './DialogHeading'
 
 type ConfirmDialogProps = {
   title: string
@@ -18,7 +18,7 @@ export function ConfirmDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <DialogTitle title={title} onBack={onClose} />
+        <DialogHeading title={title} onClose={onClose} />
         <p className="hint">{text}</p>
         <div className="dialog-actions dialog-actions-single">
           <button type="button" className="button-danger" onClick={onConfirm}>

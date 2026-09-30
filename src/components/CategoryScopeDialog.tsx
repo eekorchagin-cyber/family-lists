@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { canAutofocus } from '../data/viewport'
+import { DialogHeading } from './DialogHeading'
 import type { Category } from '../types'
-import { DialogTitle } from './DialogTitle'
 
 type CategoryScopeDialogProps = {
   category: Category
@@ -30,7 +30,7 @@ export function CategoryScopeDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <DialogTitle title={displayName || category.name} onBack={onClose} />
+        <DialogHeading title={displayName || category.name} onClose={onClose} />
         <label className="field-label" htmlFor="category-scope-name">
           Название
         </label>

@@ -788,6 +788,7 @@ export function SettingsScreen({
                 const file = event.target.files?.[0]
                 event.target.value = ''
                 if (!file) return
+                setTransferHint('Читаю файл…')
                 void readCatalogXlsx(file)
                   .then((rows) => {
                     setTransferHint(importSummaryText(onImportCatalog(rows)))
@@ -805,8 +806,10 @@ export function SettingsScreen({
               type="button"
               className="button-primary add-category"
               onClick={() => {
-                downloadCatalogXlsx(catalog, categories)
-                setTransferHint('Файл Excel сохранён.')
+                setTransferHint('Готовлю файл…')
+                void downloadCatalogXlsx(catalog, categories)
+                  .then(() => setTransferHint('Файл Excel сохранён.'))
+                  .catch(() => setTransferHint('Не получилось сохранить файл Excel'))
               }}
             >
               Экспорт в Excel

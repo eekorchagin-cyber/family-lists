@@ -9,6 +9,7 @@ import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
 import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { BackIcon } from '../components/NavIcons'
+import { DialogHeading } from '../components/DialogHeading'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { resolveLoyaltyCard } from '../data/loyalty'
 import { playConfirmSound } from '../data/sounds'
@@ -36,7 +37,7 @@ type ListSettingsSection = 'list' | 'categories' | 'templates'
 const SECTIONS: { id: ListSettingsSection; title: string; hint: string }[] = [
   { id: 'list', title: 'Список', hint: 'Название, кто видит и удаление' },
   { id: 'categories', title: 'Категории', hint: 'Отделы этого списка' },
-  { id: 'templates', title: 'Шаблоны', hint: 'Сохранить и поправить' },
+  { id: 'templates', title: 'Шаблоны', hint: 'Править, как в «Мои шаблоны»' },
 ]
 
 const SECTION_TITLES: Record<ListSettingsSection, string> = {
@@ -66,8 +67,8 @@ type ListSettingsScreenProps = {
   categories: Category[]
   unusedCategories: Category[]
   items: Item[]
-  otherStores: Store[]
   onBack: () => void
+  initialSection?: ListSettingsSection | null
   onRenameStore: (name: string) => void
   onDeleteStore: () => void
   onSort: (sort: CategorySort) => void
@@ -87,7 +88,6 @@ type ListSettingsScreenProps = {
     groupId?: string,
   ) => void
   onDeleteListTemplate: (templateId: string) => void
-  onSetTemplateVisibility: (templateId: string, visibility: StoreVisibility) => void
   myId?: string
   groups?: StoreGroup[]
   templateFolders?: TemplateFolder[]
@@ -101,8 +101,8 @@ export function ListSettingsScreen({
   categories,
   unusedCategories,
   items,
-  otherStores,
   onBack,
+  initialSection = null,
   onRenameStore,
   onDeleteStore,
   onSort,
@@ -114,7 +114,6 @@ export function ListSettingsScreen({
   onSaveTemplate,
   onUpdatePlaceTemplate,
   onDeleteListTemplate,
-  onSetTemplateVisibility,
   myId,
   groups = [],
   templateFolders = [],
@@ -122,7 +121,7 @@ export function ListSettingsScreen({
   syncEnabled = false,
   onVisibility,
 }: ListSettingsScreenProps) {
-  const [section, setSection] = useState<ListSettingsSection | null>(null)
+  const [section, setSection] = useState<ListSettingsSection | null>(initialSection)
   const [editingCard, setEditingCard] = useState(false)
   const [picking, setPicking] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -132,6 +131,14 @@ export function ListSettingsScreen({
   const [templateVisibility, setTemplateVisibility] = useState<StoreVisibility>('home')
   const [saveTarget, setSaveTarget] = useState<TemplateSaveTarget>({ kind: 'store' })
   const [editingTemplate, setEditingTemplate] = useState<{
+    template: NamedTemplate
+    groupId?: string
+  } | null>(null)
+  const [templateMenu, setTemplateMenu] = useState<{
+    template: NamedTemplate
+    groupId?: string
+  } | null>(null)
+  const [renamingTemplate, setRenamingTemplate] = useState<{
     template: NamedTemplate
     groupId?: string
   } | null>(null)
@@ -170,21 +177,15 @@ export function ListSettingsScreen({
     () => templatesForList(store, groups, myId),
     [groups, myId, store],
   )
-  const groupTemplateRows = useMemo(
-    () => templates.filter((row) => row.groupId),
-    [templates],
-  )
-  const listTemplateRows = useMemo(
-    () => templates.filter((row) => !row.groupId),
-    [templates],
-  )
 
 
   return (
     <div className="screen">
       <Header
         title={title}
-        subtitle={section === 'list' ? undefined : store.name}
+        subtitle={
+          section === 'list' ? undefined : store.name
+        }
         left={
           <button type="button" className="icon-button" onClick={goBack} aria-label="Назад">
             <BackIcon />
@@ -222,10 +223,10 @@ export function ListSettingsScreen({
             </>
           ) : section === 'templates' ? (
             <p>
-              Название в рамке открывает правку, там же шаблон можно удалить. «Сохранить
-              текущий список» спрашивает, куда положить шаблон: в этот список, в его группу
-              или в «Мои шаблоны». Подставить товары в список — кнопкой «Из шаблона» на
-              странице списка.
+              Как в «Мои шаблоны»: нажмите название, чтобы править, или «⋯» — имя и
+              содержимое. Удаление внутри правки. Подставить товары в список — кнопкой
+              «Из шаблона» на странице списка. «Сохранить текущий список» спрашивает,
+              на какой уровень положить шаблон.
             </p>
           ) : undefined
         }
@@ -414,77 +415,37 @@ export function ListSettingsScreen({
 
         {section === 'templates' && (
           <section className="settings-block">
-            {groupTemplateRows.length === 0 && listTemplateRows.length === 0 ? (
-              <p className="hint">Пока нет шаблонов этого списка или его группы.</p>
+            {templates.length === 0 ? (
+              <p className="hint">Пока нет шаблонов этого списка.</p>
             ) : (
-              <div className="template-pick-groups">
-                {[
-                  { title: 'Шаблоны группы', rows: groupTemplateRows, editable: true },
-                  { title: 'Шаблоны этого списка', rows: listTemplateRows, editable: true },
-                ]
-                  .filter((block) => block.rows.length > 0)
-                  .map((block) => (
-                    <section key={block.title} className="template-pick-group">
-                      <h3 className="template-pick-heading">{block.title}</h3>
-                      <ul className="template-list template-list--nested">
-                        {block.rows.map(({ storeId, groupId, template }) => {
-                          const sourceStore = groupId
-                            ? undefined
-                            : storeId === store.id
-                              ? store
-                              : otherStores.find((item) => item.id === storeId)
-                          const ownsStore =
-                            !sourceStore?.ownerId || !myId || sourceStore.ownerId === myId
-                          const personal = template.visibility === 'private'
-                          const canToggle = syncEnabled && (ownsStore || personal)
-                          return (
-                            <li key={template.id} className="template-pick-row">
-                              <button
-                                type="button"
-                                className="template-pick-name"
-                                aria-label={`Изменить шаблон ${template.name}`}
-                                onClick={() => setEditingTemplate({ template, groupId })}
-                              >
-                                {template.name}
-                              </button>
-                              {personal ? (
-                                canToggle && ownsStore ? (
-                                  <button
-                                    type="button"
-                                    className="store-local-mark store-local-mark--icon"
-                                    title="личное"
-                                    aria-label="Только я"
-                                    onClick={() => onSetTemplateVisibility(template.id, 'home')}
-                                  >
-                                    <span aria-hidden="true">🔒</span>
-                                  </button>
-                                ) : (
-                                  <span
-                                    className="store-local-mark store-local-mark--icon"
-                                    title="личное"
-                                  >
-                                    <span aria-hidden="true">🔒</span>
-                                    <span className="visually-hidden">личное</span>
-                                  </span>
-                                )
-                              ) : canToggle && ownsStore ? (
-                                <button
-                                  type="button"
-                                  className="template-lock-shared"
-                                  title="Весь дом"
-                                  aria-label="Весь дом"
-                                  onClick={() => onSetTemplateVisibility(template.id, 'private')}
-                                >
-                                  <span aria-hidden="true">🔒</span>
-                                </button>
-                              ) : null}
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </section>
-                  ))}
-              </div>
+              <ul className="template-list template-list--nested">
+                {templates.map(({ groupId, template }) => (
+                  <li key={template.id} className="template-pick-row">
+                    <button
+                      type="button"
+                      className="template-pick-name"
+                      aria-label={`Изменить шаблон ${template.name}`}
+                      onClick={() => setEditingTemplate({ template, groupId })}
+                    >
+                      {template.name}
+                    </button>
+                    {template.visibility === 'private' ? (
+                      <span className="store-local-mark store-local-mark--icon" title="личное">
+                        <span aria-hidden="true">🔒</span>
+                        <span className="visually-hidden">личное</span>
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="qty-button store-menu"
+                      aria-label={`Меню шаблона ${template.name}`}
+                      onClick={() => setTemplateMenu({ template, groupId })}
+                    >
+                      ⋯
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
             <button
               type="button"
@@ -566,6 +527,28 @@ export function ListSettingsScreen({
           }}
         />
       )}
+      {renamingTemplate ? (
+        <NameDialog
+          title="Шаблон"
+          label="Название"
+          placeholder="Например, На неделю"
+          initial={renamingTemplate.template.name}
+          confirmLabel="Сохранить"
+          onClose={() => setRenamingTemplate(null)}
+          onConfirm={(name) => {
+            onUpdatePlaceTemplate(
+              {
+                id: renamingTemplate.template.id,
+                name,
+                items: renamingTemplate.template.items,
+                visibility: renamingTemplate.template.visibility === 'private' ? 'private' : 'home',
+              },
+              renamingTemplate.groupId,
+            )
+            setRenamingTemplate(null)
+          }}
+        />
+      ) : null}
       {editingCard && onSetLoyalty ? (
         <LoyaltyCardEditor
           initial={store.loyaltyCard}
@@ -577,6 +560,35 @@ export function ListSettingsScreen({
             setEditingCard(false)
           }}
         />
+      ) : null}
+      {templateMenu ? (
+        <div className="overlay overlay--capture" role="presentation" onClick={() => setTemplateMenu(null)}>
+          <div className="dialog" onClick={(event) => event.stopPropagation()}>
+            <DialogHeading title={templateMenu.template.name} onClose={() => setTemplateMenu(null)} />
+            <div className="command-row">
+              <button
+                type="button"
+                className="command-button command-button--text"
+                onClick={() => {
+                  setRenamingTemplate(templateMenu)
+                  setTemplateMenu(null)
+                }}
+              >
+                <span className="command-label">Имя</span>
+              </button>
+              <button
+                type="button"
+                className="command-button command-button--text"
+                onClick={() => {
+                  setEditingTemplate(templateMenu)
+                  setTemplateMenu(null)
+                }}
+              >
+                <span className="command-label">Изменить</span>
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
       {removing && (
         <ConfirmDialog

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { editCode, formatCode, kindFromCode } from '../data/sync/codes'
+import { BackIcon } from './NavIcons'
 import { contactShareMessage, type Person } from '../data/sync/forwardApi'
 
 type PeoplePanelProps = {
@@ -141,7 +142,8 @@ export function PeoplePanel({
               </button>
               <button
                 type="button"
-                className="button-secondary"
+                className="icon-button"
+                aria-label="Назад"
                 onClick={() => {
                   setAdding(false)
                   setCode('')
@@ -149,7 +151,7 @@ export function PeoplePanel({
                   onClearError()
                 }}
               >
-                Отмена
+                <BackIcon />
               </button>
             </div>
           </>

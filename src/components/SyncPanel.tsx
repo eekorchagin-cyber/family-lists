@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { AccessInfo } from '../data/sync/api'
 import { accessWelcomeMessage, formatCode, joinUrl, kindFromCode, pairUrl } from '../data/sync/codes'
 import { saveSupabaseConfig } from '../data/sync/client'
@@ -7,8 +7,17 @@ import { CodeJoinDialog } from './CodeJoinDialog'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ConnectSteps } from './ConnectSteps'
 import { NameDialog } from './NameDialog'
-import { QrImage } from './QrImage'
 import { SyncPhoneGuide } from './SyncPhoneGuide'
+
+const QrImage = lazy(() => import('./QrImage').then((module) => ({ default: module.QrImage })))
+
+function SyncQr({ value, label }: { value: string; label: string }) {
+  return (
+    <Suspense fallback={<p className="hint">Код рисуется…</p>}>
+      <QrImage value={value} label={label} />
+    </Suspense>
+  )
+}
 
 type SyncPanelProps = {
   configured: boolean
@@ -262,7 +271,7 @@ export function SyncPanel({
           {accessInfo.codes.length > 0 && newestAccess && accessLink && accessMessage ? (
             <>
               <p className="sync-code">{formatCode(newestAccess)}</p>
-              <QrImage value={accessLink} label="QR-код доступа" />
+              <SyncQr value={accessLink} label="QR-код доступа" />
               <pre className="share-message">{accessMessage}</pre>
               <button
                 type="button"
@@ -336,7 +345,7 @@ export function SyncPanel({
           {inviteCode && inviteLink ? (
             <>
               <p className="sync-code">{formatCode(inviteCode)}</p>
-              <QrImage value={inviteLink} label="QR-код приглашения" />
+              <SyncQr value={inviteLink} label="QR-код приглашения" />
               <button
                 type="button"
                 className="button-secondary add-category"
@@ -372,7 +381,7 @@ export function SyncPanel({
           <>
             <ConnectSteps role="give-phone" />
             <p className="sync-code">{formatCode(pairingCode)}</p>
-            <QrImage value={pairUrl(pairingCode)} label="QR-код второго телефона" />
+            <SyncQr value={pairUrl(pairingCode)} label="QR-код второго телефона" />
             <button
               type="button"
               className="button-secondary add-category"

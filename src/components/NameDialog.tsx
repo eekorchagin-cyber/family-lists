@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { canAutofocus } from '../data/viewport'
-import { DialogTitle } from './DialogTitle'
+import { DialogHeading } from './DialogHeading'
 
 type NameDialogProps = {
   title: string
@@ -43,7 +43,7 @@ export function NameDialog({
   return (
     <div className="overlay overlay--capture" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <DialogTitle title={title} onBack={onClose} />
+        <DialogHeading title={title} onClose={onClose} />
         <label className="field-label" htmlFor={inputId}>
           {label}
         </label>

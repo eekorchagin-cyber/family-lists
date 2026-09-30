@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ConfirmDialog } from './ConfirmDialog'
-import { DialogTitle } from './DialogTitle'
+import { DialogHeading } from './DialogHeading'
 import { parseItem } from '../data/parseItem'
 import { formatQty } from '../data/qty'
 import { templateVisible } from '../data/templates'
@@ -90,12 +90,9 @@ export function GroupTemplatesDialog({
     <>
     <div className="overlay overlay--capture" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <DialogTitle
+        <DialogHeading
           title={draft ? (draft.id ? 'Шаблон' : 'Новый шаблон') : `Шаблоны · ${group.name}`}
-          onBack={() => {
-            if (draft) setDraft(null)
-            else onClose()
-          }}
+          onClose={draft ? () => setDraft(null) : onClose}
         />
         {draft ? (
           <>

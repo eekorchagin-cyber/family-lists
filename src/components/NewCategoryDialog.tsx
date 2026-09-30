@@ -2,7 +2,7 @@ import { useState, type KeyboardEvent } from 'react'
 import { CATEGORY_COLORS, iconIdFromName } from '../data/categories'
 import { canAutofocus } from '../data/viewport'
 import { CategoryMarkPicker } from './CategoryMarkPicker'
-import { DialogTitle } from './DialogTitle'
+import { DialogHeading } from './DialogHeading'
 
 type NewCategoryDialogProps = {
   onClose: () => void
@@ -34,7 +34,7 @@ export function NewCategoryDialog({ onClose, onAdd, showScopeToggle }: NewCatego
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <DialogTitle title="Новая категория" onBack={onClose} />
+        <DialogHeading title="Новая категория" onClose={onClose} />
         <label className="field-label" htmlFor="category-name">
           Название
         </label>

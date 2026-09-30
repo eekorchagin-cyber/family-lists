@@ -1,10 +1,15 @@
-import type { Category, NamedTemplate, Store, StoreGroup, TemplateFolder, TemplateItem } from '../types'
+import type { Category, NamedTemplate, Store, StoreGroup, TemplateItem } from '../types'
 import { knownCategoriesForStore } from './categories'
 
 export type TemplateSaveTarget =
   | { kind: 'store' }
   | { kind: 'group'; groupId: string }
   | { kind: 'folder'; folderId: string }
+
+/** Куда класть новый шаблон списка: в его группу, а если группы нет — в сам список. */
+export function placeTemplateTarget(store: Pick<Store, 'groupId'>): TemplateSaveTarget {
+  return store.groupId ? { kind: 'group', groupId: store.groupId } : { kind: 'store' }
+}
 
 export type TemplateSaveChoice = {
   target: TemplateSaveTarget
@@ -14,7 +19,7 @@ export type TemplateSaveChoice = {
 export function templateSaveChoices(
   store: Pick<Store, 'groupId'>,
   groups: StoreGroup[],
-  folders: TemplateFolder[],
+  folders: { id: string; name: string }[],
 ): TemplateSaveChoice[] {
   const choices: TemplateSaveChoice[] = [
     { target: { kind: 'store' }, label: 'Шаблоны этого списка' },
@@ -43,11 +48,6 @@ export function sameSaveTarget(left: TemplateSaveTarget, right: TemplateSaveTarg
   if (left.kind === 'group' && right.kind === 'group') return left.groupId === right.groupId
   if (left.kind === 'folder' && right.kind === 'folder') return left.folderId === right.folderId
   return true
-}
-
-/** Куда класть новый шаблон по умолчанию: в его группу, а если группы нет — в сам список. */
-export function placeTemplateTarget(store: Pick<Store, 'groupId'>): TemplateSaveTarget {
-  return store.groupId ? { kind: 'group', groupId: store.groupId } : { kind: 'store' }
 }
 
 export type SharedTemplate = {
@@ -106,10 +106,7 @@ export function groupTemplatesForUser(group: StoreGroup, userId: string | undefi
   const templates = group.templates.filter((template) => templateVisible(template, userId))
   if (templates.length === group.templates.length) return group
   const next = { ...group, templates }
-  if (templates.length === 0) {
-    const { templates: _removed, ...without } = next
-    return without
-  }
+  if (templates.length === 0) delete next.templates
   return next
 }
 

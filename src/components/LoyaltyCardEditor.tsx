@@ -20,7 +20,7 @@ import {
   takeSharedAppLink,
 } from '../data/loyaltyApps'
 import type { LoyaltyCard, LoyaltyKind } from '../types'
-import { DialogTitle } from './DialogTitle'
+import { DialogHeading } from './DialogHeading'
 import { LoyaltyCardView } from './LoyaltyCardView'
 
 type LoyaltyCardEditorProps = {
@@ -207,7 +207,7 @@ export function LoyaltyCardEditor({
   return (
     <div className="overlay overlay--capture" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <DialogTitle title={title} onBack={onClose} />
+        <DialogHeading title={title} onClose={onClose} />
         {inherited && !initial ? (
           <p className="hint">
             {inherited.kind === 'app' && parseShortcutName(inherited.value)
@@ -365,7 +365,7 @@ export function LoyaltyCardEditor({
         <div
           className={
             initial || (card && !inheritedOnly)
-              ? 'dialog-actions dialog-actions-single dialog-actions--loyalty'
+              ? 'dialog-actions dialog-actions--loyalty'
               : 'dialog-actions dialog-actions-single'
           }
         >

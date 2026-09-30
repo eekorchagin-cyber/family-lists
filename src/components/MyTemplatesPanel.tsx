@@ -6,6 +6,7 @@ import { formatQty, parseQty } from '../data/qty'
 import type { CatalogEntry, Category, ParsedItem, TemplateFolder, TemplateItem } from '../types'
 import { CategoryMark } from './CategoryMark'
 import { ConfirmDialog } from './ConfirmDialog'
+import { DialogHeading } from './DialogHeading'
 import { DoneButton } from './DoneButton'
 import { LongPressButton } from './LongPressButton'
 import { NameDialog } from './NameDialog'
@@ -536,7 +537,7 @@ export function MyTemplatesPanel({
       {menu?.kind === 'folder' ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setMenu(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>{menu.folder.name}</h2>
+            <DialogHeading title={menu.folder.name} onClose={() => setMenu(null)} />
             <div className="command-row">
               <CommandButton
                 label="Имя"
@@ -572,7 +573,7 @@ export function MyTemplatesPanel({
       {menu?.kind === 'template' ? (
         <div className="overlay overlay--capture" role="presentation" onClick={() => setMenu(null)}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>{menu.template.name}</h2>
+            <DialogHeading title={menu.template.name} onClose={() => setMenu(null)} />
             <div className="command-row">
               <CommandButton
                 label="Имя"

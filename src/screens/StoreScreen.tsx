@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { CategoryMark } from '../components/CategoryMark'
 import { ApplyTemplateDialog } from '../components/ApplyTemplateDialog'
 import { TemplateFitDialog } from '../components/TemplateFitDialog'
+import { DialogHeading } from '../components/DialogHeading'
 import { Header } from '../components/Header'
 import { LongPressButton } from '../components/LongPressButton'
 import { LoyaltyCardSheet } from '../components/LoyaltyCardView'
@@ -22,7 +23,6 @@ import {
   templatesForList,
   type TemplateSaveTarget,
 } from '../data/templates'
-
 import { TemplateSaveFields } from '../components/TemplateSaveFields'
 import type { HomeMember } from '../data/sync/session'
 import type { Category, Item, ParsedItem, Store, StoreGroup, StoreVisibility, TemplateFolder } from '../types'
@@ -485,7 +485,7 @@ export function StoreScreen({
       {editItem && !addingCategory && (
         <div className="overlay" role="presentation" onClick={closeEdit}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>{editItem.name}</h2>
+            <DialogHeading title={editItem.name} onClose={closeEdit} />
             <p className="field-label">Количество</p>
             <QtyRow
               qtyText={qtyText}

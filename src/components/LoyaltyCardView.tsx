@@ -1,8 +1,16 @@
-import { BarcodeSvg } from './BarcodeSvg'
-import { DialogTitle } from './DialogTitle'
-import { QrImage } from './QrImage'
+import { lazy, Suspense } from 'react'
 import { loyaltyAppError, loyaltyAppHref, openLoyaltyApp, parseShortcutName } from '../data/loyaltyApps'
+import { DialogHeading } from './DialogHeading'
 import type { LoyaltyCard } from '../types'
+
+const QrImage = lazy(() => import('./QrImage').then((module) => ({ default: module.QrImage })))
+const BarcodeSvg = lazy(() =>
+  import('./BarcodeSvg').then((module) => ({ default: module.BarcodeSvg })),
+)
+
+function CodeFallback() {
+  return <p className="hint">Код рисуется…</p>
+}
 
 export function LoyaltyCardView({
   card,
@@ -47,7 +55,9 @@ export function LoyaltyCardView({
     return (
       <div className={large ? 'loyalty-view loyalty-view--large' : 'loyalty-view'}>
         {card.label ? <p className="loyalty-view-label">{card.label}</p> : null}
-        <QrImage value={card.value} label={label} size={large ? 280 : 180} />
+        <Suspense fallback={<CodeFallback />}>
+          <QrImage value={card.value} label={label} size={large ? 280 : 180} />
+        </Suspense>
       </div>
     )
   }
@@ -55,7 +65,9 @@ export function LoyaltyCardView({
     return (
       <div className={large ? 'loyalty-view loyalty-view--large' : 'loyalty-view'}>
         {card.label ? <p className="loyalty-view-label">{card.label}</p> : null}
-        <BarcodeSvg value={card.value} format={card.format} label={label} />
+        <Suspense fallback={<CodeFallback />}>
+          <BarcodeSvg value={card.value} format={card.format} label={label} />
+        </Suspense>
       </div>
     )
   }
@@ -77,7 +89,7 @@ export function LoyaltyCardSheet({
         className="dialog loyalty-sheet"
         onClick={(event) => event.stopPropagation()}
       >
-        <DialogTitle title="Бонусная карта" onBack={onClose} />
+        <DialogHeading title="Бонусная карта" onClose={onClose} />
         {source === 'group' ? (
           <p className="hint">Карта группы — у этого списка своей нет.</p>
         ) : null}
