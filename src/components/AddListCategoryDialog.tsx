@@ -69,7 +69,7 @@ export function AddListCategoryDialog({
               onPick(categories.filter((category) => selected.has(category.id)).map((category) => category.id))
             }
           >
-            Готово
+            Сохранить
           </button>
         </div>
       </div>

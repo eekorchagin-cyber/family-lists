@@ -3,6 +3,7 @@ import { CategoryMark } from '../components/CategoryMark'
 import { ApplyTemplateDialog } from '../components/ApplyTemplateDialog'
 import { TemplateFitDialog } from '../components/TemplateFitDialog'
 import { DialogHeading } from '../components/DialogHeading'
+import { DoneButton } from '../components/DoneButton'
 import { Header } from '../components/Header'
 import { LongPressButton } from '../components/LongPressButton'
 import { LoyaltyCardSheet } from '../components/LoyaltyCardView'
@@ -15,7 +16,7 @@ import { categoryName, isLocalToStore } from '../data/categories'
 import { playConfirmSound } from '../data/sounds'
 import { foldersForUser } from '../data/myTemplates'
 import { parseItem } from '../data/parseItem'
-import { formatQty, parseQty } from '../data/qty'
+import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
 import { resolveLoyaltyCard } from '../data/loyalty'
 import {
   classifyTemplateItems,
@@ -248,7 +249,9 @@ export function StoreScreen({
       setUnit(editItem.unit)
       return
     }
-    onUpdateItem(editItem.id, { qty, unit: unit.trim() || 'шт' })
+    const nextUnit = unit.trim() || lastUnit()
+    rememberUnit(nextUnit)
+    onUpdateItem(editItem.id, { qty, unit: nextUnit })
   }
 
   function closeEdit() {
@@ -364,7 +367,7 @@ export function StoreScreen({
                     onStartAdd({
                       name,
                       qty: draft?.qty ?? 1,
-                      unit: draft?.unit ?? 'шт',
+                      unit: draft?.unit ?? lastUnit(),
                     })
                     setQuery('')
                   }}
@@ -485,7 +488,11 @@ export function StoreScreen({
       {editItem && !addingCategory && (
         <div className="overlay" role="presentation" onClick={closeEdit}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <DialogHeading title={editItem.name} onClose={closeEdit} />
+            <DialogHeading
+              title={editItem.name}
+              onClose={closeEdit}
+              right={<DoneButton onClick={closeEdit} />}
+            />
             <p className="field-label">Количество</p>
             <QtyRow
               qtyText={qtyText}
@@ -522,9 +529,6 @@ export function StoreScreen({
               onClick={() => setAddingCategory(true)}
             >
               Новая категория
-            </button>
-            <button type="button" className="button-primary sheet-extra" onClick={closeEdit}>
-              Готово
             </button>
           </div>
         </div>

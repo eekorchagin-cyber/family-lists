@@ -8,7 +8,7 @@ import { QtyRow } from '../components/QtyRow'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { catalogCategoryId, findCatalogEntry } from '../data/catalog'
 import { playConfirmSound } from '../data/sounds'
-import { formatQty, parseQty } from '../data/qty'
+import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
 import type { CatalogEntry, Category, Item, ParsedItem, Store } from '../types'
 
 type AddItemScreenProps = {
@@ -75,7 +75,9 @@ export function AddItemScreen({
     event.preventDefault()
     if (!categoryId || qty === null) return
     playConfirmSound('add')
-    onAdd(draft.name, categoryId, qty, unit)
+    const nextUnit = unit.trim() || lastUnit()
+    rememberUnit(nextUnit)
+    onAdd(draft.name, categoryId, qty, nextUnit)
   }
 
   return (
@@ -87,11 +89,13 @@ export function AddItemScreen({
             <BackIcon />
           </button>
         }
-        right={<DoneButton type="submit" disabled={!categoryId || qty === null} />}
       />
 
       <div className="add-scroll">
-        <h2 className="product-title">{draft.name}</h2>
+        <div className="product-head">
+          <h2 className="product-title">{draft.name}</h2>
+          <DoneButton type="submit" disabled={!categoryId || qty === null} />
+        </div>
 
         <label className="field-label" htmlFor="qty">
           Количество

@@ -166,7 +166,7 @@ export function SyncPanel({
           </button>
           <button
             type="button"
-            className="button-secondary add-category"
+            className="button-primary add-category"
             disabled={busy}
             onClick={onRetry}
           >
@@ -174,7 +174,7 @@ export function SyncPanel({
           </button>
           <button
             type="button"
-            className="button-secondary add-category"
+            className="button-primary add-category"
             disabled={busy}
             onClick={() => setEntering(true)}
           >
@@ -275,21 +275,21 @@ export function SyncPanel({
               <pre className="share-message">{accessMessage}</pre>
               <button
                 type="button"
-                className="button-secondary add-category"
+                className="button-primary add-category"
                 onClick={() => void copy(accessMessage, 'message')}
               >
                 {copied === 'message' ? 'Сообщение скопировано' : 'Скопировать сообщение'}
               </button>
               <button
                 type="button"
-                className="button-secondary add-category"
+                className="button-primary add-category"
                 onClick={() => void copy(formatCode(newestAccess), 'code')}
               >
                 {copied === 'code' ? 'Код скопирован' : 'Скопировать код'}
               </button>
               <button
                 type="button"
-                className="button-secondary add-category"
+                className="button-primary add-category"
                 onClick={() => void copy(accessLink, 'link')}
               >
                 {copied === 'link' ? 'Ссылка скопирована' : 'Скопировать ссылку'}
@@ -301,7 +301,7 @@ export function SyncPanel({
                       <span className="sync-code">{formatCode(item)}</span>
                       <button
                         type="button"
-                        className="button-secondary"
+                        className="button-primary"
                         onClick={() => void copy(formatCode(item), 'code')}
                       >
                         {copied === 'code' ? 'Скопирован' : 'Копировать'}
@@ -316,7 +316,7 @@ export function SyncPanel({
           )}
           <button
             type="button"
-            className="button-secondary add-category"
+            className="button-primary add-category"
             disabled={busy || accessInfo.used >= accessInfo.max}
             onClick={() => {
               void onCreateAccess().then((code) => {
@@ -348,14 +348,14 @@ export function SyncPanel({
               <SyncQr value={inviteLink} label="QR-код приглашения" />
               <button
                 type="button"
-                className="button-secondary add-category"
+                className="button-primary add-category"
                 onClick={() => void copy(formatCode(inviteCode), 'code')}
               >
                 {copied === 'code' ? 'Код скопирован' : 'Скопировать код'}
               </button>
               <button
                 type="button"
-                className="button-secondary add-category"
+                className="button-primary add-category"
                 onClick={() => void copy(inviteLink, 'link')}
               >
                 {copied === 'link' ? 'Ссылка скопирована' : 'Скопировать ссылку'}
@@ -366,7 +366,7 @@ export function SyncPanel({
           ) : null}
           <button
             type="button"
-            className="button-secondary add-category"
+            className="button-primary add-category"
             disabled={busy}
             onClick={onCreateInvite}
           >
@@ -384,7 +384,7 @@ export function SyncPanel({
             <SyncQr value={pairUrl(pairingCode)} label="QR-код второго телефона" />
             <button
               type="button"
-              className="button-secondary add-category"
+              className="button-primary add-category"
               onClick={() => void copy(formatCode(pairingCode), 'pair')}
             >
               {copied === 'pair' ? 'Код скопирован' : 'Скопировать код'}
@@ -395,7 +395,7 @@ export function SyncPanel({
         )}
         <button
           type="button"
-          className="button-secondary add-category"
+          className="button-primary add-category"
           disabled={busy}
           onClick={onCreatePairing}
         >
@@ -452,7 +452,7 @@ export function SyncPanel({
           <ConnectSteps role="take-over" />
           <button
             type="button"
-            className="button-secondary add-category"
+            className="button-primary add-category"
             disabled={busy}
             onClick={() => setTakingOver(true)}
           >
@@ -470,7 +470,7 @@ export function SyncPanel({
           </p>
           <button
             type="button"
-            className="button-secondary add-category"
+            className="button-danger button-danger--fill add-category"
             disabled={busy}
             onClick={() => setLeaving(true)}
           >
@@ -561,7 +561,7 @@ function PhoneGuideBlock({
           Safari и ярлык на «Домой» хранят списки отдельно. Если покупки не совпадают или нужно
           подключить другой телефон — откройте инструкцию.
         </p>
-        <button type="button" className="button-secondary add-category" onClick={onOpen}>
+        <button type="button" className="button-primary add-category" onClick={onOpen}>
           Инструкция для телефона
         </button>
       </section>
@@ -694,7 +694,7 @@ function SyncIssue({
       <span>{error}</span>
       <button
         type="button"
-        className="button-secondary add-category"
+        className="button-primary add-category"
         disabled={busy}
         onClick={onRetry}
       >

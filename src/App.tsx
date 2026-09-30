@@ -6,6 +6,7 @@ import { categoriesForStore, CONTOUR_OFFER_KEY, hasContourReplacements, knownCat
 import { publishIconStyle } from './data/iconStyle'
 import { ContourIconsDialog } from './components/ContourIconsDialog'
 import { clearStoredEnterCode, consumeEnterCode, isLocalHost, mustUseHomeScreenShortcut } from './data/sync/codes'
+import { isStoreInBadge } from './data/appBadge'
 import { useAppBadge } from './hooks/useAppBadge'
 import { useAppState } from './hooks/useAppState'
 import { useAppUpdate } from './hooks/useAppUpdate'
@@ -355,6 +356,8 @@ function App() {
             items={storeItems}
             syncEnabled={syncEnabled}
             onVisibility={(visibility) => setStoreVisibility(store.id, visibility)}
+            inBadge={isStoreInBadge(store.id, data.settings)}
+            onBadge={(included) => setStoreInBadge(store.id, included)}
             onBack={() => setScreen({ name: 'store', storeId: store.id })}
             initialSection={screen.section}
             onRenameStore={(name) => renameStore(store.id, name)}

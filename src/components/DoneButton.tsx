@@ -12,7 +12,7 @@ export function DoneButton({ disabled, type = 'button', onClick }: DoneButtonPro
       disabled={disabled}
       onClick={onClick}
     >
-      Готово
+      Сохранить
     </button>
   )
 }

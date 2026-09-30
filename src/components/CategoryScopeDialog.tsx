@@ -65,7 +65,7 @@ export function CategoryScopeDialog({
         </p>
         <div className="dialog-actions dialog-actions-single">
           <button type="button" className="button-primary" disabled={!name.trim()} onClick={submit}>
-            Готово
+            Сохранить
           </button>
         </div>
       </div>

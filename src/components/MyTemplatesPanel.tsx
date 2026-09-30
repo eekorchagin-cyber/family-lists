@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { catalogCategoryId } from '../data/catalog'
 import { foldersForUser } from '../data/myTemplates'
 import { parseItem } from '../data/parseItem'
-import { formatQty, parseQty } from '../data/qty'
+import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
 import type { CatalogEntry, Category, ParsedItem, TemplateFolder, TemplateItem } from '../types'
 import { CategoryMark } from './CategoryMark'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -78,7 +78,11 @@ function ProductStep({
         <h2 className="product-title">{title}</h2>
         <DoneButton
           disabled={!categoryId || qty === null}
-          onClick={() => onDone({ categoryId, qty: qty ?? initialQty, unit: unit.trim() || 'шт' })}
+          onClick={() => {
+            const nextUnit = unit.trim() || lastUnit()
+            rememberUnit(nextUnit)
+            onDone({ categoryId, qty: qty ?? initialQty, unit: nextUnit })
+          }}
         />
       </div>
       <label className="field-label" htmlFor="qty">
@@ -323,7 +327,7 @@ export function MyTemplatesPanel({
                   className="suggestion"
                   onClick={() => {
                     const parsed = parseItem(query)
-                    startAdd({ name, qty: parsed?.qty ?? 1, unit: parsed?.unit ?? 'шт' })
+                    startAdd({ name, qty: parsed?.qty ?? 1, unit: parsed?.unit ?? lastUnit() })
                   }}
                 >
                   {name}

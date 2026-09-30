@@ -94,6 +94,8 @@ type ListSettingsScreenProps = {
   onSetLoyalty?: (card: LoyaltyCard | undefined) => void
   syncEnabled?: boolean
   onVisibility?: (visibility: StoreVisibility) => void
+  inBadge?: boolean
+  onBadge?: (included: boolean) => void
 }
 
 export function ListSettingsScreen({
@@ -120,6 +122,8 @@ export function ListSettingsScreen({
   onSetLoyalty,
   syncEnabled = false,
   onVisibility,
+  inBadge = true,
+  onBadge,
 }: ListSettingsScreenProps) {
   const [section, setSection] = useState<ListSettingsSection | null>(initialSection)
   const [editingCard, setEditingCard] = useState(false)
@@ -306,6 +310,19 @@ export function ListSettingsScreen({
               <p className="hint">
                 Этот список вам переслали. Он только ваш и не входит в списки семьи.
               </p>
+            ) : null}
+            {!store.incomingFrom && onBadge ? (
+              <>
+                <p className="field-label">Число на ярлыке</p>
+                <button
+                  type="button"
+                  className={inBadge ? 'choice active' : 'choice'}
+                  aria-pressed={inBadge}
+                  onClick={() => onBadge(!inBadge)}
+                >
+                  Считать некупленные этого списка
+                </button>
+              </>
             ) : null}
             {onSetLoyalty ? (
               <>

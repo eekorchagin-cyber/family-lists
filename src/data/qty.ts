@@ -14,3 +14,23 @@ export function formatQty(qty: number): string {
 export function roundQty(value: number): number {
   return Math.round(value * 10) / 10
 }
+
+const LAST_UNIT_KEY = 'pokupki-last-unit'
+
+export function lastUnit(): string {
+  try {
+    const value = localStorage.getItem(LAST_UNIT_KEY)?.trim()
+    return value || 'шт'
+  } catch {
+    return 'шт'
+  }
+}
+
+export function rememberUnit(unit: string): void {
+  const value = unit.trim() || 'шт'
+  try {
+    localStorage.setItem(LAST_UNIT_KEY, value)
+  } catch {
+    // приватный режим
+  }
+}
