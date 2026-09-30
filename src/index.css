@@ -831,6 +831,31 @@ ul {
   margin-bottom: 16px;
 }
 
+.dialog-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: -8px 0 16px;
+  min-height: 44px;
+}
+
+.dialog-title-row h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 1.15em;
+  line-height: 1.25;
+}
+
+.dialog-title-right {
+  flex-shrink: 0;
+}
+
+.dialog-title-row .icon-button {
+  flex-shrink: 0;
+  margin-left: -6px;
+}
+
 .field-label {
   display: block;
   margin: 12px 0 8px;
@@ -903,6 +928,15 @@ ul {
 
 .command-button--danger {
   color: #ef4444;
+}
+
+.command-button--text {
+  min-height: 43px;
+  gap: 0;
+}
+
+.command-button--text .command-label {
+  font-size: 0.85em;
 }
 
 .dialog-actions {

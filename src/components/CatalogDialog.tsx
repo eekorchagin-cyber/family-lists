@@ -3,6 +3,7 @@ import { canAutofocus } from '../data/viewport'
 import { CategoryMark } from './CategoryMark'
 import { NewCategoryDialog } from './NewCategoryDialog'
 import type { CatalogEntry, Category, Store } from '../types'
+import { DialogTitle } from './DialogTitle'
 
 type CatalogDialogProps = {
   entry: CatalogEntry | null
@@ -62,7 +63,7 @@ export function CatalogDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <h2>{entry ? 'Товар' : 'Новый товар'}</h2>
+        <DialogTitle title={entry ? 'Товар' : 'Новый товар'} onBack={onClose} />
         <label className="field-label" htmlFor="catalog-name">
           Название
         </label>
@@ -111,10 +112,7 @@ export function CatalogDialog({
         >
           Новая категория
         </button>
-        <div className="dialog-actions">
-          <button type="button" className="button-secondary" onClick={onClose}>
-            Отмена
-          </button>
+        <div className="dialog-actions dialog-actions-single">
           <button
             type="button"
             className="button-primary"

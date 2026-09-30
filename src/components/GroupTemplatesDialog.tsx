@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ConfirmDialog } from './ConfirmDialog'
+import { DialogTitle } from './DialogTitle'
 import { parseItem } from '../data/parseItem'
 import { formatQty } from '../data/qty'
 import { templateVisible } from '../data/templates'
@@ -89,7 +90,13 @@ export function GroupTemplatesDialog({
     <>
     <div className="overlay overlay--capture" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <h2>{draft ? (draft.id ? 'Шаблон' : 'Новый шаблон') : `Шаблоны · ${group.name}`}</h2>
+        <DialogTitle
+          title={draft ? (draft.id ? 'Шаблон' : 'Новый шаблон') : `Шаблоны · ${group.name}`}
+          onBack={() => {
+            if (draft) setDraft(null)
+            else onClose()
+          }}
+        />
         {draft ? (
           <>
             <label className="field-label" htmlFor="group-template-name">
@@ -184,13 +191,10 @@ export function GroupTemplatesDialog({
                 </select>
               ) : null}
               <button type="button" className="button-secondary" onClick={addProduct} disabled={!product.trim()}>
-                Добавить товар
+                Добавить
               </button>
             </div>
-            <div className="dialog-actions">
-              <button type="button" className="button-secondary" onClick={() => setDraft(null)}>
-                Назад
-              </button>
+            <div className="dialog-actions dialog-actions-single">
               <button
                 type="button"
                 className="button-primary"
@@ -240,9 +244,6 @@ export function GroupTemplatesDialog({
             <div className="choice-row">
               <button type="button" className="button-primary" onClick={startCreate}>
                 Создать шаблон
-              </button>
-              <button type="button" className="button-secondary" onClick={onClose}>
-                Закрыть
               </button>
             </div>
           </>

@@ -1,3 +1,5 @@
+import { DialogTitle } from './DialogTitle'
+
 type ConfirmDialogProps = {
   title: string
   text: string
@@ -16,12 +18,9 @@ export function ConfirmDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <h2>{title}</h2>
+        <DialogTitle title={title} onBack={onClose} />
         <p className="hint">{text}</p>
-        <div className="dialog-actions">
-          <button type="button" className="button-secondary" onClick={onClose}>
-            Отмена
-          </button>
+        <div className="dialog-actions dialog-actions-single">
           <button type="button" className="button-danger" onClick={onConfirm}>
             {confirmLabel}
           </button>

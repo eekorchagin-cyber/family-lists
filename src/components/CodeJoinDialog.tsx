@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { editCode, kindFromCode } from '../data/sync/codes'
 import { canAutofocus } from '../data/viewport'
 import { ConnectSteps } from './ConnectSteps'
+import { DialogTitle } from './DialogTitle'
 
 type CodeJoinDialogProps = {
   title: string
@@ -54,7 +55,7 @@ export function CodeJoinDialog({
   return (
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
-        <h2>{title}</h2>
+        <DialogTitle title={title} onBack={onClose} />
         {text ? <p className="hint">{text}</p> : null}
         {steps ?? <ConnectSteps forKind={kindFromCode(code)} />}
         {error ? <p className="hint sync-error">{error}</p> : null}
@@ -85,10 +86,7 @@ export function CodeJoinDialog({
           autoCapitalize="characters"
           autoFocus={canAutofocus() && !nameLabel}
         />
-        <div className="dialog-actions">
-          <button type="button" className="button-secondary" onClick={onClose}>
-            Отмена
-          </button>
+        <div className="dialog-actions dialog-actions-single">
           <button
             type="button"
             className="button-primary"

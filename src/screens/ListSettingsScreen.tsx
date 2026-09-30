@@ -9,20 +9,16 @@ import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
 import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { BackIcon } from '../components/NavIcons'
-import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { resolveLoyaltyCard } from '../data/loyalty'
 import { playConfirmSound } from '../data/sounds'
-import { foldersForUser } from '../data/myTemplates'
 import {
-  classifyTemplateItems,
   placeTemplateTarget,
   templatesForList,
   type TemplateSaveTarget,
 } from '../data/templates'
 import { TemplateDraftDialog } from '../components/TemplateDraftDialog'
 import { TemplateSaveFields } from '../components/TemplateSaveFields'
-import { TemplateFitDialog } from '../components/TemplateFitDialog'
 import type {
   Category,
   CategorySort,
@@ -35,20 +31,18 @@ import type {
   TemplateFolder,
 } from '../types'
 
-type ListSettingsSection = 'list' | 'categories' | 'templates' | 'transfer'
+type ListSettingsSection = 'list' | 'categories' | 'templates'
 
 const SECTIONS: { id: ListSettingsSection; title: string; hint: string }[] = [
   { id: 'list', title: 'Список', hint: 'Название, кто видит и удаление' },
   { id: 'categories', title: 'Категории', hint: 'Отделы этого списка' },
-  { id: 'templates', title: 'Шаблоны', hint: 'Подставить и поправить' },
-  { id: 'transfer', title: 'В другой список', hint: 'Копирование и перенос' },
+  { id: 'templates', title: 'Шаблоны', hint: 'Сохранить и поправить' },
 ]
 
 const SECTION_TITLES: Record<ListSettingsSection, string> = {
   list: 'Список',
   categories: 'Категории',
   templates: 'Шаблоны',
-  transfer: 'В другой список',
 }
 
 function leftoverItemsHint(count: number): string {
@@ -73,7 +67,6 @@ type ListSettingsScreenProps = {
   unusedCategories: Category[]
   items: Item[]
   otherStores: Store[]
-  activeCount: number
   onBack: () => void
   onRenameStore: (name: string) => void
   onDeleteStore: () => void
@@ -83,7 +76,6 @@ type ListSettingsScreenProps = {
   onAddCategory: (name: string, color: string, icon?: string, global?: boolean) => string
   onEnableCategory: (categoryIds: string[]) => void
   onRemoveCategory: (categoryId: string) => void
-  onApplyTemplate: (templateId: string, mode?: 'all' | 'matching') => void
   onSaveTemplate: (name: string, visibility: StoreVisibility, target: TemplateSaveTarget) => void
   onUpdatePlaceTemplate: (
     draft: {
@@ -97,8 +89,6 @@ type ListSettingsScreenProps = {
   onDeleteListTemplate: (templateId: string) => void
   onSetTemplateVisibility: (templateId: string, visibility: StoreVisibility) => void
   myId?: string
-  onCopyToStore: (storeId: string) => void
-  onMoveToStore: (storeId: string) => void
   groups?: StoreGroup[]
   templateFolders?: TemplateFolder[]
   onSetLoyalty?: (card: LoyaltyCard | undefined) => void
@@ -112,7 +102,6 @@ export function ListSettingsScreen({
   unusedCategories,
   items,
   otherStores,
-  activeCount,
   onBack,
   onRenameStore,
   onDeleteStore,
@@ -122,14 +111,11 @@ export function ListSettingsScreen({
   onAddCategory,
   onEnableCategory,
   onRemoveCategory,
-  onApplyTemplate,
   onSaveTemplate,
   onUpdatePlaceTemplate,
   onDeleteListTemplate,
   onSetTemplateVisibility,
   myId,
-  onCopyToStore,
-  onMoveToStore,
   groups = [],
   templateFolders = [],
   onSetLoyalty,
@@ -144,13 +130,12 @@ export function ListSettingsScreen({
   const [removing, setRemoving] = useState<Category | null>(null)
   const [namingTemplate, setNamingTemplate] = useState(false)
   const [templateVisibility, setTemplateVisibility] = useState<StoreVisibility>('home')
+  const [saveTarget, setSaveTarget] = useState<TemplateSaveTarget>({ kind: 'store' })
   const [editingTemplate, setEditingTemplate] = useState<{
     template: NamedTemplate
     groupId?: string
   } | null>(null)
-  const [transferring, setTransferring] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [templateFit, setTemplateFit] = useState<{ id: string; names: string[] } | null>(null)
   const [storeName, setStoreName] = useState(store.name)
   const [names, setNames] = useState<Record<string, string>>(() => {
     const next: Record<string, string> = {}
@@ -185,31 +170,21 @@ export function ListSettingsScreen({
     () => templatesForList(store, groups, myId),
     [groups, myId, store],
   )
-  const myFolders = useMemo(
-    () => foldersForUser(templateFolders, myId).filter((folder) => folder.templates.length > 0),
-    [myId, templateFolders],
+  const groupTemplateRows = useMemo(
+    () => templates.filter((row) => row.groupId),
+    [templates],
   )
-  function askApply(templateId: string) {
-    const items =
-      myFolders.flatMap((folder) => folder.templates).find((template) => template.id === templateId)
-        ?.items ?? templates.find((row) => row.template.id === templateId)?.template.items
-    if (!items) return
-    const fit = classifyTemplateItems(store, [...categories, ...unusedCategories], items)
-    if (fit.missingCategoryNames.length === 0) {
-      onApplyTemplate(templateId, 'all')
-      return
-    }
-    setTemplateFit({ id: templateId, names: fit.missingCategoryNames })
-  }
+  const listTemplateRows = useMemo(
+    () => templates.filter((row) => !row.groupId),
+    [templates],
+  )
 
 
   return (
     <div className="screen">
       <Header
         title={title}
-        subtitle={
-          section === 'list' || section === 'transfer' ? undefined : store.name
-        }
+        subtitle={section === 'list' ? undefined : store.name}
         left={
           <button type="button" className="icon-button" onClick={goBack} aria-label="Назад">
             <BackIcon />
@@ -247,15 +222,10 @@ export function ListSettingsScreen({
             </>
           ) : section === 'templates' ? (
             <p>
-              Стрелка вниз подставляет товары. Название в рамке открывает правку, там же
-              шаблон можно удалить. Новый шаблон сохраняется для этого списка. Если список
-              в группе, его увидят и другие списки группы. Личные наборы остаются в «Мои
-              шаблоны».
-            </p>
-          ) : section === 'transfer' && otherStores.length > 0 ? (
-            <p>
-              Скопировать или перенести можно некупленные товары. Купленные остаются на
-              месте. Порядок категорий в другом списке не меняется.
+              Название в рамке открывает правку, там же шаблон можно удалить. «Сохранить
+              текущий список» спрашивает, куда положить шаблон: в этот список, в его группу
+              или в «Мои шаблоны». Подставить товары в список — кнопкой «Из шаблона» на
+              странице списка.
             </p>
           ) : undefined
         }
@@ -444,102 +414,76 @@ export function ListSettingsScreen({
 
         {section === 'templates' && (
           <section className="settings-block">
-            {templates.length === 0 && myFolders.length === 0 ? (
-              <p className="hint">Пока нет шаблонов.</p>
+            {groupTemplateRows.length === 0 && listTemplateRows.length === 0 ? (
+              <p className="hint">Пока нет шаблонов этого списка или его группы.</p>
             ) : (
               <div className="template-pick-groups">
-                {myFolders.length > 0 ? (
-                  <section className="template-pick-group">
-                    <h3 className="template-pick-heading">Из моих шаблонов</h3>
-                    <ul className="template-list template-list--nested">
-                      {myFolders.flatMap((folder) =>
-                        folder.templates.map((template) => (
-                          <li key={template.id} className="template-pick-row">
-                            <span className="template-pick-name">{template.name}</span>
-                            <span className="store-local-mark store-local-mark--icon" title="личное">
-                              <span aria-hidden="true">🔒</span>
-                              <span className="visually-hidden">личное</span>
-                            </span>
-                            <button
-                              type="button"
-                              className="qty-button store-menu"
-                              aria-label={`Добавить в список: ${template.name}, ${folder.name}`}
-                              onClick={() => askApply(template.id)}
-                            >
-                              <span aria-hidden="true">↓</span>
-                            </button>
-                          </li>
-                        )),
-                      )}
-                    </ul>
-                  </section>
-                ) : null}
-                {templates.length > 0 ? (
-                  <section className="template-pick-group">
-                    <h3 className="template-pick-heading">Шаблоны этого списка</h3>
-                    <ul className="template-list template-list--nested">
-                      {templates.map(({ storeId, groupId, template }) => {
-                        const sourceStore = groupId
-                          ? undefined
-                          : storeId === store.id
-                            ? store
-                            : otherStores.find((item) => item.id === storeId)
-                        const ownsStore =
-                          !sourceStore?.ownerId || !myId || sourceStore.ownerId === myId
-                        const personal = template.visibility === 'private'
-                        const canToggle = syncEnabled && (ownsStore || personal)
-                        return (
-                          <li key={template.id} className="template-pick-row">
-                            <button
-                              type="button"
-                              className="template-pick-name"
-                              aria-label={`Изменить шаблон ${template.name}`}
-                              onClick={() => setEditingTemplate({ template, groupId })}
-                            >
-                              {template.name}
-                            </button>
-                            {personal ? (
-                              canToggle && ownsStore ? (
+                {[
+                  { title: 'Шаблоны группы', rows: groupTemplateRows, editable: true },
+                  { title: 'Шаблоны этого списка', rows: listTemplateRows, editable: true },
+                ]
+                  .filter((block) => block.rows.length > 0)
+                  .map((block) => (
+                    <section key={block.title} className="template-pick-group">
+                      <h3 className="template-pick-heading">{block.title}</h3>
+                      <ul className="template-list template-list--nested">
+                        {block.rows.map(({ storeId, groupId, template }) => {
+                          const sourceStore = groupId
+                            ? undefined
+                            : storeId === store.id
+                              ? store
+                              : otherStores.find((item) => item.id === storeId)
+                          const ownsStore =
+                            !sourceStore?.ownerId || !myId || sourceStore.ownerId === myId
+                          const personal = template.visibility === 'private'
+                          const canToggle = syncEnabled && (ownsStore || personal)
+                          return (
+                            <li key={template.id} className="template-pick-row">
+                              <button
+                                type="button"
+                                className="template-pick-name"
+                                aria-label={`Изменить шаблон ${template.name}`}
+                                onClick={() => setEditingTemplate({ template, groupId })}
+                              >
+                                {template.name}
+                              </button>
+                              {personal ? (
+                                canToggle && ownsStore ? (
+                                  <button
+                                    type="button"
+                                    className="store-local-mark store-local-mark--icon"
+                                    title="личное"
+                                    aria-label="Только я"
+                                    onClick={() => onSetTemplateVisibility(template.id, 'home')}
+                                  >
+                                    <span aria-hidden="true">🔒</span>
+                                  </button>
+                                ) : (
+                                  <span
+                                    className="store-local-mark store-local-mark--icon"
+                                    title="личное"
+                                  >
+                                    <span aria-hidden="true">🔒</span>
+                                    <span className="visually-hidden">личное</span>
+                                  </span>
+                                )
+                              ) : canToggle && ownsStore ? (
                                 <button
                                   type="button"
-                                  className="store-local-mark store-local-mark--icon"
-                                  title="личное"
-                                  aria-label="Только я"
-                                  onClick={() => onSetTemplateVisibility(template.id, 'home')}
+                                  className="template-lock-shared"
+                                  title="Весь дом"
+                                  aria-label="Весь дом"
+                                  onClick={() => onSetTemplateVisibility(template.id, 'private')}
                                 >
                                   <span aria-hidden="true">🔒</span>
                                 </button>
-                              ) : (
-                                <span className="store-local-mark store-local-mark--icon" title="личное">
-                                  <span aria-hidden="true">🔒</span>
-                                  <span className="visually-hidden">личное</span>
-                                </span>
-                              )
-                            ) : canToggle && ownsStore ? (
-                              <button
-                                type="button"
-                                className="template-lock-shared"
-                                title="Весь дом"
-                                aria-label="Весь дом"
-                                onClick={() => onSetTemplateVisibility(template.id, 'private')}
-                              >
-                                <span aria-hidden="true">🔒</span>
-                              </button>
-                            ) : null}
-                            <button
-                              type="button"
-                              className="qty-button store-menu"
-                              aria-label={`Добавить в список: ${template.name}`}
-                              onClick={() => askApply(template.id)}
-                            >
-                              <span aria-hidden="true">↓</span>
-                            </button>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </section>
-                ) : null}
+                              ) : null}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </section>
+                  ))}
               </div>
             )}
             <button
@@ -547,32 +491,12 @@ export function ListSettingsScreen({
               className="button-secondary add-category"
               onClick={() => {
                 setTemplateVisibility('home')
+                setSaveTarget(placeTemplateTarget(store))
                 setNamingTemplate(true)
               }}
             >
               Сохранить текущий список
             </button>
-          </section>
-        )}
-
-        {section === 'transfer' && (
-          <section className="settings-block">
-            {otherStores.length === 0 ? (
-              <p className="hint">
-                Добавьте ещё один магазин на главном экране — тогда можно будет
-                скопировать или перенести товары.
-              </p>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="button-secondary add-category"
-                  onClick={() => setTransferring(true)}
-                >
-                  Перенести в другой список
-                </button>
-              </>
-            )}
           </section>
         )}
       </main>
@@ -624,6 +548,12 @@ export function ListSettingsScreen({
           inputId="list-template-name"
           extra={
             <TemplateSaveFields
+              store={store}
+              groups={groups}
+              folders={templateFolders}
+              myId={myId}
+              target={saveTarget}
+              onTarget={setSaveTarget}
               syncEnabled={syncEnabled}
               visibility={templateVisibility}
               onVisibility={setTemplateVisibility}
@@ -631,7 +561,7 @@ export function ListSettingsScreen({
           }
           onClose={() => setNamingTemplate(false)}
           onConfirm={(name) => {
-            onSaveTemplate(name, templateVisibility, placeTemplateTarget(store))
+            onSaveTemplate(name, templateVisibility, saveTarget)
             setNamingTemplate(false)
           }}
         />
@@ -648,21 +578,6 @@ export function ListSettingsScreen({
           }}
         />
       ) : null}
-      {transferring && (
-        <TransferDialog
-          stores={otherStores}
-          activeCount={activeCount}
-          onClose={() => setTransferring(false)}
-          onCopy={(storeId) => {
-            onCopyToStore(storeId)
-            setTransferring(false)
-          }}
-          onMove={(storeId) => {
-            onMoveToStore(storeId)
-            setTransferring(false)
-          }}
-        />
-      )}
       {removing && (
         <ConfirmDialog
           title="Убрать категорию?"
@@ -689,20 +604,6 @@ export function ListSettingsScreen({
             onDeleteListTemplate(templateId)
             setEditingTemplate(null)
           }}
-        />
-      ) : null}
-      {templateFit ? (
-        <TemplateFitDialog
-          missingNames={templateFit.names}
-          onMatching={() => {
-            onApplyTemplate(templateFit.id, 'matching')
-            setTemplateFit(null)
-          }}
-          onAll={() => {
-            onApplyTemplate(templateFit.id, 'all')
-            setTemplateFit(null)
-          }}
-          onClose={() => setTemplateFit(null)}
         />
       ) : null}
       {deleting && (
