@@ -11,7 +11,7 @@ import {
 } from '../data/categories'
 import { applyCatalogImport, mergeCatalogFromItems, upsertCatalog } from '../data/catalog'
 import { emptyStoreFields } from '../data/defaults'
-import { applyAppearance, loadClearedStoreIds, loadData, loadStoreOrder, saveClearedStoreIds, saveData, saveStoreOrder } from '../data/storage'
+import { applyAppearance, loadClearedStoreIds, loadData, loadStoreOrder, saveClearedAt, saveClearedStoreIds, saveData, saveStoreOrder } from '../data/storage'
 import {
   badgeIncludeNewStores,
   withBadgeStore,
@@ -24,7 +24,7 @@ import {
 } from '../data/homeLayout'
 import { withLoyaltyMarker } from '../data/loyalty'
 import { rememberIncomingDismissed } from '../data/forward'
-import { queueDeleted } from '../data/sync/deletes'
+import { clearStoreCategoryDisable, queueDeleted, storeCategoryKey } from '../data/sync/deletes'
 import { queueInboxDismiss } from '../data/sync/forwardApi'
 import { markDirty } from '../data/sync/dirty'
 import { applyStoreOrder, mergePulledData, nowIso, visibleStoreUpdates, withUpdatedAt } from '../data/sync/merge'
@@ -141,6 +141,7 @@ export function useAppState() {
   const [clearedStoreIds, setClearedStoreIds] = useState<string[]>(() => loadClearedStoreIds())
 
   const rememberCleared = useCallback((storeId: string) => {
+    saveClearedAt(storeId, nowIso())
     setClearedStoreIds((current) => {
       if (current.includes(storeId)) return current
       const next = [...current, storeId]
@@ -506,6 +507,7 @@ export function useAppState() {
 
   const enableCategoriesInStore = useCallback((storeId: string, categoryIds: string[]) => {
     if (categoryIds.length === 0) return
+    for (const categoryId of categoryIds) clearStoreCategoryDisable(storeId, categoryId)
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       if (!store) return current
@@ -546,6 +548,7 @@ export function useAppState() {
 
       const categoryNames = { ...store.categoryNames }
       delete categoryNames[categoryId]
+      queueDeleted('storeCategories', storeCategoryKey(storeId, categoryId))
       return persist(
         patchStore(current, storeId, {
           categoryNames,

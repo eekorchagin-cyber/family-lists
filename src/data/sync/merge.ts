@@ -4,7 +4,8 @@ import { hasLoyaltyCard } from '../loyalty'
 import { groupVisibleTo, nestStoresInPrivateGroups } from '../homeLayout'
 import { mergeTemplateFolders } from '../myTemplates'
 import { mergeTemplates } from '../templates'
-import { peekDeletes } from './deletes'
+import { loadClearedAt, loadClearedStoreIds } from '../storage'
+import { peekDeletes, queueDeleted, storeCategoryKey } from './deletes'
 
 function stamp(): string {
   return new Date().toISOString()
@@ -55,6 +56,25 @@ function keepLoyalty(next: Store, local: Store, remote: Store): Store {
   return card ? { ...next, loyaltyCard: card } : next
 }
 
+function mergeCategoryOrders(local: Store, remote: Store): string[] {
+  const localOrder = local.categoryOrder ?? []
+  const remoteOrder = remote.categoryOrder ?? []
+  const localAt = local.updatedAt ?? ''
+  const remoteAt = remote.updatedAt ?? ''
+  const primary = remoteAt > localAt ? remoteOrder : localOrder
+  const secondary = remoteAt > localAt ? localOrder : remoteOrder
+  const seen = new Set(primary)
+  const next = [...primary]
+  for (const id of secondary) {
+    if (seen.has(id)) continue
+    seen.add(id)
+    next.push(id)
+  }
+  const disabled = new Set(peekDeletes().storeCategories ?? [])
+  const storeId = local.id || remote.id
+  return next.filter((id) => !disabled.has(storeCategoryKey(storeId, id)))
+}
+
 function mergeStore(local: Store, remote: Store, userId?: string): Store {
   const ownerId = remote.ownerId ?? local.ownerId
   let next: Store
@@ -72,6 +92,11 @@ function mergeStore(local: Store, remote: Store, userId?: string): Store {
     } else if (remote.groupId && !local.groupId) {
       next = keepLoyalty({ ...local, groupId: remote.groupId }, local, remote)
     } else next = keepLoyalty(local, local, remote)
+  }
+  // Иначе облако со старым набором отделов стирает только что добавленную категорию.
+  const categoryOrder = mergeCategoryOrders(local, remote)
+  if (JSON.stringify(categoryOrder) !== JSON.stringify(next.categoryOrder ?? [])) {
+    next = { ...next, categoryOrder }
   }
   const templates = mergeTemplates(local.templates, next.templates, userId)
   const withTemplates =
@@ -145,7 +170,6 @@ export function nextLastPulledAt(
   }
   for (const store of latest.stores) consider(store.updatedAt, stores.has(store.id))
   for (const item of latest.items) {
-    if (item.bought) continue
     consider(item.updatedAt, items.has(item.id))
   }
   for (const category of latest.categories) consider(category.updatedAt, categories.has(category.id))
@@ -178,6 +202,17 @@ function itemFingerprint(item: Item): string {
   )
 }
 
+/** Купленное до «Стереть исполненное» не считается новым наполнением списка. */
+function countsAsListContent(item: Item): boolean {
+  const clearedStores = new Set(loadClearedStoreIds())
+  const clearedAt = loadClearedAt()
+  if (!item.bought) return true
+  if (!clearedStores.has(item.storeId) && !clearedAt[item.storeId]) return true
+  const cutoff = clearedAt[item.storeId]
+  if (!cutoff) return false
+  return (item.updatedAt ?? '') > cutoff
+}
+
 export function visibleStoreUpdates(before: AppData, after: AppData): string[] {
   const ids = new Set<string>()
   const beforeStores = new Map(before.stores.map((store) => [store.id, store]))
@@ -200,8 +235,8 @@ export function visibleStoreUpdates(before: AppData, after: AppData): string[] {
     for (const list of map.values()) list.sort()
     return map
   }
-  const beforeItems = group(before.items)
-  const afterItems = group(after.items)
+  const beforeItems = group(before.items.filter((item) => countsAsListContent(item)))
+  const afterItems = group(after.items.filter((item) => countsAsListContent(item)))
   for (const store of after.stores) {
     const prev = (beforeItems.get(store.id) ?? []).join('\n')
     const next = (afterItems.get(store.id) ?? []).join('\n')
@@ -318,6 +353,10 @@ export function mergePulledData(
   const remoteIds = new Set(remote.items.map((item) => item.id))
   for (const item of remote.items) {
     if (deletedItems.has(item.id)) continue
+    if (!countsAsListContent(item)) {
+      queueDeleted('clearedItems', item.id)
+      continue
+    }
     const current = items.get(item.id)
     if (!current) {
       items.set(item.id, item)
@@ -335,8 +374,13 @@ export function mergePulledData(
   }
 
   for (const [id, item] of [...items.entries()]) {
+    if (!countsAsListContent(item)) {
+      queueDeleted('clearedItems', item.id)
+      items.delete(id)
+      changed = true
+      continue
+    }
     if (remoteIds.has(id)) continue
-    if (item.bought) continue
     const store = stores.get(item.storeId)
     if (!store) {
       items.delete(id)

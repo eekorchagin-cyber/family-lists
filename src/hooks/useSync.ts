@@ -354,6 +354,7 @@ export function useSync(
       if (merged.visible.length > 0) {
         markStoresUpdated(merged.visible)
       }
+      if (peekDeletes().clearedItems.length > 0) dirtyRef.current = true
       const toPush = dataRef.current
       let snapshot = toPush
       let pushedSnapshot: AppData | null = null

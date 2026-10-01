@@ -725,6 +725,7 @@ export async function pushLocal(
         stores: [],
         groups: [],
         categories: [],
+        storeCategories: [],
         catalog: [],
         templateFolders: pending.templateFolders,
       })

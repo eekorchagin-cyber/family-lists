@@ -26,6 +26,7 @@ import {
   emptyStoreFields,
   SCHEMA_VERSION,
   CLEARED_STORES_KEY,
+  CLEARED_AT_KEY,
   FRESH_START_KEY,
   STORE_ORDER_KEY,
   STORAGE_KEY,
@@ -463,6 +464,28 @@ export function loadClearedStoreIds(): string[] {
 
 export function saveClearedStoreIds(ids: string[]): void {
   localStorage.setItem(CLEARED_STORES_KEY, JSON.stringify(ids))
+}
+
+export function loadClearedAt(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(CLEARED_AT_KEY)
+    if (!raw) return {}
+    const value = JSON.parse(raw) as unknown
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+    const next: Record<string, string> = {}
+    for (const [id, at] of Object.entries(value)) {
+      if (typeof at === 'string' && at) next[id] = at
+    }
+    return next
+  } catch {
+    return {}
+  }
+}
+
+export function saveClearedAt(storeId: string, at: string): void {
+  const next = loadClearedAt()
+  next[storeId] = at
+  localStorage.setItem(CLEARED_AT_KEY, JSON.stringify(next))
 }
 
 export function applyAppearance(settings: Settings): void {

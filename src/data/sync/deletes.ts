@@ -6,6 +6,8 @@ export type PendingDeletes = {
   stores: string[]
   groups: string[]
   categories: string[]
+  /** Снятые из списка общие категории: `${storeId}\t${categoryId}` */
+  storeCategories: string[]
   catalog: string[]
   templateFolders: string[]
 }
@@ -17,6 +19,7 @@ function empty(): PendingDeletes {
     stores: [],
     groups: [],
     categories: [],
+    storeCategories: [],
     catalog: [],
     templateFolders: [],
   }
@@ -33,12 +36,17 @@ function load(): PendingDeletes {
       stores: value.stores ?? [],
       groups: value.groups ?? [],
       categories: value.categories ?? [],
+      storeCategories: value.storeCategories ?? [],
       catalog: value.catalog ?? [],
       templateFolders: value.templateFolders ?? [],
     }
   } catch {
     return empty()
   }
+}
+
+export function storeCategoryKey(storeId: string, categoryId: string): string {
+  return `${storeId}\t${categoryId}`
 }
 
 function save(next: PendingDeletes): void {
@@ -73,7 +81,20 @@ export function restoreDeletes(pending: PendingDeletes): void {
     stores: [...new Set([...pending.stores, ...current.stores])],
     groups: [...new Set([...pending.groups, ...current.groups])],
     categories: [...new Set([...pending.categories, ...current.categories])],
+    storeCategories: [
+      ...new Set([...(pending.storeCategories ?? []), ...(current.storeCategories ?? [])]),
+    ],
     catalog: [...new Set([...pending.catalog, ...current.catalog])],
     templateFolders: [...new Set([...(pending.templateFolders ?? []), ...(current.templateFolders ?? [])])],
+  })
+}
+
+export function clearStoreCategoryDisable(storeId: string, categoryId: string): void {
+  const key = storeCategoryKey(storeId, categoryId)
+  const current = load()
+  if (!current.storeCategories.includes(key)) return
+  save({
+    ...current,
+    storeCategories: current.storeCategories.filter((item) => item !== key),
   })
 }

@@ -4,6 +4,7 @@ export const SCHEMA_VERSION = 1
 export const STORAGE_KEY = 'pokupki-data'
 export const STORE_ORDER_KEY = 'pokupki-store-order'
 export const CLEARED_STORES_KEY = 'pokupki-cleared-stores'
+export const CLEARED_AT_KEY = 'pokupki-cleared-at'
 export const FRESH_START_KEY = 'pokupki-fresh-start'
 
 export const STARTER_CATEGORY_ORDER = [
