@@ -1,5 +1,4 @@
 import { DialogHeading } from './DialogHeading'
-import { ActionLabel } from './ActionLabel'
 
 type ConfirmDialogProps = {
   title: string
@@ -22,8 +21,8 @@ export function ConfirmDialog({
         <DialogHeading title={title} onClose={onClose} />
         <p className="hint">{text}</p>
         <div className="dialog-actions dialog-actions-single">
-          <button type="button" className="button-danger" onClick={onConfirm} aria-label={confirmLabel}>
-            <ActionLabel text={confirmLabel} />
+          <button type="button" className="button-danger" onClick={onConfirm}>
+            {confirmLabel}
           </button>
         </div>
       </div>

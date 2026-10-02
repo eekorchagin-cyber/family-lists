@@ -3,7 +3,6 @@ import { iconIdFromName } from '../data/categories'
 import type { Category } from '../types'
 import { CategoryMarkPicker } from './CategoryMarkPicker'
 import { DialogHeading } from './DialogHeading'
-import { ActionLabel } from './ActionLabel'
 
 type CategoryStyleDialogProps = {
   category: Category
@@ -26,7 +25,7 @@ export function CategoryStyleDialog({
         <CategoryMarkPicker color={color} icon={icon} onColor={setColor} onIcon={setIcon} />
         <div className="dialog-actions dialog-actions-single">
           <button type="button" className="button-primary" onClick={() => onSave(color, icon)}>
-            <ActionLabel action="save" />
+            Сохранить
           </button>
         </div>
       </div>

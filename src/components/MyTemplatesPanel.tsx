@@ -5,11 +5,9 @@ import { parseItem } from '../data/parseItem'
 import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
 import type { CatalogEntry, Category, ParsedItem, TemplateFolder, TemplateItem } from '../types'
 import { CategoryMark } from './CategoryMark'
-import { CommandButton } from './CommandButton'
 import { ConfirmDialog } from './ConfirmDialog'
 import { DialogHeading } from './DialogHeading'
 import { DoneButton } from './DoneButton'
-import { ActionLabel } from './ActionLabel'
 import { LongPressButton } from './LongPressButton'
 import { NameDialog } from './NameDialog'
 import { NewCategoryDialog } from './NewCategoryDialog'
@@ -20,6 +18,33 @@ type Draft = {
   id?: string
   name: string
   items: TemplateItem[]
+}
+
+function CommandButton({
+  label,
+  ariaLabel,
+  danger,
+  onClick,
+}: {
+  label: string
+  ariaLabel?: string
+  danger?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={
+        danger
+          ? 'command-button command-button--text command-button--danger'
+          : 'command-button command-button--text'
+      }
+      aria-label={ariaLabel ?? label}
+      onClick={onClick}
+    >
+      <span className="command-label">{label}</span>
+    </button>
+  )
 }
 
 function ProductStep({
@@ -111,8 +136,8 @@ function ProductStep({
               </li>
             ))}
           </ul>
-          <button type="button" className="button-secondary add-category" onClick={() => setAddingCategory(true)} aria-label="Новая категория">
-            <ActionLabel action="newCategory" />
+          <button type="button" className="button-secondary add-category" onClick={() => setAddingCategory(true)}>
+            Новая категория
           </button>
         </>
       )}

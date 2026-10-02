@@ -22,7 +22,6 @@ import {
 import type { LoyaltyCard, LoyaltyKind } from '../types'
 import { DialogHeading } from './DialogHeading'
 import { LoyaltyCardView } from './LoyaltyCardView'
-import { ActionLabel } from './ActionLabel'
 
 type LoyaltyCardEditorProps = {
   title?: string
@@ -378,7 +377,7 @@ export function LoyaltyCardEditor({
               if (card) onSave(card)
             }}
           >
-            <ActionLabel action="save" />
+            Сохранить
           </button>
           {initial || (card && !inheritedOnly) ? (
             <button

@@ -34,7 +34,6 @@ import type {
   Category,
   FontSize,
   IconStyle,
-  ButtonLabelStyle,
   Settings,
   Store,
   StoreGroup,
@@ -97,7 +96,6 @@ type SettingsScreenProps = {
   onTheme: (theme: Theme) => void
   onFontSize: (fontSize: FontSize) => void
   onIconStyle: (style: IconStyle) => void
-  onButtonLabelStyle: (style: ButtonLabelStyle) => void
   onStoreInBadge: (storeId: string, included: boolean) => void
   onBadgeIncludeNew: (include: boolean) => void
   onAllowBadge: () => void | Promise<void>
@@ -166,7 +164,6 @@ export function SettingsScreen({
   onTheme,
   onFontSize,
   onIconStyle,
-  onButtonLabelStyle,
   onStoreInBadge,
   onBadgeIncludeNew,
   onAllowBadge,
@@ -586,27 +583,6 @@ export function SettingsScreen({
                   onClick={() => onIconStyle('color')}
                 >
                   Цветные
-                </ChoiceButton>
-              </div>
-            </section>
-
-            <section className="settings-block">
-              <h2>Вид кнопок</h2>
-              <p className="hint">
-                Команды вроде «Имя», «Сохранить» и «Понятно» можно показывать значками или словами.
-              </p>
-              <div className="choice-row">
-                <ChoiceButton
-                  active={(settings.buttonLabelStyle ?? 'words') === 'icons'}
-                  onClick={() => onButtonLabelStyle('icons')}
-                >
-                  Значками
-                </ChoiceButton>
-                <ChoiceButton
-                  active={(settings.buttonLabelStyle ?? 'words') === 'words'}
-                  onClick={() => onButtonLabelStyle('words')}
-                >
-                  Словами
                 </ChoiceButton>
               </div>
             </section>

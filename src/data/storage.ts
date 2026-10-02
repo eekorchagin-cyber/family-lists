@@ -191,9 +191,6 @@ function normalizeSettings(value: unknown): Settings {
     fontSize:
       value.fontSize === 's' || value.fontSize === 'l' ? value.fontSize : 'm',
     ...(value.iconStyle === 'contour' || value.iconStyle === 'color' ? { iconStyle: value.iconStyle } : {}),
-    ...(value.buttonLabelStyle === 'icons' || value.buttonLabelStyle === 'words'
-      ? { buttonLabelStyle: value.buttonLabelStyle }
-      : {}),
     ...(excluded.length > 0 ? { badgeExcludedStoreIds: excluded } : {}),
     ...(value.badgeIncludeNew === false ? { badgeIncludeNew: false } : {}),
   }

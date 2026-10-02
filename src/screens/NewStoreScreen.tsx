@@ -7,7 +7,6 @@ import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { globalCategories } from '../data/catalog'
 import { DEFAULT_CATEGORIES, STARTER_CATEGORY_ORDER } from '../data/defaults'
 import type { Category } from '../types'
-import { ActionLabel } from '../components/ActionLabel'
 
 type NewStoreScreenProps = {
   categories: Category[]
@@ -157,7 +156,7 @@ export function NewStoreScreen({
           className="button-secondary add-category"
           onClick={() => setAddingCategory(true)}
         >
-          <ActionLabel action="newCategory" />
+          Новая категория
         </button>
       </div>
 

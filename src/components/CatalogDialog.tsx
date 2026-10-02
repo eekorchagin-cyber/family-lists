@@ -4,7 +4,6 @@ import { CategoryMark } from './CategoryMark'
 import { DialogHeading } from './DialogHeading'
 import { NewCategoryDialog } from './NewCategoryDialog'
 import type { CatalogEntry, Category, Store } from '../types'
-import { ActionLabel } from './ActionLabel'
 
 type CatalogDialogProps = {
   entry: CatalogEntry | null
@@ -156,7 +155,7 @@ export function CatalogDialog({
               className="button-secondary sheet-extra"
               onClick={() => setAddingCategory(true)}
             >
-              <ActionLabel action="newCategory" />
+              Новая категория
             </button>
           </>
         )}
@@ -167,7 +166,7 @@ export function CatalogDialog({
             disabled={!name.trim() || !categoryId}
             onClick={submit}
           >
-            <ActionLabel action="save" />
+            Сохранить
           </button>
         </div>
       </div>

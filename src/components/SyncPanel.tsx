@@ -8,7 +8,6 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { ConnectSteps } from './ConnectSteps'
 import { NameDialog } from './NameDialog'
 import { SyncPhoneGuide } from './SyncPhoneGuide'
-import { ActionLabel } from './ActionLabel'
 
 const QrImage = lazy(() => import('./QrImage').then((module) => ({ default: module.QrImage })))
 
@@ -575,7 +574,7 @@ function PhoneGuideBlock({
             </div>
             <div className="dialog-actions dialog-actions-single">
               <button type="button" className="button-primary" onClick={onClose}>
-                <ActionLabel action="understood" />
+                Понятно
               </button>
             </div>
           </div>
@@ -593,7 +592,7 @@ function AlreadyConnectedDialog({ name, onClose }: { name: string; onClose: () =
         <p className="hint">Вы уже подключены как {name}.</p>
         <div className="dialog-actions">
           <button type="button" className="button-primary" onClick={onClose}>
-            <ActionLabel action="understood" />
+            Понятно
           </button>
         </div>
       </div>

@@ -27,7 +27,6 @@ import {
 import { TemplateSaveFields } from '../components/TemplateSaveFields'
 import type { HomeMember } from '../data/sync/session'
 import type { Category, Item, ParsedItem, Store, StoreGroup, StoreVisibility, TemplateFolder } from '../types'
-import { ActionLabel } from '../components/ActionLabel'
 
 type StoreScreenProps = {
   store: Store
@@ -602,7 +601,7 @@ export function StoreScreen({
                     className="button-secondary sheet-extra"
                     onClick={() => setAddingCategory(true)}
                   >
-                    <ActionLabel action="newCategory" />
+                    Новая категория
                   </button>
                 </>
               )
