@@ -173,8 +173,54 @@ ul {
   line-height: 1.45;
 }
 
-.help-text p + p {
+.help-text > p {
+  position: relative;
+  margin: 0;
+  padding-left: 1.15em;
+}
+
+.help-text > p + p {
   margin-top: 12px;
+}
+
+.help-text > p::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.help-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.help-list li {
+  position: relative;
+  padding-left: 1.15em;
+}
+
+.help-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.help-text ul:not(.help-list) > li::marker,
+.sync-guide-body ul > li::marker {
+  color: var(--accent);
 }
 
 .sync-guide-body h3 {
