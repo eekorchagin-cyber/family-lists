@@ -10,7 +10,7 @@ import { LoyaltyCardSheet } from '../components/LoyaltyCardView'
 import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
-import { BackIcon, CardIcon, SettingsIcon, TransferIcon } from '../components/NavIcons'
+import { BackIcon, CardIcon, ClearBoughtIcon, SettingsIcon, TransferIcon } from '../components/NavIcons'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { playConfirmSound } from '../data/sounds'
@@ -42,7 +42,7 @@ type StoreScreenProps = {
   onChangeCategory: (itemId: string, categoryId: string) => void
   onAddCategory: (name: string, color: string, icon?: string) => string
   onStartAdd: (draft: ParsedItem) => void
-  onUpdateItem: (itemId: string, patch: Partial<Pick<Item, 'qty' | 'unit' | 'categoryId'>>) => void
+  onUpdateItem: (itemId: string, patch: Partial<Pick<Item, 'name' | 'qty' | 'unit' | 'categoryId'>>) => void
   onClearBought: () => void
   completedEmpty?: boolean
   onSaveTemplate: (
@@ -96,6 +96,8 @@ export function StoreScreen({
 }: StoreScreenProps) {
   const [query, setQuery] = useState('')
   const [editItem, setEditItem] = useState<Item | null>(null)
+  const [editName, setEditName] = useState('')
+  const [pickingCategory, setPickingCategory] = useState(false)
   const [qtyText, setQtyText] = useState('1')
   const [unit, setUnit] = useState('шт')
   const [addingCategory, setAddingCategory] = useState(false)
@@ -237,6 +239,8 @@ export function StoreScreen({
 
   function openEdit(item: Item) {
     setEditItem(item)
+    setEditName(item.name)
+    setPickingCategory(false)
     setQtyText(formatQty(item.qty))
     setUnit(item.unit)
   }
@@ -251,12 +255,25 @@ export function StoreScreen({
     }
     const nextUnit = unit.trim() || lastUnit()
     rememberUnit(nextUnit)
-    onUpdateItem(editItem.id, { qty, unit: nextUnit })
+    const nextName = editName.trim()
+    if (!nextName) {
+      setEditName(editItem.name)
+      onUpdateItem(editItem.id, { qty, unit: nextUnit })
+      setEditItem({ ...editItem, qty, unit: nextUnit })
+      return
+    }
+    onUpdateItem(editItem.id, {
+      qty,
+      unit: nextUnit,
+      ...(nextName !== editItem.name ? { name: nextName } : {}),
+    })
+    setEditItem({ ...editItem, name: nextName, qty, unit: nextUnit })
   }
 
   function closeEdit() {
     commitQty()
     setEditItem(null)
+    setPickingCategory(false)
   }
 
   function submitSearch(event: FormEvent) {
@@ -309,6 +326,18 @@ export function StoreScreen({
                 <TransferIcon />
               </button>
             ) : null}
+            <button
+              type="button"
+              className="icon-button icon-button--accent"
+              aria-label="Удалить купленные из списка"
+              disabled={boughtItems.length === 0}
+              onClick={() => {
+                playConfirmSound('clear')
+                onClearBought()
+              }}
+            >
+              <ClearBoughtIcon />
+            </button>
             <button
               type="button"
               className="icon-button"
@@ -489,9 +518,21 @@ export function StoreScreen({
         <div className="overlay" role="presentation" onClick={closeEdit}>
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <DialogHeading
-              title={editItem.name}
+              title="Товар"
               onClose={closeEdit}
-              right={<DoneButton onClick={closeEdit} />}
+              right={<DoneButton onClick={closeEdit} disabled={!editName.trim()} />}
+            />
+            <label className="field-label" htmlFor="edit-item-name">
+              Название
+            </label>
+            <input
+              id="edit-item-name"
+              className="input"
+              value={editName}
+              onChange={(event) => setEditName(event.target.value)}
+              onBlur={commitQty}
+              autoComplete="off"
+              autoCorrect="off"
             />
             <p className="field-label">Количество</p>
             <QtyRow
@@ -502,34 +543,63 @@ export function StoreScreen({
               onCommit={commitQty}
             />
             <p className="field-label">Категория</p>
-            <ul className="category-list sheet-list">
-              {categories.map((category) => {
-                const current = items.find((item) => item.id === editItem.id) ?? editItem
+            {(() => {
+              const current = items.find((item) => item.id === editItem.id) ?? editItem
+              const selected = categories.find((category) => category.id === current.categoryId)
+              if (!pickingCategory && selected) {
                 return (
-                  <li key={category.id}>
+                  <div className="category-chosen">
                     <button
                       type="button"
-                      className={
-                        current.categoryId === category.id
-                          ? 'category-chip active'
-                          : 'category-chip'
-                      }
-                      onClick={() => onChangeCategory(editItem.id, category.id)}
+                      className="category-chip active"
+                      onClick={() => setPickingCategory(true)}
                     >
-                      <CategoryMark category={category} />
-                      {categoryName(category, store)}
+                      <CategoryMark category={selected} />
+                      {categoryName(selected, store)}
                     </button>
-                  </li>
+                    <button
+                      type="button"
+                      className="category-change"
+                      onClick={() => setPickingCategory(true)}
+                    >
+                      Изменить
+                    </button>
+                  </div>
                 )
-              })}
-            </ul>
-            <button
-              type="button"
-              className="button-secondary sheet-extra"
-              onClick={() => setAddingCategory(true)}
-            >
-              Новая категория
-            </button>
+              }
+              return (
+                <>
+                  <ul className="category-list sheet-list">
+                    {categories.map((category) => (
+                      <li key={category.id}>
+                        <button
+                          type="button"
+                          className={
+                            current.categoryId === category.id
+                              ? 'category-chip active'
+                              : 'category-chip'
+                          }
+                          onClick={() => {
+                            onChangeCategory(editItem.id, category.id)
+                            setPickingCategory(false)
+                          }}
+                        >
+                          <CategoryMark category={category} />
+                          {categoryName(category, store)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className="button-secondary sheet-extra"
+                    onClick={() => setAddingCategory(true)}
+                  >
+                    Новая категория
+                  </button>
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
@@ -541,6 +611,7 @@ export function StoreScreen({
             const id = onAddCategory(name, color, icon)
             if (editItem && id) onChangeCategory(editItem.id, id)
             setAddingCategory(false)
+            setPickingCategory(false)
           }}
         />
       )}

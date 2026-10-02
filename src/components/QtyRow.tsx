@@ -39,6 +39,10 @@ export function QtyRow({ qtyText, unit, onQtyText, onUnit, onCommit }: QtyRowPro
         onChange={(event) => onUnit(event.target.value)}
         onBlur={onCommit}
         aria-label="Единица"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        autoComplete="off"
       />
     </div>
   )

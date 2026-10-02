@@ -52,6 +52,7 @@ function ProductStep({
   initialQty,
   initialUnit,
   initialCategoryId,
+  categoryKnown = false,
   categories,
   onAddCategory,
   onDone,
@@ -61,6 +62,7 @@ function ProductStep({
   initialQty: number
   initialUnit: string
   initialCategoryId: string
+  categoryKnown?: boolean
   categories: Category[]
   onAddCategory: (name: string, color: string, icon?: string) => string
   onDone: (value: { qty: number; unit: string; categoryId: string }) => void
@@ -69,8 +71,10 @@ function ProductStep({
   const [qtyText, setQtyText] = useState(formatQty(initialQty))
   const [unit, setUnit] = useState(initialUnit)
   const [categoryId, setCategoryId] = useState(initialCategoryId)
+  const [pickingCategory, setPickingCategory] = useState(!categoryKnown)
   const [addingCategory, setAddingCategory] = useState(false)
   const qty = parseQty(qtyText)
+  const selectedCategory = categories.find((category) => category.id === categoryId)
 
   return (
     <>
@@ -99,23 +103,44 @@ function ProductStep({
         }}
       />
       <p className="field-label">Категория</p>
-      <ul className="category-list">
-        {categories.map((category) => (
-          <li key={category.id}>
-            <button
-              type="button"
-              className={categoryId === category.id ? 'category-chip active' : 'category-chip'}
-              onClick={() => setCategoryId(category.id)}
-            >
-              <CategoryMark category={category} />
-              {category.name}
-            </button>
-          </li>
-        ))}
-      </ul>
-      <button type="button" className="button-secondary add-category" onClick={() => setAddingCategory(true)}>
-        Новая категория
-      </button>
+      {!pickingCategory && selectedCategory ? (
+        <div className="category-chosen">
+          <button
+            type="button"
+            className="category-chip active"
+            onClick={() => setPickingCategory(true)}
+          >
+            <CategoryMark category={selectedCategory} />
+            {selectedCategory.name}
+          </button>
+          <button type="button" className="category-change" onClick={() => setPickingCategory(true)}>
+            Изменить
+          </button>
+        </div>
+      ) : (
+        <>
+          <ul className="category-list">
+            {categories.map((category) => (
+              <li key={category.id}>
+                <button
+                  type="button"
+                  className={categoryId === category.id ? 'category-chip active' : 'category-chip'}
+                  onClick={() => {
+                    setCategoryId(category.id)
+                    if (categoryKnown) setPickingCategory(false)
+                  }}
+                >
+                  <CategoryMark category={category} />
+                  {category.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="button-secondary add-category" onClick={() => setAddingCategory(true)}>
+            Новая категория
+          </button>
+        </>
+      )}
       {onRemove ? (
         <button type="button" className="button-secondary add-category" onClick={onRemove}>
           Убрать
@@ -126,7 +151,10 @@ function ProductStep({
           onClose={() => setAddingCategory(false)}
           onAdd={(name, color, icon) => {
             const id = onAddCategory(name, color, icon)
-            if (id) setCategoryId(id)
+            if (id) {
+              setCategoryId(id)
+              if (categoryKnown) setPickingCategory(false)
+            }
             setAddingCategory(false)
           }}
         />
@@ -231,7 +259,11 @@ export function MyTemplatesPanel({
 
   function categoryFor(name: string) {
     const ids = categoryOptions.map((category) => category.id)
-    return catalogCategoryId(catalog, name, ids) ?? categoryOptions[0]?.id ?? ''
+    const fromCatalog = catalogCategoryId(catalog, name, ids)
+    return {
+      id: fromCatalog ?? categoryOptions[0]?.id ?? '',
+      known: Boolean(fromCatalog),
+    }
   }
 
   function commitDraft(next: Draft) {
@@ -261,13 +293,15 @@ export function MyTemplatesPanel({
   }
 
   if (draft && pending) {
+    const category = categoryFor(pending.name)
     return (
       <section className="settings-block">
         <ProductStep
           title={pending.name}
           initialQty={pending.qty}
           initialUnit={pending.unit}
-          initialCategoryId={categoryFor(pending.name)}
+          initialCategoryId={category.id}
+          categoryKnown={category.known}
           categories={categoryOptions}
           onAddCategory={onAddCategory}
           onDone={({ qty, unit, categoryId }) => {
@@ -422,6 +456,7 @@ export function MyTemplatesPanel({
                 initialQty={editing.qty}
                 initialUnit={editing.unit}
                 initialCategoryId={editing.categoryId}
+                categoryKnown
                 categories={categoryOptions}
                 onAddCategory={onAddCategory}
                 onDone={({ qty, unit, categoryId }) => {

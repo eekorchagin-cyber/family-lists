@@ -30,6 +30,19 @@ export function TransferIcon() {
   )
 }
 
+/** Стереть купленные из текущего списка */
+export function ClearBoughtIcon() {
+  return (
+    <svg {...icon}>
+      <path d="M14.2 3.8 8.4 14.2" />
+      <path d="M6.2 12.4 4.4 17.2c2 .9 4.1 1.2 6 .1l1.8-4.9" />
+      <path d="M5.4 14.3c1.3.35 2.7.4 4 .05" />
+      <path d="M6.6 16c1.1.25 2.3.25 3.4 0" />
+      <path d="M16.2 7.2 18.5 5" />
+    </svg>
+  )
+}
+
 export function SettingsIcon() {
   return (
     <svg {...icon}>

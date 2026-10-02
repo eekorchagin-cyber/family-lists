@@ -245,6 +245,16 @@ ul {
   cursor: pointer;
 }
 
+.icon-button--accent {
+  color: var(--accent);
+}
+
+.icon-button--accent:disabled {
+  color: var(--muted);
+  opacity: 0.4;
+  cursor: default;
+}
+
 .add-icon-button {
   font-size: 1.7em;
   font-weight: 400;
@@ -1326,8 +1336,27 @@ button.template-pick-name {
   margin-bottom: 12px;
 }
 
-.category-search {
+.category-chosen {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 12px;
+}
+
+.category-chosen .category-chip {
+  flex: 1;
+  min-width: 0;
+}
+
+.category-change {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 650;
+  padding: 8px 4px;
+  cursor: pointer;
 }
 
 .catalog-list {

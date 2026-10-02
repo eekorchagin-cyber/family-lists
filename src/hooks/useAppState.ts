@@ -638,22 +638,31 @@ export function useAppState() {
   )
 
   const updateItem = useCallback(
-    (itemId: string, patch: Partial<Pick<Item, 'qty' | 'unit' | 'categoryId'>>) => {
+    (itemId: string, patch: Partial<Pick<Item, 'name' | 'qty' | 'unit' | 'categoryId'>>) => {
       setData((current) => {
         const prev = current.items.find((item) => item.id === itemId)
         if (!prev) return current
+        const nextName = patch.name !== undefined ? patch.name.trim() : prev.name
+        if (patch.name !== undefined && !nextName) return current
         const items = current.items.map((item) =>
-          item.id === itemId ? withUpdatedAt({ ...item, ...patch }) : item,
+          item.id === itemId
+            ? withUpdatedAt({
+                ...item,
+                ...patch,
+                ...(patch.name !== undefined ? { name: nextName } : {}),
+              })
+            : item,
         )
-        const categoryId = patch.categoryId
+        const categoryId = patch.categoryId ?? prev.categoryId
+        const catalogName = nextName || prev.name
         const catalog =
           categoryId && current.categories.some((category) => category.id === categoryId)
-            ? rememberCatalog(current.catalog ?? [], prev.name, categoryId)
+            ? rememberCatalog(current.catalog ?? [], catalogName, categoryId)
             : current.catalog
-        const stores = categoryId
+        const stores = patch.categoryId
           ? current.stores.map((store) =>
               store.id === prev.storeId
-                ? withCategoryEnabled(store, categoryId, current.categories)
+                ? withCategoryEnabled(store, patch.categoryId!, current.categories)
                 : store,
             )
           : current.stores
