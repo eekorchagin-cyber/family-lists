@@ -5,6 +5,7 @@ import { parseItem } from '../data/parseItem'
 import { formatQty } from '../data/qty'
 import { templateVisible } from '../data/templates'
 import type { Category, NamedTemplate, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
+import { ActionLabel } from './ActionLabel'
 
 type Draft = {
   id?: string
@@ -202,7 +203,7 @@ export function GroupTemplatesDialog({
                   setDraft(null)
                 }}
               >
-                Сохранить
+                <ActionLabel action="save" />
               </button>
             </div>
             {draft.id ? (

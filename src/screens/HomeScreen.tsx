@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { AddIconButton } from '../components/AddIconButton'
 import { CategoryMark } from '../components/CategoryMark'
+import { CommandButton } from '../components/CommandButton'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DialogHeading } from '../components/DialogHeading'
 import { CategoryMarkPicker } from '../components/CategoryMarkPicker'
@@ -26,33 +27,6 @@ import { playConfirmSound } from '../data/sounds'
 import { APP_VERSION } from '../data/version'
 import type { Person } from '../data/sync/forwardApi'
 import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
-
-function CommandButton({
-  label,
-  ariaLabel,
-  danger,
-  onClick,
-}: {
-  label: string
-  ariaLabel?: string
-  danger?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      className={
-        danger
-          ? 'command-button command-button--text command-button--danger'
-          : 'command-button command-button--text'
-      }
-      aria-label={ariaLabel ?? label}
-      onClick={onClick}
-    >
-      <span className="command-label">{label}</span>
-    </button>
-  )
-}
 
 type HomeScreenProps = {
   stores: Store[]

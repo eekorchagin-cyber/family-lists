@@ -3,6 +3,7 @@ import { CATEGORY_COLORS, iconIdFromName } from '../data/categories'
 import { canAutofocus } from '../data/viewport'
 import { CategoryMarkPicker } from './CategoryMarkPicker'
 import { DialogHeading } from './DialogHeading'
+import { ActionLabel } from './ActionLabel'
 
 type NewCategoryDialogProps = {
   onClose: () => void
@@ -87,7 +88,7 @@ export function NewCategoryDialog({ onClose, onAdd, showScopeToggle }: NewCatego
         />
         <div className="dialog-actions dialog-actions-single">
           <button type="button" className="button-primary" disabled={!name.trim()} onClick={submit}>
-            Сохранить
+            <ActionLabel action="save" />
           </button>
         </div>
       </div>

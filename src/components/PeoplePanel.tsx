@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { editCode, formatCode, kindFromCode } from '../data/sync/codes'
 import { BackIcon } from './NavIcons'
 import { contactShareMessage, type Person } from '../data/sync/forwardApi'
+import { ActionLabel } from './ActionLabel'
 
 type PeoplePanelProps = {
   configured: boolean
@@ -138,7 +139,7 @@ export function PeoplePanel({
             />
             <div className="choice-row">
               <button type="button" className="button-primary" disabled={busy || code.length < 7} onClick={() => void submit()}>
-                Сохранить
+                <ActionLabel action="save" />
               </button>
               <button
                 type="button"

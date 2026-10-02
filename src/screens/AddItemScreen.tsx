@@ -10,6 +10,7 @@ import { catalogCategoryId, findCatalogEntry } from '../data/catalog'
 import { playConfirmSound } from '../data/sounds'
 import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
 import type { CatalogEntry, Category, Item, ParsedItem, Store } from '../types'
+import { ActionLabel } from '../components/ActionLabel'
 
 type AddItemScreenProps = {
   store: Store
@@ -196,7 +197,7 @@ export function AddItemScreen({
               className="button-secondary add-category"
               onClick={() => setAddingCategory(true)}
             >
-              Новая категория
+              <ActionLabel action="newCategory" />
             </button>
           </>
         )}

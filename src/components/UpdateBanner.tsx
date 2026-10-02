@@ -1,4 +1,5 @@
 import type { RemoteVersion } from '../hooks/useAppUpdate'
+import { ActionLabel } from './ActionLabel'
 
 type UpdateBannerProps = {
   remote: RemoteVersion
@@ -33,8 +34,8 @@ export function UpdateBanner({
             </p>
           ) : null}
           <div className="update-banner-actions">
-            <button type="button" className="button-primary" onClick={onDismiss}>
-              Понятно
+            <button type="button" className="button-primary" onClick={onDismiss} aria-label="Понятно">
+              <ActionLabel action="understood" />
             </button>
           </div>
         </>
@@ -46,8 +47,8 @@ export function UpdateBanner({
             <p className="update-banner-text">Программа уже обновлена.</p>
           )}
           <div className="update-banner-actions">
-            <button type="button" className="button-primary" onClick={onDismiss}>
-              Понятно
+            <button type="button" className="button-primary" onClick={onDismiss} aria-label="Понятно">
+              <ActionLabel action="understood" />
             </button>
           </div>
         </>

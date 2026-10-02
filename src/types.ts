@@ -1,6 +1,7 @@
 export type Theme = 'light' | 'dark'
 export type FontSize = 's' | 'm' | 'l'
 export type IconStyle = 'contour' | 'color'
+export type ButtonLabelStyle = 'icons' | 'words'
 
 export type Category = {
   id: string
@@ -109,6 +110,8 @@ export type Settings = {
   fontSize: FontSize
   /** Как рисовать значки категорий, списков и групп. Пусто — как сохранено у каждого. */
   iconStyle?: IconStyle
+  /** Вид подписей на командных кнопках: значками или словами. По умолчанию словами. */
+  buttonLabelStyle?: ButtonLabelStyle
   /** Списки, которые не входят в число на ярлыке. Пусто — считаются все. */
   badgeExcludedStoreIds?: string[]
   /** Новые списки сразу входят в число на ярлыке. По умолчанию да. */

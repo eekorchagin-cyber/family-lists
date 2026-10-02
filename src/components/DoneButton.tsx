@@ -1,3 +1,5 @@
+import { ActionLabel } from './ActionLabel'
+
 type DoneButtonProps = {
   disabled?: boolean
   type?: 'button' | 'submit'
@@ -11,8 +13,9 @@ export function DoneButton({ disabled, type = 'button', onClick }: DoneButtonPro
       className="header-done"
       disabled={disabled}
       onClick={onClick}
+      aria-label="Сохранить"
     >
-      Сохранить
+      <ActionLabel action="save" />
     </button>
   )
 }

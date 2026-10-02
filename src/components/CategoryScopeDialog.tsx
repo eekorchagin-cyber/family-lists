@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { canAutofocus } from '../data/viewport'
 import { DialogHeading } from './DialogHeading'
 import type { Category } from '../types'
+import { ActionLabel } from './ActionLabel'
 
 type CategoryScopeDialogProps = {
   category: Category
@@ -65,7 +66,7 @@ export function CategoryScopeDialog({
         </p>
         <div className="dialog-actions dialog-actions-single">
           <button type="button" className="button-primary" disabled={!name.trim()} onClick={submit}>
-            Сохранить
+            <ActionLabel action="save" />
           </button>
         </div>
       </div>

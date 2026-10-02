@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { ActionLabel } from './ActionLabel'
 import { HelpIcon } from './NavIcons'
 
 type HelpButtonProps = {
@@ -44,8 +45,8 @@ export function HelpButton({ text, title = 'Подсказка' }: HelpButtonPro
               <HelpBody text={text} />
             </div>
             <div className="dialog-actions dialog-actions-single">
-              <button type="button" className="button-primary" onClick={() => setOpen(false)}>
-                Понятно
+              <button type="button" className="button-primary" onClick={() => setOpen(false)} aria-label="Понятно">
+                <ActionLabel action="understood" />
               </button>
             </div>
           </div>

@@ -41,6 +41,7 @@ import type {
   CategorySort,
   FontSize,
   IconStyle,
+  ButtonLabelStyle,
   Item,
   NamedTemplate,
   Settings,
@@ -1458,6 +1459,11 @@ export function useAppState() {
     [updateSettings],
   )
 
+  const setButtonLabelStyle = useCallback(
+    (buttonLabelStyle: ButtonLabelStyle) => updateSettings({ buttonLabelStyle }),
+    [updateSettings],
+  )
+
   const setStoreInBadge = useCallback((storeId: string, included: boolean) => {
     setData((current) => {
       const next = withBadgeStore(current.settings, storeId, included)
@@ -1578,6 +1584,7 @@ export function useAppState() {
     setTheme,
     setFontSize,
     setIconStyle,
+    setButtonLabelStyle,
     setStoreInBadge,
     setBadgeIncludeNew,
     setStoreVisibility,

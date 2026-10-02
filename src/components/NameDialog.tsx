@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { canAutofocus } from '../data/viewport'
+import { ActionLabel } from './ActionLabel'
 import { DialogHeading } from './DialogHeading'
 
 type NameDialogProps = {
@@ -58,8 +59,14 @@ export function NameDialog({
         />
         {extra}
         <div className="dialog-actions dialog-actions-single">
-          <button type="button" className="button-primary" disabled={!name.trim()} onClick={submit}>
-            {confirmLabel}
+          <button
+            type="button"
+            className="button-primary"
+            disabled={!name.trim()}
+            onClick={submit}
+            aria-label={confirmLabel}
+          >
+            <ActionLabel text={confirmLabel} />
           </button>
         </div>
       </div>

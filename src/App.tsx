@@ -3,6 +3,7 @@ import { AccessScreen } from './components/AccessScreen'
 import { MergeDialog } from './components/MergeDialog'
 import { UpdateBanner } from './components/UpdateBanner'
 import { categoriesForStore, CONTOUR_OFFER_KEY, hasContourReplacements, knownCategoriesForStore, sortCategories, unusedGlobalCategories } from './data/categories'
+import { publishButtonLabelStyle } from './data/buttonActions'
 import { publishIconStyle } from './data/iconStyle'
 import { ContourIconsDialog } from './components/ContourIconsDialog'
 import { clearStoredEnterCode, consumeEnterCode, isLocalHost, mustUseHomeScreenShortcut } from './data/sync/codes'
@@ -79,6 +80,7 @@ function App() {
     setTheme,
     setFontSize,
     setIconStyle,
+    setButtonLabelStyle,
     setStoreInBadge,
     setBadgeIncludeNew,
     setStoreVisibility,
@@ -113,6 +115,10 @@ function App() {
   useEffect(() => {
     publishIconStyle(data.settings.iconStyle)
   }, [data.settings.iconStyle])
+
+  useEffect(() => {
+    publishButtonLabelStyle(data.settings.buttonLabelStyle)
+  }, [data.settings.buttonLabelStyle])
 
   useEffect(() => {
     if (mustUseHomeScreenShortcut()) return
@@ -264,6 +270,7 @@ function App() {
           onTheme={setTheme}
           onFontSize={setFontSize}
           onIconStyle={setIconStyle}
+          onButtonLabelStyle={setButtonLabelStyle}
           onStoreInBadge={setStoreInBadge}
           onBadgeIncludeNew={setBadgeIncludeNew}
           onAllowBadge={() => badge.allow()}

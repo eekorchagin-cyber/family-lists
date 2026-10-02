@@ -4,6 +4,7 @@ import { formatQty } from '../data/qty'
 import type { Category, NamedTemplate, StoreVisibility, TemplateItem } from '../types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { DialogHeading } from './DialogHeading'
+import { ActionLabel } from './ActionLabel'
 
 type TemplateDraftDialogProps = {
   template: NamedTemplate
@@ -146,7 +147,7 @@ export function TemplateDraftDialog({
               disabled={!name.trim() || items.length === 0}
               onClick={() => onSave({ id: template.id, name: name.trim(), items, visibility })}
             >
-              Сохранить
+              <ActionLabel action="save" />
             </button>
           </div>
           <button type="button" className="button-danger add-category" onClick={() => setConfirming(true)}>

@@ -3,6 +3,7 @@ import { AddIconButton } from '../components/AddIconButton'
 import { AddListCategoryDialog } from '../components/AddListCategoryDialog'
 import { CategoryMark } from '../components/CategoryMark'
 import { CategoryScopeDialog } from '../components/CategoryScopeDialog'
+import { CommandButton } from '../components/CommandButton'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
 import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
@@ -585,26 +586,20 @@ export function ListSettingsScreen({
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <DialogHeading title={templateMenu.template.name} onClose={() => setTemplateMenu(null)} />
             <div className="command-row">
-              <button
-                type="button"
-                className="command-button command-button--text"
+              <CommandButton
+                label="Имя"
                 onClick={() => {
                   setRenamingTemplate(templateMenu)
                   setTemplateMenu(null)
                 }}
-              >
-                <span className="command-label">Имя</span>
-              </button>
-              <button
-                type="button"
-                className="command-button command-button--text"
+              />
+              <CommandButton
+                label="Изменить"
                 onClick={() => {
                   setEditingTemplate(templateMenu)
                   setTemplateMenu(null)
                 }}
-              >
-                <span className="command-label">Изменить</span>
-              </button>
+              />
             </div>
           </div>
         </div>

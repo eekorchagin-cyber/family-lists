@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CategoryMark } from './CategoryMark'
 import { DialogHeading } from './DialogHeading'
 import type { Category } from '../types'
+import { ActionLabel } from './ActionLabel'
 
 type AddListCategoryDialogProps = {
   categories: Category[]
@@ -58,7 +59,7 @@ export function AddListCategoryDialog({
           <p className="hint">Все общие категории уже есть в этом списке.</p>
         )}
         <button type="button" className="button-secondary sheet-extra" onClick={onCreate}>
-          Новая категория
+          <ActionLabel action="newCategory" />
         </button>
         <div className="dialog-actions dialog-actions-single">
           <button
@@ -69,7 +70,7 @@ export function AddListCategoryDialog({
               onPick(categories.filter((category) => selected.has(category.id)).map((category) => category.id))
             }
           >
-            Сохранить
+            <ActionLabel action="save" />
           </button>
         </div>
       </div>

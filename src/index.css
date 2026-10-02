@@ -916,6 +916,37 @@ ul {
   font-size: 1em;
 }
 
+.command-button--icons {
+  min-height: 52px;
+  padding: 4px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.action-icon--tile {
+  width: 40px;
+  height: 40px;
+  display: block;
+  pointer-events: none;
+}
+
+.action-icon--mask {
+  width: 1.4em;
+  height: 1.4em;
+  display: inline-block;
+  vertical-align: -0.2em;
+  background: currentColor;
+  -webkit-mask: var(--action-mask) center / contain no-repeat;
+  mask: var(--action-mask) center / contain no-repeat;
+  pointer-events: none;
+}
+
+.header-done .action-icon--mask {
+  width: 1.55em;
+  height: 1.55em;
+  vertical-align: middle;
+}
+
 .field-label {
   display: block;
   margin: 12px 0 8px;
