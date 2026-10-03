@@ -1440,10 +1440,31 @@ button.template-pick-name {
 .category-chosen .category-chip {
   flex: 1;
   min-width: 0;
+  height: auto;
+  min-height: 36px;
+  align-items: flex-start;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  white-space: normal;
+}
+
+.category-chosen .category-chip .category-mark {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.category-chip-name {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.25;
 }
 
 .category-change {
   flex-shrink: 0;
+  align-self: center;
   border: 0;
   background: transparent;
   color: var(--accent);

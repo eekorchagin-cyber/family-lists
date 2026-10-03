@@ -562,7 +562,7 @@ export function StoreScreen({
                       onClick={() => setPickingCategory(true)}
                     >
                       <CategoryMark category={selected} />
-                      {categoryName(selected, store)}
+                      <span className="category-chip-name">{categoryName(selected, store)}</span>
                     </button>
                     <button
                       type="button"

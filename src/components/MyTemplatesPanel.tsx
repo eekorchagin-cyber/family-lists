@@ -111,7 +111,7 @@ function ProductStep({
             onClick={() => setPickingCategory(true)}
           >
             <CategoryMark category={selectedCategory} />
-            {selectedCategory.name}
+            <span className="category-chip-name">{selectedCategory.name}</span>
           </button>
           <button type="button" className="category-change" onClick={() => setPickingCategory(true)}>
             Изменить

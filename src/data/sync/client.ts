@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const CONFIG_KEY = 'pokupki-supabase-config'
+/** VPN и плохая сеть: не ждать ответ облака бесконечно. */
+const FETCH_TIMEOUT_MS = 12_000
 
 export type SupabaseConfig = {
   url: string
@@ -9,6 +11,29 @@ export type SupabaseConfig = {
 
 let client: SupabaseClient | null | undefined
 let cachedConfig: SupabaseConfig | null | undefined
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  const parent = init?.signal
+  if (parent) {
+    if (parent.aborted) controller.abort()
+    else parent.addEventListener('abort', () => controller.abort(), { once: true })
+  }
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new TypeError('Failed to fetch')
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
 
 function fromEnv(): SupabaseConfig | null {
   const url = String(import.meta.env.VITE_SUPABASE_URL ?? '').trim()
@@ -66,6 +91,9 @@ export function getSupabase(): SupabaseClient | null {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: false,
+    },
+    global: {
+      fetch: fetchWithTimeout,
     },
   })
   return client

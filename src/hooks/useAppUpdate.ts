@@ -27,7 +27,17 @@ export function useAppUpdate() {
   const check = useCallback(async () => {
     if (isLocalHost(location.hostname)) return
     try {
-      const response = await fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' })
+      const controller = new AbortController()
+      const timer = window.setTimeout(() => controller.abort(), 8_000)
+      let response: Response
+      try {
+        response = await fetch(`./version.json?t=${Date.now()}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+      } finally {
+        window.clearTimeout(timer)
+      }
       if (!response.ok) return
       const data = (await response.json()) as RemoteVersion
       if (!data?.version) return

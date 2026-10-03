@@ -28,8 +28,8 @@ export function syncErrorMessage(error: unknown): string {
   if (/last admin/i.test(text)) {
     return 'Нельзя удалить последний аккаунт администратора: иначе никто не выдаст код P.'
   }
-  if (/Failed to fetch|NetworkError|network/i.test(text)) {
-    return 'Нет сети. Списки на этом телефоне уже можно вести — они уедут в облако, когда сеть появится.'
+  if (/Failed to fetch|NetworkError|network|AbortError|aborted/i.test(text)) {
+    return 'Нет сети или VPN мешает облаку. Списки на этом телефоне уже можно вести — они уедут в облако, когда сеть станет нормальной.'
   }
   if (/Supabase не настроен/i.test(text)) return 'Облако на сайте ещё не включено'
   if (/row-level security|JWT|not signed in|invalid claim|Auth session/i.test(text)) {

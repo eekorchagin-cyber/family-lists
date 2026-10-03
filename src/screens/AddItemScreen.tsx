@@ -137,7 +137,9 @@ export function AddItemScreen({
               onClick={() => setPickingCategory(true)}
             >
               <CategoryMark category={selectedCategory} />
-              {categoryName(selectedCategory, store)}
+              <span className="category-chip-name">
+                {categoryName(selectedCategory, store)}
+              </span>
             </button>
             <button
               type="button"
