@@ -1,4 +1,4 @@
-import type { Category, Store } from '../types'
+import type { CatalogEntry, Category, Item, Store } from '../types'
 import {
   FILE_CATEGORY_ICONS,
   fileCategoryIcon,
@@ -228,6 +228,113 @@ export function fileCategoriesToAdd(categories: Category[], at = new Date().toIS
       updatedAt: at,
     }
   })
+}
+
+type FileCategoryData = {
+  categories: Category[]
+  stores?: Store[]
+  items?: Item[]
+  catalog?: CatalogEntry[]
+}
+
+function remapCategoryId(
+  data: Required<Pick<FileCategoryData, 'stores' | 'items' | 'catalog'>>,
+  fromId: string,
+  toId: string,
+): Required<Pick<FileCategoryData, 'stores' | 'items' | 'catalog'>> {
+  if (fromId === toId) return data
+  const stores = data.stores.map((store) => {
+    const order = store.categoryOrder ?? []
+    const nextOrder = order.includes(toId)
+      ? order.filter((id) => id !== fromId)
+      : order.map((id) => (id === fromId ? toId : id))
+    const names = store.categoryNames ?? {}
+    if (!(fromId in names)) {
+      return nextOrder === order ? store : { ...store, categoryOrder: nextOrder }
+    }
+    const nextNames = { ...names }
+    if (nextNames[toId] === undefined) nextNames[toId] = nextNames[fromId]
+    delete nextNames[fromId]
+    return { ...store, categoryOrder: nextOrder, categoryNames: nextNames }
+  })
+  const items = data.items.map((item) =>
+    item.categoryId === fromId ? { ...item, categoryId: toId } : item,
+  )
+  const catalog = data.catalog.map((entry) =>
+    entry.categoryId === fromId ? { ...entry, categoryId: toId } : entry,
+  )
+  return { stores, items, catalog }
+}
+
+/**
+ * Добавляет недостающие категории библиотеки, ставит им верный значок
+ * и склеивает дубликаты с тем же названием (оставляет filecat-*).
+ */
+export function ensureFileCategories<T extends FileCategoryData>(data: T): T {
+  const at = new Date().toISOString()
+  let categories = [...data.categories]
+  let stores = data.stores ? [...data.stores] : undefined
+  let items = data.items ? [...data.items] : undefined
+  let catalog = data.catalog ? [...data.catalog] : undefined
+  let changed = false
+
+  const extra = fileCategoriesToAdd(categories, at)
+  if (extra.length > 0) {
+    categories = [...categories, ...extra]
+    changed = true
+  }
+
+  categories = categories.map((category) => {
+    if (category.storeId) return category
+    const fileIcon = fileIconIdForName(category.name)
+    if (!fileIcon || category.icon === fileIcon) return category
+    changed = true
+    return { ...category, icon: fileIcon, updatedAt: at }
+  })
+
+  for (const icon of FILE_CATEGORY_ICONS) {
+    const key = categoryNameKey(icon.name)
+    const fileId = `filecat-${icon.file.slice(0, 2)}`
+    const globals = categories.filter(
+      (category) => !category.storeId && categoryNameKey(category.name) === key,
+    )
+    if (globals.length < 2) continue
+    const keep =
+      globals.find((category) => category.id === fileId) ??
+      globals.find((category) => category.icon === icon.id) ??
+      globals[0]
+    for (const duplicate of globals) {
+      if (duplicate.id === keep.id) continue
+      if (stores && items && catalog) {
+        const remapped = remapCategoryId(
+          { stores, items, catalog },
+          duplicate.id,
+          keep.id,
+        )
+        stores = remapped.stores
+        items = remapped.items
+        catalog = remapped.catalog
+      }
+      categories = categories.filter((category) => category.id !== duplicate.id)
+      changed = true
+    }
+    const kept = categories.find((category) => category.id === keep.id)
+    if (kept && kept.icon !== icon.id) {
+      categories = categories.map((category) =>
+        category.id === keep.id ? { ...category, icon: icon.id, updatedAt: at } : category,
+      )
+      changed = true
+    }
+  }
+
+  if (!changed) return data
+  return {
+    ...data,
+    categories,
+    ...(stores ? { stores } : {}),
+    ...(items ? { items } : {}),
+    ...(catalog ? { catalog } : {}),
+  }
 }
 
 export function categoryGlyph(category: Pick<Category, 'name' | 'icon'>): string {

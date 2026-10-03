@@ -317,6 +317,8 @@ export function mergePulledData(
   for (const [id, category] of [...categories.entries()]) {
     if (remoteCategoryIds.has(id)) continue
     if (locallyNewer(category.updatedAt, options.lastPulledAt)) continue
+    // Категории из библиотеки значков: не стирать, пока облако их не приняло.
+    if (!category.storeId && id.startsWith('filecat-')) continue
     if (category.storeId && !stores.has(category.storeId)) {
       categories.delete(id)
       changed = true

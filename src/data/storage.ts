@@ -12,7 +12,7 @@ import type {
 import { catalogFromItems, mergeCatalogFromItems } from './catalog'
 import backup from './backup.json'
 import { isLocalHost } from './sync/codes'
-import { appendCategoryToStores, canonicalStoreIcon, fileCategoriesToAdd } from './categories'
+import { appendCategoryToStores, canonicalStoreIcon, ensureFileCategories } from './categories'
 import { markDirty } from './sync/dirty'
 import { groupsFromStores, groupVisibilityFields, isGroupsCatalogId, mergeGroups, parseGroupsCatalog, stripGroupMarker, stripStoreIcon } from './homeLayout'
 import { isMyTemplatesCatalogId, parseTemplateFolders } from './myTemplates'
@@ -32,9 +32,6 @@ import {
   STORAGE_KEY,
 } from './defaults'
 
-const FILE_CATEGORIES_KEY = 'pokupki-file-categories-v4'
-const FILE_CATEGORIES_V5_KEY = 'pokupki-file-categories-v5'
-const FILE_CATEGORIES_V6_KEY = 'pokupki-file-categories-v6'
 const CHEESE_ICON_KEY = 'pokupki-cheese-contour'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -331,22 +328,7 @@ function flagIsSet(key: string): boolean {
 }
 
 function withFileCategories(data: AppData): AppData {
-  let next = data
-  if (!flagIsSet(FILE_CATEGORIES_KEY)) {
-    const extra = fileCategoriesToAdd(next.categories)
-    rememberFlag(FILE_CATEGORIES_KEY)
-    if (extra.length > 0) next = { ...next, categories: [...next.categories, ...extra] }
-  }
-  if (!flagIsSet(FILE_CATEGORIES_V5_KEY)) {
-    const extra = fileCategoriesToAdd(next.categories).filter((category) => category.id >= 'filecat-59')
-    rememberFlag(FILE_CATEGORIES_V5_KEY)
-    if (extra.length > 0) next = { ...next, categories: [...next.categories, ...extra] }
-  }
-  if (!flagIsSet(FILE_CATEGORIES_V6_KEY)) {
-    const extra = fileCategoriesToAdd(next.categories).filter((category) => category.id >= 'filecat-63')
-    rememberFlag(FILE_CATEGORIES_V6_KEY)
-    if (extra.length > 0) next = { ...next, categories: [...next.categories, ...extra] }
-  }
+  let next = ensureFileCategories(data)
   if (!flagIsSet(CHEESE_ICON_KEY)) {
     rememberFlag(CHEESE_ICON_KEY)
     const at = new Date().toISOString()

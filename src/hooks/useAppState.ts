@@ -4,6 +4,7 @@ import {
   appendCategoryToStores,
   categoriesForStore,
   ensureCategoryOrder,
+  ensureFileCategories,
   contourReplacement,
   iconIdFromName,
   withCategoriesEnabled,
@@ -1501,7 +1502,13 @@ export function useAppState() {
         const saved = loadStoreOrder()
         const orderedIds = saved.length > 0 ? saved : current.stores.map((store) => store.id)
         const stores = applyStoreOrder(merged.next.stores, orderedIds)
-        return persist({ ...merged.next, settings, stores }, 'sync')
+        const base = { ...merged.next, settings, stores }
+        const ensured = ensureFileCategories(base)
+        if (ensured !== base) {
+          changed = true
+          return persist(ensured, 'user')
+        }
+        return persist(ensured, 'sync')
       })
     })
     return { changed, visible }
@@ -1512,12 +1519,16 @@ export function useAppState() {
       const settings = mergeBadgeExclusions(current.settings, next.settings)
       if (opts?.takeCloudOrder) {
         saveStoreOrder(next.stores.map((store) => store.id))
-        return persist({ ...next, settings }, 'sync')
+        const base = { ...next, settings }
+        const ensured = ensureFileCategories(base)
+        return persist(ensured, ensured === base ? 'sync' : 'user')
       }
       const saved = loadStoreOrder()
       const orderedIds = saved.length > 0 ? saved : current.stores.map((store) => store.id)
       const stores = applyStoreOrder(next.stores, orderedIds)
-      return persist({ ...next, settings, stores }, 'sync')
+      const base = { ...next, settings, stores }
+      const ensured = ensureFileCategories(base)
+      return persist(ensured, ensured === base ? 'sync' : 'user')
     })
   }, [])
 
