@@ -17,6 +17,7 @@ import { playConfirmSound } from '../data/sounds'
 import { foldersForUser } from '../data/myTemplates'
 import { parseItem } from '../data/parseItem'
 import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
+import { includesRu } from '../data/text'
 import { resolveLoyaltyCard } from '../data/loyalty'
 import {
   classifyTemplateItems,
@@ -230,11 +231,9 @@ export function StoreScreen({
   }, [activeItems, categories, knownCategories])
 
   const suggestions = useMemo(() => {
-    const needle = query.trim().toLowerCase()
+    const needle = query.trim()
     if (!needle) return []
-    return allNames
-      .filter((name) => name.toLowerCase().includes(needle))
-      .slice(0, 8)
+    return allNames.filter((name) => includesRu(name, needle)).slice(0, 8)
   }, [allNames, query])
 
   function openEdit(item: Item) {

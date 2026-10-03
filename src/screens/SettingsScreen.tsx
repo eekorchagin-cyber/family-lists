@@ -21,6 +21,7 @@ import {
 import { buildHomeRows, isGroupsCatalogId, loadHomeOrder } from '../data/homeLayout'
 import { isStandaloneApp } from '../data/sync/codes'
 import { changelogEntries } from '../data/changelog'
+import { includesRu } from '../data/text'
 import { APP_AUTHOR, copyrightLine, parseAppVersion } from '../data/version'
 import {
   downloadCatalogXlsx,
@@ -266,14 +267,10 @@ export function SettingsScreen({
         : 'Пользователь на этом устройстве'
 
   const filteredCatalog = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (!needle) return sortedCatalog
+    if (!query.trim()) return sortedCatalog
     return sortedCatalog.filter((entry) => {
       const category = categoryById.get(entry.categoryId)
-      return (
-        entry.name.toLowerCase().includes(needle) ||
-        (category?.name.toLowerCase().includes(needle) ?? false)
-      )
+      return includesRu(entry.name, query) || (category ? includesRu(category.name, query) : false)
     })
   }, [categoryById, query, sortedCatalog])
 

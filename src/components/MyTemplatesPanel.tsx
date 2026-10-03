@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { catalogCategoryId } from '../data/catalog'
+import { includesRu } from '../data/text'
 import { foldersForUser } from '../data/myTemplates'
 import { parseItem } from '../data/parseItem'
 import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
@@ -229,9 +230,8 @@ export function MyTemplatesPanel({
     return [...names].sort((a, b) => a.localeCompare(b, 'ru'))
   }, [catalog])
   const suggestions = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (!needle) return []
-    return knownNames.filter((name) => name.toLowerCase().includes(needle)).slice(0, 8)
+    if (!query.trim()) return []
+    return knownNames.filter((name) => includesRu(name, query)).slice(0, 8)
   }, [knownNames, query])
 
   useEffect(() => {

@@ -16,6 +16,7 @@ import {
   rememberStoreCategory,
   upsertCatalog,
 } from '../data/catalog'
+import { sameRuText } from '../data/text'
 import { emptyStoreFields } from '../data/defaults'
 import { applyAppearance, loadClearedStoreIds, loadData, loadStoreOrder, saveClearedAt, saveClearedStoreIds, saveData, saveStoreOrder } from '../data/storage'
 import {
@@ -602,7 +603,7 @@ export function useAppState() {
             item.storeId === storeId &&
             !item.bought &&
             item.categoryId === categoryId &&
-            item.name.toLowerCase() === trimmedName.toLowerCase(),
+            sameRuText(item.name, trimmedName),
         )
 
         const catalog = rememberCatalog(
@@ -828,7 +829,7 @@ export function useAppState() {
             item.storeId === storeId &&
             !item.bought &&
             item.categoryId === entry.categoryId &&
-            item.name.toLowerCase() === entry.name.toLowerCase(),
+            sameRuText(item.name, entry.name),
         )
         if (existing) continue
         items = [
@@ -1230,7 +1231,7 @@ export function useAppState() {
               item.storeId === toStoreId &&
               !item.bought &&
               item.categoryId === entry.categoryId &&
-              item.name.toLowerCase() === entry.name.toLowerCase(),
+              sameRuText(item.name, entry.name),
           )
           if (existing) continue
           items = [

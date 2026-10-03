@@ -7,6 +7,7 @@ import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { catalogCategoryId } from '../data/catalog'
+import { foldRu, includesRu, sameRuText } from '../data/text'
 import { playConfirmSound } from '../data/sounds'
 import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
 import type { CatalogEntry, Category, Item, ParsedItem, Store } from '../types'
@@ -40,7 +41,7 @@ export function AddItemScreen({
     if (fromCatalog) return { id: fromCatalog, known: true }
     const found = [...items]
       .reverse()
-      .find((item) => item.name.toLowerCase() === draft.name.toLowerCase())
+      .find((item) => sameRuText(item.name, draft.name))
     if (found && knownIds.includes(found.categoryId)) {
       return { id: found.categoryId, known: true }
     }
@@ -65,12 +66,10 @@ export function AddItemScreen({
   )
 
   const picker = useMemo(() => {
-    const needle = categoryQuery.trim().toLowerCase().replace(/ё/g, 'е')
+    const needle = foldRu(categoryQuery)
     if (needle) {
       return knownCategories
-        .filter((category) =>
-          categoryName(category, store).toLowerCase().replace(/ё/g, 'е').includes(needle),
-        )
+        .filter((category) => includesRu(categoryName(category, store), categoryQuery))
         .sort((a, b) => categoryName(a, store).localeCompare(categoryName(b, store), 'ru'))
     }
     const seen = new Set(categories.map((category) => category.id))

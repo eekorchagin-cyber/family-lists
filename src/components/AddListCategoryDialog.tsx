@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { includesRu } from '../data/text'
 import { CategoryMark } from './CategoryMark'
 import { DialogHeading } from './DialogHeading'
 import type { Category } from '../types'
@@ -20,11 +21,8 @@ export function AddListCategoryDialog({
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase().replace(/ё/g, 'е')
-    if (!needle) return categories
-    return categories.filter((category) =>
-      category.name.toLowerCase().replace(/ё/g, 'е').includes(needle),
-    )
+    if (!query.trim()) return categories
+    return categories.filter((category) => includesRu(category.name, query))
   }, [categories, query])
 
   function toggle(categoryId: string) {

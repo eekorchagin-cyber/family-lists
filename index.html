@@ -67,12 +67,12 @@
   <body>
     <div id="root"></div>
     <div id="boot-fail">
-      <h1>Не удалось загрузить приложение</h1>
-      <p>
-        На этом iPhone зависла старая копия файлов. Нажмите кнопку — очистим кэш и
-        откроем свежую версию.
+      <h1>Не удалось загрузить</h1>
+      <p id="boot-fail-text">
+        Часто мешает VPN. На время отключите VPN и нажмите кнопку ниже. Когда программа
+        откроется, VPN можно снова включить.
       </p>
-      <button type="button" id="boot-fail-btn">Обновить приложение</button>
+      <button type="button" id="boot-fail-btn">Попробовать снова</button>
     </div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
@@ -87,6 +87,16 @@
         function showFail() {
           if (recovered) return
           if (root && root.childNodes.length > 0) return
+          var text = document.getElementById('boot-fail-text')
+          if (text) {
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+              text.textContent =
+                'Нет сети. Подключите интернет. Если включён VPN — на время отключите его, затем нажмите кнопку. После открытия программы VPN можно снова включить.'
+            } else {
+              text.textContent =
+                'Часто мешает VPN или плохая сеть. На время отключите VPN и нажмите кнопку ниже. Когда программа откроется, VPN можно снова включить. Если VPN нет — нажмите кнопку: очистим кэш и откроем свежую версию.'
+            }
+          }
           if (fail) fail.style.display = 'block'
         }
 

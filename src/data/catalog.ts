@@ -1,4 +1,5 @@
 import { CATEGORY_COLORS, iconIdFromName } from './categories'
+import { foldRu, sameRuText } from './text'
 import type { CatalogEntry, Category, Item, Store } from '../types'
 
 /** В category_names списка: карта «товар → отдел» для этого списка. */
@@ -9,7 +10,7 @@ export function globalCategories(categories: Category[]): Category[] {
 }
 
 export function itemCategoryKey(name: string): string {
-  return name.trim().toLowerCase()
+  return foldRu(name)
 }
 
 export function parseItemCategories(value: unknown): Record<string, string> | undefined {
@@ -123,9 +124,9 @@ export function findCatalogEntry(
   catalog: CatalogEntry[],
   name: string,
 ): CatalogEntry | undefined {
-  const needle = name.trim().toLowerCase()
+  const needle = foldRu(name)
   if (!needle) return undefined
-  return catalog.find((entry) => entry.name.toLowerCase() === needle)
+  return catalog.find((entry) => sameRuText(entry.name, name))
 }
 
 export function catalogCategoryId(
@@ -196,7 +197,7 @@ export type CatalogImportSummary = {
 }
 
 function nameKey(value: string): string {
-  return value.trim().toLowerCase()
+  return foldRu(value)
 }
 
 function colorForName(name: string): string {

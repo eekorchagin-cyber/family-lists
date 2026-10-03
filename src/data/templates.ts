@@ -1,5 +1,6 @@
 import type { Category, NamedTemplate, Store, StoreGroup, TemplateItem } from '../types'
 import { knownCategoriesForStore } from './categories'
+import { sameRuText } from './text'
 
 export type TemplateSaveTarget =
   | { kind: 'store' }
@@ -178,7 +179,7 @@ export function findSharedTemplate(
 }
 
 function sameCategoryName(left: string, right: string): boolean {
-  return left.trim().toLowerCase().replace(/ё/g, 'е') === right.trim().toLowerCase().replace(/ё/g, 'е')
+  return sameRuText(left, right)
 }
 
 export type TemplateFit = {
