@@ -76,6 +76,7 @@ type HomeScreenProps = {
   onSetStoreVisibility: (storeId: string, visibility: StoreVisibility) => void
   onOpenListTemplates: (storeId: string) => void
   onOpenListCategories: (storeId: string) => void
+  onSetStoreInBadge: (storeId: string, included: boolean) => void
   onSaveGroupTemplate: (
     groupId: string,
     draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
@@ -154,6 +155,7 @@ export function HomeScreen({
   onSetStoreVisibility,
   onOpenListTemplates,
   onOpenListCategories,
+  onSetStoreInBadge,
   onSaveGroupTemplate,
   onSaveStoreTemplate,
   onDeleteGroupTemplate,
@@ -196,6 +198,7 @@ export function HomeScreen({
   const [editingGroupCard, setEditingGroupCard] = useState<StoreGroup | null>(null)
   const [templateGroupId, setTemplateGroupId] = useState<string | null>(null)
   const [editingStoreCard, setEditingStoreCard] = useState<Store | null>(null)
+  const [badgeStore, setBadgeStore] = useState<Store | null>(null)
   const [addingMenu, setAddingMenu] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => loadCollapsedGroups())
   const [homeOrder, setHomeOrder] = useState(() => ensureHomeOrder(stores, groups, loadHomeOrder()))
@@ -869,7 +872,7 @@ export function HomeScreen({
                 }}
               />
               <CommandButton
-                label="Карта"
+                label="Бонусы"
                 ariaLabel="Бонусная карта"
                 onClick={() => {
                   setEditingStoreCard(managing.store)
@@ -892,6 +895,15 @@ export function HomeScreen({
               />
               {!managing.store.incomingFrom ? (
                 <CommandButton
+                  label="Счётчик"
+                  onClick={() => {
+                    setBadgeStore(managing.store)
+                    setManaging(null)
+                  }}
+                />
+              ) : null}
+              {!managing.store.incomingFrom ? (
+                <CommandButton
                   label="В группу"
                   onClick={() => {
                     setMovingStore(managing.store)
@@ -901,8 +913,8 @@ export function HomeScreen({
               ) : null}
               {managing.store.groupId && !managing.store.incomingFrom ? (
                 <CommandButton
-                  label="Наверх"
-                  ariaLabel="На первый уровень"
+                  label="Из группы"
+                  ariaLabel="Убрать из группы"
                   onClick={() => {
                     onSetStoreGroup(managing.store.id, null)
                     setManaging(null)
@@ -928,6 +940,44 @@ export function HomeScreen({
                   setManaging(null)
                 }}
               />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {badgeStore ? (
+        <div className="overlay overlay--capture" role="presentation" onClick={() => setBadgeStore(null)}>
+          <div className="dialog" onClick={(event) => event.stopPropagation()}>
+            <DialogHeading title="Счётчик" onClose={() => setBadgeStore(null)} />
+            <p className="hint">
+              Суммировать некупленные из «{badgeStore.name}» в число на ярлыке программы? Это только
+              этот телефон.
+            </p>
+            <div className="choice-row">
+              <button
+                type="button"
+                className={
+                  isStoreInBadge(badgeStore.id, settings) ? 'choice active' : 'choice'
+                }
+                onClick={() => {
+                  onSetStoreInBadge(badgeStore.id, true)
+                  setBadgeStore(null)
+                }}
+              >
+                Суммировать
+              </button>
+              <button
+                type="button"
+                className={
+                  !isStoreInBadge(badgeStore.id, settings) ? 'choice active' : 'choice'
+                }
+                onClick={() => {
+                  onSetStoreInBadge(badgeStore.id, false)
+                  setBadgeStore(null)
+                }}
+              >
+                Не суммировать
+              </button>
             </div>
           </div>
         </div>
@@ -981,7 +1031,7 @@ export function HomeScreen({
                 }}
               />
               <CommandButton
-                label="Карта"
+                label="Бонусы"
                 ariaLabel="Бонусная карта"
                 onClick={() => {
                   setEditingGroupCard(managing.group)

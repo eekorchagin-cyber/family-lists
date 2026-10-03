@@ -182,6 +182,7 @@ function App() {
       setScreen({ name: 'storeSettings', storeId, section: 'templates' }),
     onOpenListCategories: (storeId: string) =>
       setScreen({ name: 'storeSettings', storeId, section: 'categories' }),
+    onSetStoreInBadge: setStoreInBadge,
     onSaveGroupTemplate: saveGroupTemplate,
     onSaveStoreTemplate: saveStoreTemplate,
     onDeleteGroupTemplate: (_groupId, templateId) => deleteTemplate(templateId),
