@@ -27,3 +27,7 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>,
 )
+
+queueMicrotask(() => {
+  window.dispatchEvent(new Event('pokupki-ready'))
+})

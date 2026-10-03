@@ -1,4 +1,4 @@
-/* v20260926-ios-nav — не рвать открытие с ярлыка iPhone */
+/* v20261003-vpn-timeout — не зависать на VPN при открытии */
 self.addEventListener('install', () => {
   self.skipWaiting()
 })
@@ -34,15 +34,22 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(safeFetch(url, navigation))
 })
 
+function fetchTimed(href, init, ms) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ms)
+  return fetch(href, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+
 async function safeFetch(url, navigation) {
+  const timeoutMs = navigation ? 8_000 : 6_000
   try {
-    const fresh = await fetch(url.href, { cache: 'reload', credentials: 'same-origin' })
+    const fresh = await fetchTimed(url.href, { cache: 'reload', credentials: 'same-origin' }, timeoutMs)
     if (fresh && (fresh.ok || fresh.type === 'opaqueredirect')) return fresh
   } catch {
-    /* iOS: fetch(Request, { cache: 'no-store' }) даёт TypeError: Load failed */
+    /* таймаут / VPN / iOS Load failed */
   }
   try {
-    const fallback = await fetch(url.href, { credentials: 'same-origin' })
+    const fallback = await fetchTimed(url.href, { credentials: 'same-origin' }, timeoutMs)
     if (fallback) return fallback
   } catch {
     /* сеть или баг Safari */
@@ -62,10 +69,11 @@ async function safeFetch(url, navigation) {
 function failHtml(url) {
   const next = new URL(url.href)
   next.searchParams.set('swfail', '1')
+  next.searchParams.set('recover', '1')
   next.searchParams.set('t', String(Date.now()))
   const href = JSON.stringify(next.pathname + next.search + next.hash)
   return `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Возьми</title>
-<style>body{font-family:system-ui,-apple-system,sans-serif;padding:32px 24px;background:#f4f7f5;color:#1a2e24}h1{font-size:22px;margin:0 0 12px}p{line-height:1.45;color:#3d5a4c}button{appearance:none;border:0;border-radius:12px;padding:14px 18px;font-size:16px;font-weight:600;background:#2a7a4f;color:#fff}</style>
+<style>body{font-family:system-ui,-apple-system,sans-serif;padding:32px 24px;background:#f4f7f5;color:#1a2e24}h1{font-size:22px;margin:0 0 12px}p{line-height:1.45;color:#3d5a4c;margin:0 0 20px}button{appearance:none;border:0;border-radius:12px;padding:14px 18px;font-size:16px;font-weight:600;background:#2a7a4f;color:#fff}</style>
 <h1>Не удалось загрузить</h1>
 <p>Часто мешает VPN. На время отключите VPN и нажмите кнопку. Когда программа откроется, VPN можно снова включить.</p>
 <button type="button" id="go">Попробовать снова</button>

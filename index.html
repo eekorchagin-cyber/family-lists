@@ -33,8 +33,8 @@
       } catch (e) {}
     </script>
     <style>
+      #boot-wait,
       #boot-fail {
-        display: none;
         box-sizing: border-box;
         min-height: 100dvh;
         margin: 0;
@@ -43,16 +43,31 @@
         background: #f4f7f5;
         color: #1a2e24;
       }
+      #boot-wait {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+      }
+      #boot-fail {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+      }
+      #boot-wait h1,
       #boot-fail h1 {
         margin: 0 0 12px;
         font-size: 22px;
       }
+      #boot-wait p,
       #boot-fail p {
         margin: 0 0 20px;
         line-height: 1.45;
         color: #3d5a4c;
       }
-      #boot-fail button {
+      #boot-fail button,
+      #boot-wait button {
         appearance: none;
         border: 0;
         border-radius: 12px;
@@ -62,10 +77,21 @@
         background: #2a7a4f;
         color: #fff;
       }
+      #boot-wait-vpn {
+        display: none;
+      }
     </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="boot-wait">
+      <h1>Загрузка…</h1>
+      <p id="boot-wait-vpn">
+        Если экран долго не меняется — часто мешает VPN. На время отключите VPN: после открытия
+        программы его можно снова включить.
+      </p>
+      <button type="button" id="boot-wait-btn" style="display: none">Попробовать снова</button>
+    </div>
     <div id="boot-fail">
       <h1>Не удалось загрузить</h1>
       <p id="boot-fail-text">
@@ -80,24 +106,19 @@
         var host = location.hostname
         var isLocal = host === 'localhost' || host === '127.0.0.1'
         var root = document.getElementById('root')
+        var wait = document.getElementById('boot-wait')
+        var waitVpn = document.getElementById('boot-wait-vpn')
+        var waitBtn = document.getElementById('boot-wait-btn')
         var fail = document.getElementById('boot-fail')
         var btn = document.getElementById('boot-fail-btn')
         var recovered = false
+        var ready = false
 
-        function showFail() {
-          if (recovered) return
-          if (root && root.childNodes.length > 0) return
-          var text = document.getElementById('boot-fail-text')
-          if (text) {
-            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-              text.textContent =
-                'Нет сети. Подключите интернет. Если включён VPN — на время отключите его, затем нажмите кнопку. После открытия программы VPN можно снова включить.'
-            } else {
-              text.textContent =
-                'Часто мешает VPN или плохая сеть. На время отключите VPN и нажмите кнопку ниже. Когда программа откроется, VPN можно снова включить. Если VPN нет — нажмите кнопку: очистим кэш и откроем свежую версию.'
-            }
-          }
-          if (fail) fail.style.display = 'block'
+        function markReady() {
+          if (ready) return
+          ready = true
+          if (wait) wait.style.display = 'none'
+          if (fail) fail.style.display = 'none'
         }
 
         function hardRecover() {
@@ -110,6 +131,7 @@
           var done = function () {
             var url = new URL(location.href)
             url.searchParams.set('v', String(Date.now()))
+            url.searchParams.set('recover', '1')
             location.replace(url.toString())
           }
           var tasks = []
@@ -130,9 +152,49 @@
           Promise.all(tasks).then(done).catch(done)
         }
 
-        if (btn) btn.addEventListener('click', hardRecover)
+        function showFail() {
+          if (recovered || ready) return
+          if (root && root.childNodes.length > 0) {
+            markReady()
+            return
+          }
+          var text = document.getElementById('boot-fail-text')
+          if (text) {
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+              text.textContent =
+                'Нет сети. Подключите интернет. Если включён VPN — на время отключите его, затем нажмите кнопку. После открытия программы VPN можно снова включить.'
+            } else {
+              text.textContent =
+                'Часто мешает VPN или плохая сеть. На время отключите VPN и нажмите кнопку ниже. Когда программа откроется, VPN можно снова включить.'
+            }
+          }
+          if (wait) wait.style.display = 'none'
+          if (fail) fail.style.display = 'block'
+        }
 
-        // Если по ?recover=1 — сразу жёсткое обновление.
+        function showSlowHint() {
+          if (ready || recovered) return
+          if (root && root.childNodes.length > 0) {
+            markReady()
+            return
+          }
+          if (wait) wait.style.display = 'block'
+          if (waitVpn) waitVpn.style.display = 'block'
+          if (waitBtn) waitBtn.style.display = 'inline-block'
+        }
+
+        if (btn) btn.addEventListener('click', hardRecover)
+        if (waitBtn) waitBtn.addEventListener('click', hardRecover)
+
+        window.addEventListener('pokupki-ready', markReady)
+
+        if (root) {
+          var observer = new MutationObserver(function () {
+            if (root.childNodes.length > 0) markReady()
+          })
+          observer.observe(root, { childList: true })
+        }
+
         try {
           if (new URLSearchParams(location.search).get('recover') === '1') {
             hardRecover()
@@ -140,14 +202,18 @@
           }
         } catch (e) {}
 
-        window.addEventListener('error', function (event) {
-          if (event.target && event.target.tagName === 'SCRIPT') showFail()
-        }, true)
+        window.addEventListener(
+          'error',
+          function (event) {
+            if (event.target && event.target.tagName === 'SCRIPT') showFail()
+          },
+          true,
+        )
 
-        // Белый экран: через 4с root пустой — показываем восстановление.
-        window.setTimeout(function () {
-          if (!root || root.childNodes.length === 0) showFail()
-        }, 4000)
+        // Через 2 с ещё белый экран — мягкая подсказка про VPN.
+        window.setTimeout(showSlowHint, 2000)
+        // Через 8 с — полноценный экран с кнопкой.
+        window.setTimeout(showFail, 8000)
 
         if (isLocal) return
         if (sessionStorage.getItem('pokupki-reloaded')) return
@@ -158,7 +224,14 @@
           if (src.indexOf('assets/index-') !== -1) current = src
         }
         if (!current) return
-        fetch('./index.html?t=' + Date.now(), { cache: 'no-store' })
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+        var timer = window.setTimeout(function () {
+          if (controller) controller.abort()
+        }, 6000)
+        fetch('./index.html?t=' + Date.now(), {
+          cache: 'no-store',
+          signal: controller ? controller.signal : undefined,
+        })
           .then(function (response) {
             return response.text()
           })
@@ -168,7 +241,12 @@
             sessionStorage.setItem('pokupki-reloaded', '1')
             location.reload()
           })
-          .catch(function () {})
+          .catch(function () {
+            if (!ready) showSlowHint()
+          })
+          .finally(function () {
+            window.clearTimeout(timer)
+          })
       })()
     </script>
   </body>
