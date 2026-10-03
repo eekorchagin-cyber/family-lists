@@ -44,7 +44,7 @@
         color: #1a2e24;
       }
       #boot-wait {
-        display: none;
+        display: block;
         position: fixed;
         inset: 0;
         z-index: 40;
@@ -78,21 +78,22 @@
         color: #fff;
       }
       #boot-wait-vpn {
-        display: none;
+        display: block;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-B53OdGTM.js"></script>
+    <script type="module" crossorigin src="./assets/index-UcLtZwtu.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-BNxdXLrk.css">
   </head>
   <body>
     <div id="root"></div>
     <div id="boot-wait">
       <h1>Загрузка…</h1>
+      <p>Открываем программу.</p>
       <p id="boot-wait-vpn">
-        Если экран долго не меняется — часто мешает VPN. На время отключите VPN: после открытия
-        программы его можно снова включить.
+        Если зависает — отключите VPN на время открытия. Когда списки появятся, VPN можно снова
+        включить. Либо откройте в Safari ссылку сайта с «?recover=1» в конце адреса.
       </p>
-      <button type="button" id="boot-wait-btn" style="display: none">Попробовать снова</button>
+      <button type="button" id="boot-wait-btn">Попробовать снова</button>
     </div>
     <div id="boot-fail">
       <h1>Не удалось загрузить</h1>
@@ -173,17 +174,6 @@
           if (fail) fail.style.display = 'block'
         }
 
-        function showSlowHint() {
-          if (ready || recovered) return
-          if (root && root.childNodes.length > 0) {
-            markReady()
-            return
-          }
-          if (wait) wait.style.display = 'block'
-          if (waitVpn) waitVpn.style.display = 'block'
-          if (waitBtn) waitBtn.style.display = 'inline-block'
-        }
-
         if (btn) btn.addEventListener('click', hardRecover)
         if (waitBtn) waitBtn.addEventListener('click', hardRecover)
 
@@ -194,6 +184,7 @@
             if (root.childNodes.length > 0) markReady()
           })
           observer.observe(root, { childList: true })
+          if (root.childNodes.length > 0) markReady()
         }
 
         try {
@@ -211,10 +202,8 @@
           true,
         )
 
-        // Через 2 с ещё белый экран — мягкая подсказка про VPN.
-        window.setTimeout(showSlowHint, 2000)
-        // Через 8 с — полноценный экран с кнопкой.
-        window.setTimeout(showFail, 8000)
+        // Через 6 с всё ещё нет интерфейса — экран с кнопкой восстановления.
+        window.setTimeout(showFail, 6000)
 
         if (isLocal) return
         if (sessionStorage.getItem('pokupki-reloaded')) return
