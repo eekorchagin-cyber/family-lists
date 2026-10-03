@@ -713,20 +713,29 @@ export function useAppState() {
   }, [])
 
   const clearBought = useCallback((storeId: string) => {
-    setData((current) => {
-      const removing = current.items.filter(
-        (item) => item.storeId === storeId && item.bought,
-      )
-      for (const item of removing) queueDeleted('clearedItems', item.id)
-      rememberCleared(storeId)
-      return persist({
-        ...current,
-        items: current.items.filter(
-          (item) => !(item.storeId === storeId && item.bought),
-        ),
+    // Сразу в localStorage, до React: иначе параллельный pull может вернуть купленное.
+    saveClearedAt(storeId, nowIso())
+    setClearedStoreIds((current) => {
+      if (current.includes(storeId)) return current
+      const next = [...current, storeId]
+      saveClearedStoreIds(next)
+      return next
+    })
+    flushSync(() => {
+      setData((current) => {
+        const removing = current.items.filter(
+          (item) => item.storeId === storeId && item.bought,
+        )
+        for (const item of removing) queueDeleted('clearedItems', item.id)
+        return persist({
+          ...current,
+          items: current.items.filter(
+            (item) => !(item.storeId === storeId && item.bought),
+          ),
+        })
       })
     })
-  }, [rememberCleared])
+  }, [])
 
   const saveTemplate = useCallback(
     (

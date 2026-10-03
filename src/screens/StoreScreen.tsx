@@ -296,6 +296,7 @@ export function StoreScreen({
           'Нажмите товар, чтобы отметить купленным; нажмите купленный ещё раз, чтобы вернуть.',
           'Стрелки вверху — скопировать или перенести некупленные в другой список.',
           'Щётка между ними убирает из списка только купленные товары: пока купленных нет, она бледная, когда появляются — становится яркой и её можно нажать.',
+          'Когда куплены все товары, появляется окно поверх списка — стрелка «назад» в шапке временно закрыта. В этом окне слева своя стрелка: вернуться к спискам. «Стереть исполненное» очищает купленное и тоже возвращает к спискам.',
         ].join('\n')}
         left={
           <button
@@ -625,7 +626,14 @@ export function StoreScreen({
       {showCompletion && allDone && !editItem && !addingCategory && !namingTemplate && (
         <div className="overlay overlay--capture" role="presentation">
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>Все товары куплены</h2>
+            <DialogHeading
+              title="Все товары куплены"
+              onClose={() => {
+                dismissCompletion()
+                onDismissStoreUpdate?.()
+                onBack()
+              }}
+            />
             <p className="hint">Что сделать со списком?</p>
             <div className="choice-row">
               <button
@@ -634,9 +642,11 @@ export function StoreScreen({
                 disabled={!completionArmed}
                 onClick={() => {
                   if (!completionArmed) return
-                  rememberDismiss()
                   playConfirmSound('clear')
                   onClearBought()
+                  rememberDismiss()
+                  onDismissStoreUpdate?.()
+                  onBack()
                 }}
               >
                 Стереть исполненное
