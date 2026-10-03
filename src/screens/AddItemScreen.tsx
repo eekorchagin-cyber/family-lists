@@ -6,7 +6,7 @@ import { BackIcon } from '../components/NavIcons'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
 import { categoryName, isLocalToStore } from '../data/categories'
-import { catalogCategoryId, findCatalogEntry } from '../data/catalog'
+import { catalogCategoryId } from '../data/catalog'
 import { playConfirmSound } from '../data/sounds'
 import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
 import type { CatalogEntry, Category, Item, ParsedItem, Store } from '../types'
@@ -36,7 +36,7 @@ export function AddItemScreen({
 }: AddItemScreenProps) {
   const suggestion = useMemo(() => {
     const knownIds = knownCategories.map((category) => category.id)
-    const fromCatalog = catalogCategoryId(catalog, draft.name, knownIds)
+    const fromCatalog = catalogCategoryId(catalog, draft.name, knownIds, store)
     if (fromCatalog) return { id: fromCatalog, known: true }
     const found = [...items]
       .reverse()
@@ -44,15 +44,11 @@ export function AddItemScreen({
     if (found && knownIds.includes(found.categoryId)) {
       return { id: found.categoryId, known: true }
     }
-    const entry = findCatalogEntry(catalog, draft.name)
-    if (entry && knownIds.includes(entry.categoryId)) {
-      return { id: entry.categoryId, known: true }
-    }
     return {
       id: categories[0]?.id ?? knownCategories[0]?.id ?? '',
       known: false,
     }
-  }, [catalog, categories, knownCategories, draft.name, items])
+  }, [catalog, categories, knownCategories, draft.name, items, store])
 
   const [categoryId, setCategoryId] = useState(suggestion.id)
   const [pickingCategory, setPickingCategory] = useState(!suggestion.known)
@@ -153,44 +149,46 @@ export function AddItemScreen({
           </div>
         ) : (
           <>
-            <input
-              className="input category-search"
-              value={categoryQuery}
-              onChange={(event) => setCategoryQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') event.preventDefault()
-              }}
-              placeholder="Поиск категории"
-              aria-label="Поиск категории"
-              autoComplete="off"
-            />
-            {picker.length === 0 ? (
-              <p className="hint">Нет такой категории</p>
-            ) : (
-              <ul className="category-list">
-                {picker.map((category) => (
-                  <li key={category.id}>
-                    <button
-                      type="button"
-                      className={[
-                        'category-chip',
-                        categoryId === category.id ? 'active' : '',
-                        isLocalToStore(category, store) ? 'category-chip--local' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      onClick={() => {
-                        setCategoryId(category.id)
-                        if (suggestion.known) setPickingCategory(false)
-                      }}
-                    >
-                      <CategoryMark category={category} />
-                      {categoryName(category, store)}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="category-picker">
+              <input
+                className="input category-search"
+                value={categoryQuery}
+                onChange={(event) => setCategoryQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') event.preventDefault()
+                }}
+                placeholder="Поиск категории"
+                aria-label="Поиск категории"
+                autoComplete="off"
+              />
+              {picker.length === 0 ? (
+                <p className="hint">Нет такой категории</p>
+              ) : (
+                <ul className="category-list">
+                  {picker.map((category) => (
+                    <li key={category.id}>
+                      <button
+                        type="button"
+                        className={[
+                          'category-chip',
+                          categoryId === category.id ? 'active' : '',
+                          isLocalToStore(category, store) ? 'category-chip--local' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        onClick={() => {
+                          setCategoryId(category.id)
+                          if (suggestion.known) setPickingCategory(false)
+                        }}
+                      >
+                        <CategoryMark category={category} />
+                        {categoryName(category, store)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <button
               type="button"
               className="button-secondary add-category"

@@ -15,6 +15,10 @@ import {
   withGroupMarker,
   withStoreIcon,
 } from '../homeLayout'
+import {
+  stripItemCategoriesMarker,
+  withItemCategoriesMarker,
+} from '../catalog'
 import { stripIncomingMarker, withIncomingMarker } from '../forward'
 import { asCategoryNames, stripLoyaltyMarker, withLoyaltyMarker } from '../loyalty'
 import {
@@ -564,9 +568,12 @@ export async function pushLocal(
       category_sort: store.categorySort,
       category_order: store.categoryOrder,
       category_names: withIncomingMarker(
-        withLoyaltyMarker(
-          withStoreIcon(withGroupMarker(store.categoryNames, groupId, groupName), store.icon),
-          store.loyaltyCard,
+        withItemCategoriesMarker(
+          withLoyaltyMarker(
+            withStoreIcon(withGroupMarker(store.categoryNames, groupId, groupName), store.icon),
+            store.loyaltyCard,
+          ),
+          store.itemCategories,
         ),
         store.incomingFrom
           ? { from: store.incomingFrom, deliveryId: store.incomingId || store.id }
@@ -785,7 +792,8 @@ function storeFromRow(row: StoreRow): Store {
   const marked = stripGroupMarker(asCategoryNames(row.category_names ?? {}))
   const iconed = stripStoreIcon(marked.names)
   const loyalty = stripLoyaltyMarker(iconed.names)
-  const incoming = stripIncomingMarker(loyalty.names)
+  const categorized = stripItemCategoriesMarker(loyalty.names)
+  const incoming = stripIncomingMarker(categorized.names)
   return {
     id: row.id,
     name: row.name,
@@ -801,6 +809,7 @@ function storeFromRow(row: StoreRow): Store {
     ...(incoming.from ? {} : marked.groupId ? { groupId: marked.groupId } : {}),
     ...(iconed.icon ? { icon: iconed.icon } : {}),
     ...(loyalty.card ? { loyaltyCard: loyalty.card } : {}),
+    ...(categorized.itemCategories ? { itemCategories: categorized.itemCategories } : {}),
     updatedAt: row.updated_at,
   }
 }

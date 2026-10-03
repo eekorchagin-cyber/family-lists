@@ -10,7 +10,12 @@ import {
   withCategoriesEnabled,
   withCategoryEnabled,
 } from '../data/categories'
-import { applyCatalogImport, mergeCatalogFromItems, upsertCatalog } from '../data/catalog'
+import {
+  applyCatalogImport,
+  mergeCatalogFromItems,
+  rememberStoreCategory,
+  upsertCatalog,
+} from '../data/catalog'
 import { emptyStoreFields } from '../data/defaults'
 import { applyAppearance, loadClearedStoreIds, loadData, loadStoreOrder, saveClearedAt, saveClearedStoreIds, saveData, saveStoreOrder } from '../data/storage'
 import {
@@ -93,6 +98,19 @@ function rememberCatalog(
   return next.map((entry) =>
     entry.name.toLowerCase() === needle ? withUpdatedAt(entry) : entry,
   )
+}
+
+function rememberCategoryInStore(
+  stores: Store[],
+  storeId: string,
+  name: string,
+  categoryId: string,
+): Store[] {
+  return stores.map((store) => {
+    if (store.id !== storeId) return store
+    const next = rememberStoreCategory(store, name, categoryId)
+    return next === store ? store : withUpdatedAt(next)
+  })
 }
 
 function patchStore(current: AppData, storeId: string, patch: Partial<Store>): AppData {
@@ -592,11 +610,16 @@ export function useAppState() {
           trimmedName,
           categoryId,
         )
-        const stores = current.stores.map((store) => {
-          if (store.id !== storeId) return store
-          const next = withCategoryEnabled(store, categoryId, current.categories)
-          return next === store ? store : withUpdatedAt(next)
-        })
+        const stores = rememberCategoryInStore(
+          current.stores.map((store) => {
+            if (store.id !== storeId) return store
+            const next = withCategoryEnabled(store, categoryId, current.categories)
+            return next === store ? store : withUpdatedAt(next)
+          }),
+          storeId,
+          trimmedName,
+          categoryId,
+        )
 
         if (existing) {
           return persist({
@@ -660,13 +683,16 @@ export function useAppState() {
           categoryId && current.categories.some((category) => category.id === categoryId)
             ? rememberCatalog(current.catalog ?? [], catalogName, categoryId)
             : current.catalog
-        const stores = patch.categoryId
+        let stores = patch.categoryId
           ? current.stores.map((store) =>
               store.id === prev.storeId
                 ? withCategoryEnabled(store, patch.categoryId!, current.categories)
                 : store,
             )
           : current.stores
+        if (categoryId && current.categories.some((category) => category.id === categoryId)) {
+          stores = rememberCategoryInStore(stores, prev.storeId, catalogName, categoryId)
+        }
         return persist({ ...current, items, catalog, stores })
       })
     },
@@ -811,22 +837,26 @@ export function useAppState() {
           },
         ]
       }
+      let stores =
+        mode === 'matching'
+          ? current.stores
+          : current.stores.map((item) => {
+              if (item.id !== storeId) return item
+              const enabled = withCategoriesEnabled(
+                item,
+                templateItems.map((entry) => entry.categoryId),
+                current.categories,
+              )
+              return enabled === item ? item : withUpdatedAt(enabled)
+            })
+      for (const entry of templateItems) {
+        stores = rememberCategoryInStore(stores, storeId, entry.name, entry.categoryId)
+      }
       return persist({
         ...current,
         items,
         catalog: mergeCatalogFromItems(current.catalog ?? [], items),
-        stores:
-          mode === 'matching'
-            ? current.stores
-            : current.stores.map((item) => {
-                if (item.id !== storeId) return item
-                const enabled = withCategoriesEnabled(
-                  item,
-                  templateItems.map((entry) => entry.categoryId),
-                  current.categories,
-                )
-                return enabled === item ? item : withUpdatedAt(enabled)
-              }),
+        stores,
       })
     })
   }, [forgetCleared])
@@ -1216,19 +1246,23 @@ export function useAppState() {
           items = items.filter((item) => !sourceIds.has(item.id))
         }
 
+        let stores = current.stores.map((store) =>
+          store.id === toStoreId
+            ? withCategoriesEnabled(
+                store,
+                sourceActive.map((entry) => entry.categoryId),
+                current.categories,
+              )
+            : store,
+        )
+        for (const entry of sourceActive) {
+          stores = rememberCategoryInStore(stores, toStoreId, entry.name, entry.categoryId)
+        }
         return persist({
           ...current,
           items,
           catalog: mergeCatalogFromItems(current.catalog ?? [], items),
-          stores: current.stores.map((store) =>
-            store.id === toStoreId
-              ? withCategoriesEnabled(
-                  store,
-                  sourceActive.map((entry) => entry.categoryId),
-                  current.categories,
-                )
-              : store,
-          ),
+          stores,
         })
       })
     },

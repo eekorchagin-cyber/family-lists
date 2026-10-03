@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Store } from '../types'
 import { DialogHeading } from './DialogHeading'
 
@@ -17,7 +17,11 @@ export function TransferDialog({
   onCopy,
   onMove,
 }: TransferDialogProps) {
-  const [targetId, setTargetId] = useState(stores[0]?.id ?? '')
+  const sorted = useMemo(
+    () => [...stores].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    [stores],
+  )
+  const [targetId, setTargetId] = useState(sorted[0]?.id ?? '')
   const canTransfer = Boolean(targetId) && activeCount > 0
 
   return (
@@ -34,7 +38,7 @@ export function TransferDialog({
         )}
         <p className="field-label">Куда</p>
         <ul className="choice-row sheet-list">
-          {stores.map((store) => (
+          {sorted.map((store) => (
             <li key={store.id}>
               <button
                 type="button"

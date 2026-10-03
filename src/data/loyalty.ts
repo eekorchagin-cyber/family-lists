@@ -1,3 +1,4 @@
+import { ITEM_CATEGORIES_KEY } from './catalog'
 import type { LoyaltyCard, LoyaltyKind, Store, StoreGroup } from '../types'
 
 export const LOYALTY_KEY = '__lc'
@@ -6,7 +7,7 @@ export function asCategoryNames(value: unknown): Record<string, string> {
   if (!value || typeof value !== 'object') return {}
   const names: Record<string, string> = {}
   for (const [key, name] of Object.entries(value as Record<string, unknown>)) {
-    if (key === LOYALTY_KEY) {
+    if (key === LOYALTY_KEY || key === ITEM_CATEGORIES_KEY) {
       if (typeof name === 'string' && name.trim()) names[key] = name
       else if (name && typeof name === 'object') names[key] = JSON.stringify(name)
       continue

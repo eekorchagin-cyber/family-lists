@@ -1,4 +1,5 @@
 import type { AppData, Item, Store, StoreVisibility } from '../../types'
+import { mergeItemCategories } from '../catalog'
 import { sealIncomingStore } from '../forward'
 import { hasLoyaltyCard } from '../loyalty'
 import { groupVisibleTo, nestStoresInPrivateGroups } from '../homeLayout'
@@ -103,10 +104,22 @@ function mergeStore(local: Store, remote: Store, userId?: string): Store {
     JSON.stringify(templates) === JSON.stringify(next.templates ?? [])
       ? next
       : { ...next, templates }
+  const loser =
+    next === remote || (remote.updatedAt ?? '') > (local.updatedAt ?? '') ? local : remote
+  const itemCategories = mergeItemCategories(withTemplates.itemCategories, loser.itemCategories)
+  const withCats =
+    JSON.stringify(itemCategories ?? {}) === JSON.stringify(withTemplates.itemCategories ?? {})
+      ? withTemplates
+      : itemCategories
+        ? { ...withTemplates, itemCategories }
+        : (() => {
+            const { itemCategories: _drop, ...rest } = withTemplates
+            return rest
+          })()
   const incomingFrom = local.incomingFrom || remote.incomingFrom
-  if (!incomingFrom) return withTemplates
+  if (!incomingFrom) return withCats
   return sealIncomingStore({
-    ...withTemplates,
+    ...withCats,
     incomingFrom,
     incomingId: local.incomingId || remote.incomingId || local.id,
   })
@@ -122,6 +135,7 @@ function sameStoreMeta(a: Store, b: Store): boolean {
     (a.updatedAt ?? '') === (b.updatedAt ?? '') &&
     JSON.stringify(a.categoryOrder) === JSON.stringify(b.categoryOrder) &&
     JSON.stringify(a.categoryNames) === JSON.stringify(b.categoryNames) &&
+    JSON.stringify(a.itemCategories ?? {}) === JSON.stringify(b.itemCategories ?? {}) &&
     JSON.stringify(a.templates ?? []) === JSON.stringify(b.templates ?? [])
   )
 }

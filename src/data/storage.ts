@@ -9,7 +9,13 @@ import type {
   TemplateItem,
   NamedTemplate,
 } from '../types'
-import { catalogFromItems, mergeCatalogFromItems } from './catalog'
+import {
+  catalogFromItems,
+  mergeCatalogFromItems,
+  parseItemCategories,
+  seedStoreItemCategories,
+  stripItemCategoriesMarker,
+} from './catalog'
 import backup from './backup.json'
 import { isLocalHost } from './sync/codes'
 import { appendCategoryToStores, canonicalStoreIcon, ensureFileCategories } from './categories'
@@ -120,7 +126,8 @@ function normalizeStore(value: unknown): Store | null {
   const marked = stripGroupMarker(normalizeCategoryNames(value.categoryNames))
   const iconed = stripStoreIcon(marked.names)
   const loyalty = stripLoyaltyMarker(iconed.names)
-  const incoming = stripIncomingMarker(loyalty.names)
+  const categorized = stripItemCategoriesMarker(loyalty.names)
+  const incoming = stripIncomingMarker(categorized.names)
   const incomingFrom =
     typeof value.incomingFrom === 'string' && value.incomingFrom.trim()
       ? value.incomingFrom.trim()
@@ -137,6 +144,8 @@ function normalizeStore(value: unknown): Store | null {
       ? value.icon.trim()
       : iconed.icon
   const icon = canonicalStoreIcon(value.name, rawIcon)
+  const itemCategories =
+    parseItemCategories(value.itemCategories) ?? categorized.itemCategories
   return {
     id: value.id,
     name: value.name,
@@ -155,6 +164,7 @@ function normalizeStore(value: unknown): Store | null {
     ...(groupId ? { groupId } : {}),
     ...(icon ? { icon } : {}),
     ...(loyaltyCard ? { loyaltyCard } : {}),
+    ...(itemCategories ? { itemCategories } : {}),
     ...(typeof value.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
   }
 }
@@ -272,7 +282,9 @@ export function migrate(raw: unknown): AppData {
     items,
   )
   // Если карточек групп нет, но у списков есть groupId — восстановим группы-заглушки.
-  const storesWithCategories = appendCategoryToStores(stores, categories)
+  const storesWithCategories = appendCategoryToStores(stores, categories).map((store) =>
+    seedStoreItemCategories(store, items),
+  )
   groups = mergeGroups(groups, groupsFromStores(storesWithCategories, new Map()), [])
   return {
     version: SCHEMA_VERSION,

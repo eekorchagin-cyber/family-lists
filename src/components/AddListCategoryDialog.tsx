@@ -45,35 +45,37 @@ export function AddListCategoryDialog({
             <p className="hint">
               Общие категории, которых ещё нет в этом списке. Можно отметить несколько.
             </p>
-            <input
-              className="input"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Поиск категории"
-              aria-label="Поиск категории"
-              autoComplete="off"
-            />
-            {filtered.length > 0 ? (
-              <ul className="category-list sheet-list">
-                {filtered.map((category) => (
-                  <li key={category.id}>
-                    <button
-                      type="button"
-                      className={['category-chip', selected.has(category.id) ? 'active' : '']
-                        .filter(Boolean)
-                        .join(' ')}
-                      aria-pressed={selected.has(category.id)}
-                      onClick={() => toggle(category.id)}
-                    >
-                      <CategoryMark category={category} />
-                      {category.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="hint">Нет категорий с таким названием.</p>
-            )}
+            <div className="category-picker">
+              <input
+                className="input category-search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Поиск категории"
+                aria-label="Поиск категории"
+                autoComplete="off"
+              />
+              {filtered.length > 0 ? (
+                <ul className="category-list sheet-list">
+                  {filtered.map((category) => (
+                    <li key={category.id}>
+                      <button
+                        type="button"
+                        className={['category-chip', selected.has(category.id) ? 'active' : '']
+                          .filter(Boolean)
+                          .join(' ')}
+                        aria-pressed={selected.has(category.id)}
+                        onClick={() => toggle(category.id)}
+                      >
+                        <CategoryMark category={category} />
+                        {category.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="hint">Нет категорий с таким названием.</p>
+              )}
+            </div>
           </>
         ) : (
           <p className="hint">Все общие категории уже есть в этом списке.</p>

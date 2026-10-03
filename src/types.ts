@@ -81,6 +81,8 @@ export type Store = {
   groupId?: string
   icon?: string
   loyaltyCard?: LoyaltyCard
+  /** Отдел товара в этом списке (имя в нижнем регистре → categoryId). */
+  itemCategories?: Record<string, string>
   updatedAt?: string
 }
 

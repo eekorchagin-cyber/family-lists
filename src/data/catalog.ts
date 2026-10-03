@@ -1,8 +1,92 @@
 import { CATEGORY_COLORS, iconIdFromName } from './categories'
-import type { CatalogEntry, Category, Item } from '../types'
+import type { CatalogEntry, Category, Item, Store } from '../types'
+
+/** В category_names списка: карта «товар → отдел» для этого списка. */
+export const ITEM_CATEGORIES_KEY = '__bs'
 
 export function globalCategories(categories: Category[]): Category[] {
   return categories.filter((category) => !category.storeId)
+}
+
+export function itemCategoryKey(name: string): string {
+  return name.trim().toLowerCase()
+}
+
+export function parseItemCategories(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const next: Record<string, string> = {}
+  for (const [key, categoryId] of Object.entries(value as Record<string, unknown>)) {
+    const name = itemCategoryKey(key)
+    if (!name || typeof categoryId !== 'string' || !categoryId.trim()) continue
+    next[name] = categoryId.trim()
+  }
+  return Object.keys(next).length > 0 ? next : undefined
+}
+
+export function stripItemCategoriesMarker(names: Record<string, string>): {
+  names: Record<string, string>
+  itemCategories?: Record<string, string>
+} {
+  const next: Record<string, string> = {}
+  let itemCategories: Record<string, string> | undefined
+  for (const [key, value] of Object.entries(names)) {
+    if (key === ITEM_CATEGORIES_KEY) {
+      try {
+        itemCategories = parseItemCategories(JSON.parse(value) as unknown)
+      } catch {
+        itemCategories = undefined
+      }
+      continue
+    }
+    next[key] = value
+  }
+  return { names: next, ...(itemCategories ? { itemCategories } : {}) }
+}
+
+export function withItemCategoriesMarker(
+  names: Record<string, string>,
+  itemCategories: Record<string, string> | undefined,
+): Record<string, string> {
+  const { names: clean } = stripItemCategoriesMarker(names)
+  const parsed = parseItemCategories(itemCategories)
+  if (!parsed) return clean
+  return { ...clean, [ITEM_CATEGORIES_KEY]: JSON.stringify(parsed) }
+}
+
+export function mergeItemCategories(
+  primary: Record<string, string> | undefined,
+  secondary: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  if (!primary && !secondary) return undefined
+  const next = { ...(secondary ?? {}), ...(primary ?? {}) }
+  return Object.keys(next).length > 0 ? next : undefined
+}
+
+export function rememberStoreCategory(
+  store: Store,
+  name: string,
+  categoryId: string,
+): Store {
+  const key = itemCategoryKey(name)
+  if (!key || !categoryId) return store
+  const current = store.itemCategories ?? {}
+  if (current[key] === categoryId) return store
+  return {
+    ...store,
+    itemCategories: { ...current, [key]: categoryId },
+  }
+}
+
+export function seedStoreItemCategories(store: Store, items: Item[]): Store {
+  if (store.itemCategories && Object.keys(store.itemCategories).length > 0) return store
+  const map: Record<string, string> = {}
+  for (const item of items) {
+    if (item.storeId !== store.id) continue
+    const key = itemCategoryKey(item.name)
+    if (!key || !item.categoryId) continue
+    map[key] = item.categoryId
+  }
+  return Object.keys(map).length > 0 ? { ...store, itemCategories: map } : store
 }
 
 export function groupCatalog(
@@ -48,11 +132,14 @@ export function catalogCategoryId(
   catalog: CatalogEntry[],
   name: string,
   knownCategoryIds?: Iterable<string>,
+  store?: Pick<Store, 'itemCategories'>,
 ): string | undefined {
+  const ids = knownCategoryIds ? new Set(knownCategoryIds) : undefined
+  const fromStore = store?.itemCategories?.[itemCategoryKey(name)]
+  if (fromStore && (!ids || ids.has(fromStore))) return fromStore
   const entry = findCatalogEntry(catalog, name)
   if (!entry) return undefined
-  if (!knownCategoryIds) return entry.categoryId
-  const ids = new Set(knownCategoryIds)
+  if (!ids) return entry.categoryId
   return ids.has(entry.categoryId) ? entry.categoryId : undefined
 }
 
