@@ -61,6 +61,8 @@ export const FILE_CATEGORY_ICONS = [
   { id: 'file60', name: 'Лекарства', file: '60.svg' },
   { id: 'file61', name: 'Яйцо', file: '61.svg' },
   { id: 'file62', name: 'Сыр', file: '62.png' },
+  { id: 'file63', name: 'Готовая еда', file: '63.svg' },
+  { id: 'file64', name: 'Холодильник', file: '64.svg' },
 ] as const
 
 export type FileCategoryIconId = (typeof FILE_CATEGORY_ICONS)[number]['id']

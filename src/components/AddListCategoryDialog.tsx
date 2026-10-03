@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CategoryMark } from './CategoryMark'
 import { DialogHeading } from './DialogHeading'
 import type { Category } from '../types'
@@ -17,6 +17,15 @@ export function AddListCategoryDialog({
   onCreate,
 }: AddListCategoryDialogProps) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  const [query, setQuery] = useState('')
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase().replace(/ё/g, 'е')
+    if (!needle) return categories
+    return categories.filter((category) =>
+      category.name.toLowerCase().replace(/ё/g, 'е').includes(needle),
+    )
+  }, [categories, query])
 
   function toggle(categoryId: string) {
     setSelected((current) => {
@@ -36,23 +45,35 @@ export function AddListCategoryDialog({
             <p className="hint">
               Общие категории, которых ещё нет в этом списке. Можно отметить несколько.
             </p>
-            <ul className="category-list sheet-list">
-              {categories.map((category) => (
-                <li key={category.id}>
-                  <button
-                    type="button"
-                    className={['category-chip', selected.has(category.id) ? 'active' : '']
-                      .filter(Boolean)
-                      .join(' ')}
-                    aria-pressed={selected.has(category.id)}
-                    onClick={() => toggle(category.id)}
-                  >
-                    <CategoryMark category={category} />
-                    {category.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <input
+              className="input"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Поиск категории"
+              aria-label="Поиск категории"
+              autoComplete="off"
+            />
+            {filtered.length > 0 ? (
+              <ul className="category-list sheet-list">
+                {filtered.map((category) => (
+                  <li key={category.id}>
+                    <button
+                      type="button"
+                      className={['category-chip', selected.has(category.id) ? 'active' : '']
+                        .filter(Boolean)
+                        .join(' ')}
+                      aria-pressed={selected.has(category.id)}
+                      onClick={() => toggle(category.id)}
+                    >
+                      <CategoryMark category={category} />
+                      {category.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="hint">Нет категорий с таким названием.</p>
+            )}
           </>
         ) : (
           <p className="hint">Все общие категории уже есть в этом списке.</p>

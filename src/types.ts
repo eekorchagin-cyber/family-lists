@@ -137,6 +137,6 @@ export type Screen =
   | { name: 'home' }
   | { name: 'settings' }
   | { name: 'store'; storeId: string }
-  | { name: 'storeSettings'; storeId: string; section?: 'templates' }
+  | { name: 'storeSettings'; storeId: string; section?: 'list' | 'categories' | 'templates' }
   | { name: 'add'; storeId: string; draft: ParsedItem }
   | { name: 'newStore' }

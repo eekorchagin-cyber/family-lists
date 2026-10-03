@@ -1320,6 +1320,11 @@ button.template-pick-name {
   overflow-y: auto;
 }
 
+.dialog .input + .sheet-list,
+.dialog .input + .hint {
+  margin-top: 10px;
+}
+
 .color-pick {
   display: flex;
   flex-wrap: wrap;

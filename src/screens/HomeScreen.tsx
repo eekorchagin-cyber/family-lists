@@ -75,6 +75,7 @@ type HomeScreenProps = {
   onSetGroupVisibility: (groupId: string, visibility: StoreVisibility) => void
   onSetStoreVisibility: (storeId: string, visibility: StoreVisibility) => void
   onOpenListTemplates: (storeId: string) => void
+  onOpenListCategories: (storeId: string) => void
   onSaveGroupTemplate: (
     groupId: string,
     draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
@@ -152,6 +153,7 @@ export function HomeScreen({
   onSetGroupVisibility,
   onSetStoreVisibility,
   onOpenListTemplates,
+  onOpenListCategories,
   onSaveGroupTemplate,
   onSaveStoreTemplate,
   onDeleteGroupTemplate,
@@ -878,6 +880,13 @@ export function HomeScreen({
                 label="Шаблоны"
                 onClick={() => {
                   onOpenListTemplates(managing.store.id)
+                  setManaging(null)
+                }}
+              />
+              <CommandButton
+                label="Категории"
+                onClick={() => {
+                  onOpenListCategories(managing.store.id)
                   setManaging(null)
                 }}
               />

@@ -34,6 +34,7 @@ import {
 
 const FILE_CATEGORIES_KEY = 'pokupki-file-categories-v4'
 const FILE_CATEGORIES_V5_KEY = 'pokupki-file-categories-v5'
+const FILE_CATEGORIES_V6_KEY = 'pokupki-file-categories-v6'
 const CHEESE_ICON_KEY = 'pokupki-cheese-contour'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -339,6 +340,11 @@ function withFileCategories(data: AppData): AppData {
   if (!flagIsSet(FILE_CATEGORIES_V5_KEY)) {
     const extra = fileCategoriesToAdd(next.categories).filter((category) => category.id >= 'filecat-59')
     rememberFlag(FILE_CATEGORIES_V5_KEY)
+    if (extra.length > 0) next = { ...next, categories: [...next.categories, ...extra] }
+  }
+  if (!flagIsSet(FILE_CATEGORIES_V6_KEY)) {
+    const extra = fileCategoriesToAdd(next.categories).filter((category) => category.id >= 'filecat-63')
+    rememberFlag(FILE_CATEGORIES_V6_KEY)
     if (extra.length > 0) next = { ...next, categories: [...next.categories, ...extra] }
   }
   if (!flagIsSet(CHEESE_ICON_KEY)) {

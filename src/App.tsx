@@ -180,6 +180,8 @@ function App() {
     onSetStoreVisibility: setStoreVisibility,
     onOpenListTemplates: (storeId: string) =>
       setScreen({ name: 'storeSettings', storeId, section: 'templates' }),
+    onOpenListCategories: (storeId: string) =>
+      setScreen({ name: 'storeSettings', storeId, section: 'categories' }),
     onSaveGroupTemplate: saveGroupTemplate,
     onSaveStoreTemplate: saveStoreTemplate,
     onDeleteGroupTemplate: (_groupId, templateId) => deleteTemplate(templateId),
