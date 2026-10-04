@@ -233,6 +233,46 @@ ul {
   margin-top: 0;
 }
 
+.sync-guide-body h4 {
+  margin: 14px 0 6px;
+  color: var(--text);
+  font-size: 0.95em;
+  font-weight: 650;
+  scroll-margin-top: 8px;
+}
+
+.guide-toc {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--border, #ccc) 80%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface, transparent) 70%, transparent);
+}
+
+.guide-toc-title {
+  margin: 0 0 6px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.guide-toc ol {
+  margin: 0;
+  padding-left: 1.25em;
+}
+
+.guide-toc li + li {
+  margin-top: 4px;
+}
+
+.guide-toc a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.guide-toc a:active {
+  opacity: 0.8;
+}
+
 .sync-guide-body ol {
   margin: 0 0 4px;
   padding-left: 1.25em;
