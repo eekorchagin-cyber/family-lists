@@ -22,6 +22,32 @@
       }
     </script>
     <script>
+      /* Снять SW как можно раньше — без register/update (они зависают на VPN). */
+      (function () {
+        if (!('serviceWorker' in navigator)) return
+        try {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(
+              regs.map(function (reg) {
+                return reg.unregister()
+              }),
+            )
+          })
+        } catch (e) {}
+        try {
+          if (window.caches && caches.keys) {
+            caches.keys().then(function (keys) {
+              return Promise.all(
+                keys.map(function (key) {
+                  return caches.delete(key)
+                }),
+              )
+            })
+          }
+        } catch (e) {}
+      })()
+    </script>
+    <script>
       try {
         const data = JSON.parse(localStorage.getItem('pokupki-data') || 'null')
         if (data && data.settings && data.settings.theme) {
@@ -108,7 +134,6 @@
         var isLocal = host === 'localhost' || host === '127.0.0.1'
         var root = document.getElementById('root')
         var wait = document.getElementById('boot-wait')
-        var waitVpn = document.getElementById('boot-wait-vpn')
         var waitBtn = document.getElementById('boot-wait-btn')
         var fail = document.getElementById('boot-fail')
         var btn = document.getElementById('boot-fail-btn')
@@ -122,35 +147,58 @@
           if (fail) fail.style.display = 'none'
         }
 
+        function stripRecover(url) {
+          url.searchParams.delete('recover')
+          url.searchParams.delete('swfail')
+          return url
+        }
+
         function hardRecover() {
+          if (recovered) return
           recovered = true
           try {
             sessionStorage.removeItem('pokupki-reloaded')
             sessionStorage.removeItem('pokupki-force-push')
             sessionStorage.removeItem('pokupki-adopt-cloud')
+            sessionStorage.removeItem('pokupki-sw-drop')
           } catch (e) {}
           var done = function () {
-            var url = new URL(location.href)
+            var url = stripRecover(new URL(location.href))
             url.searchParams.set('v', String(Date.now()))
-            url.searchParams.set('recover', '1')
             location.replace(url.toString())
           }
           var tasks = []
           if ('serviceWorker' in navigator) {
             tasks.push(
               navigator.serviceWorker.getRegistrations().then(function (regs) {
-                return Promise.all(regs.map(function (reg) { return reg.unregister() }))
+                return Promise.all(
+                  regs.map(function (reg) {
+                    return reg.unregister()
+                  }),
+                )
               }),
             )
           }
           if (window.caches && caches.keys) {
             tasks.push(
               caches.keys().then(function (keys) {
-                return Promise.all(keys.map(function (key) { return caches.delete(key) }))
+                return Promise.all(
+                  keys.map(function (key) {
+                    return caches.delete(key)
+                  }),
+                )
               }),
             )
           }
-          Promise.all(tasks).then(done).catch(done)
+          var finished = false
+          var finish = function () {
+            if (finished) return
+            finished = true
+            done()
+          }
+          // Не ждать unregister вечно при кривой сети/VPN.
+          window.setTimeout(finish, 2000)
+          Promise.all(tasks).then(finish).catch(finish)
         }
 
         function showFail() {
@@ -186,10 +234,10 @@
           if (root.childNodes.length > 0) markReady()
         }
 
+        // ?recover=1 — один раз снять кэш и открыть уже без параметра (без цикла reload).
         try {
           if (new URLSearchParams(location.search).get('recover') === '1') {
             hardRecover()
-            return
           }
         } catch (e) {}
 
@@ -201,8 +249,8 @@
           true,
         )
 
-        // Через 6 с всё ещё нет интерфейса — экран с кнопкой восстановления.
-        window.setTimeout(showFail, 6000)
+        // Через 4 с всё ещё нет интерфейса — экран с кнопкой восстановления.
+        window.setTimeout(showFail, 4000)
 
         if (isLocal) return
         if (sessionStorage.getItem('pokupki-reloaded')) return
@@ -216,7 +264,7 @@
         var controller = typeof AbortController !== 'undefined' ? new AbortController() : null
         var timer = window.setTimeout(function () {
           if (controller) controller.abort()
-        }, 6000)
+        }, 4000)
         fetch('./index.html?t=' + Date.now(), {
           cache: 'no-store',
           signal: controller ? controller.signal : undefined,
@@ -231,7 +279,7 @@
             location.reload()
           })
           .catch(function () {
-            if (!ready) showSlowHint()
+            /* сеть/VPN — экран восстановления покажет showFail */
           })
           .finally(function () {
             window.clearTimeout(timer)

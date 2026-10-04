@@ -17,26 +17,55 @@ if (import.meta.hot) {
   })
 }
 
-/** Старый SW с cache:reload блокировал открытие при VPN — снимаем контроль. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | void> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(undefined), ms)
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        window.clearTimeout(timer)
+        resolve(undefined)
+      },
+    )
+  })
+}
+
+/**
+ * Старый SW с перехватом навигации вешал ярлык при VPN.
+ * Только снимаем регистрации — заново SW не ставим (register/update сами зависают на VPN).
+ */
 async function dropServiceWorkers() {
   if (isLocalHost(location.hostname) || !('serviceWorker' in navigator)) return
+  let hadController = false
   try {
-    const regs = await navigator.serviceWorker.getRegistrations()
-    if (regs.length > 0) {
-      await Promise.all(regs.map((reg) => reg.unregister()))
-    }
+    hadController = Boolean(navigator.serviceWorker.controller)
   } catch {
     /* ignore */
   }
+  await withTimeout(
+    (async () => {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(regs.map((reg) => reg.unregister()))
+      } catch {
+        /* ignore */
+      }
+      try {
+        if (window.caches?.keys) {
+          const keys = await caches.keys()
+          await Promise.all(keys.map((key) => caches.delete(key)))
+        }
+      } catch {
+        /* ignore */
+      }
+    })(),
+    2500,
+  )
   try {
-    // Короткий «самоудаляющийся» SW снимает зависший controlling worker после обновления.
-    const reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
-    await reg.update()
-  } catch {
-    /* ignore */
-  }
-  try {
-    if (!sessionStorage.getItem('pokupki-sw-drop') && navigator.serviceWorker.controller) {
+    if (hadController && !sessionStorage.getItem('pokupki-sw-drop')) {
       sessionStorage.setItem('pokupki-sw-drop', '1')
       location.reload()
     }
@@ -44,17 +73,6 @@ async function dropServiceWorkers() {
     /* ignore */
   }
 }
-
-navigator.serviceWorker?.addEventListener('message', (event) => {
-  if (event.data?.type !== 'pokupki-sw-cleared') return
-  try {
-    if (sessionStorage.getItem('pokupki-sw-drop') === '2') return
-    sessionStorage.setItem('pokupki-sw-drop', '2')
-  } catch {
-    /* ignore */
-  }
-  location.reload()
-})
 
 void dropServiceWorkers()
 
