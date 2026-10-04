@@ -10,6 +10,7 @@ import {
   isGroupsCatalogId,
   mergeGroups,
   parseGroupsCatalog,
+  resolveRemoteGroups,
   stripGroupMarker,
   stripStoreIcon,
   withGroupMarker,
@@ -463,12 +464,7 @@ export async function pullRemote(): Promise<AppData> {
   const legacyGroupsEntry = catalogEntries.find((entry) => entry.id === GROUPS_CATALOG_ID)
   const homeGroups = parseGroupsCatalog(homeGroupsEntry?.name)
   const legacyGroups = parseGroupsCatalog(legacyGroupsEntry?.name)
-  const catalogGroups =
-    homeGroups && homeGroups.length > 0
-      ? homeGroups
-      : legacyGroups && legacyGroups.length > 0
-        ? legacyGroups
-        : (homeGroups ?? legacyGroups ?? [])
+  const catalogGroups = resolveRemoteGroups(homeGroups, legacyGroups)
 
   const groupNames = new Map<string, string>()
   const storeRows = (stores.data ?? []) as StoreRow[]
@@ -482,7 +478,12 @@ export async function pullRemote(): Promise<AppData> {
   // Имена групп дублируем в списках: если catalog пуст, второй телефон
   // всё равно соберёт группы из метаданных списков.
   // Catalog — приоритетнее заглушек из списков (см. mergeGroups).
-  const groups = mergeGroups(catalogGroups, groupsFromStores(storesList, groupNames), [])
+  // Удалённые локально группы не возвращаем из облака, пока tombstone в pending.
+  const groups = mergeGroups(
+    catalogGroups,
+    groupsFromStores(storesList, groupNames),
+    peekDeletes().groups,
+  )
     .map((group) => groupTemplatesForUser(group, loadSession()?.userId))
     .filter((group) => groupVisibleTo(group, loadSession()?.userId))
 
@@ -641,13 +642,8 @@ export async function pushLocal(
       !legacyGroupsRow || legacyGroupsRow.home_id === homeId
         ? parseGroupsCatalog(legacyGroupsRow?.name)
         : null
-    // Пустой [] не должен перекрывать legacy с реальными группами.
-    const remoteGroups =
-      homeGroups && homeGroups.length > 0
-        ? homeGroups
-        : legacyGroups && legacyGroups.length > 0
-          ? legacyGroups
-          : (homeGroups ?? legacyGroups ?? [])
+    // Пустой [] — валидный результат удаления; не откатываться на legacy.
+    const remoteGroups = resolveRemoteGroups(homeGroups, legacyGroups)
     mergedGroups = mergeGroups(remoteGroups, data.groups ?? [], pending.groups, ownerId)
     const groupsAt =
       mergedGroups.map((group) => group.updatedAt ?? '').sort().at(-1) || at
@@ -677,6 +673,18 @@ export async function pushLocal(
   } catch (groupsError) {
     // Списки/товары уже в облаке — не валим весь sync из‑за групп.
     console.warn('groups sync failed', groupsError)
+    if (pending.groups.length > 0) {
+      restoreDeletes({
+        items: [],
+        clearedItems: [],
+        stores: [],
+        groups: pending.groups,
+        categories: [],
+        storeCategories: [],
+        catalog: [],
+        templateFolders: [],
+      })
+    }
   }
 
   let mergedFolders = data.templateFolders ?? []

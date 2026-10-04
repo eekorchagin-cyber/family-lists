@@ -389,3 +389,16 @@ export function parseGroupsCatalog(raw: string | undefined): StoreGroup[] | null
     return null
   }
 }
+
+/**
+ * Каталог дома (в т.ч. пустой []) важнее legacy.
+ * Раньше `[]` считался «пустым» и подмешивал старый legacy — удалённые группы возвращались.
+ */
+export function resolveRemoteGroups(
+  homeGroups: StoreGroup[] | null,
+  legacyGroups: StoreGroup[] | null,
+): StoreGroup[] {
+  if (homeGroups !== null) return homeGroups
+  if (legacyGroups !== null) return legacyGroups
+  return []
+}

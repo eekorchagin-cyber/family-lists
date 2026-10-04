@@ -411,8 +411,10 @@ export function mergePulledData(
   }
 
   const groups = new Map((local.groups ?? []).map((group) => [group.id, group]))
+  const remoteGroupIds = new Set<string>()
   for (const group of remote.groups ?? []) {
     if (deletedGroups.has(group.id) || !groupVisibleTo(group, options.userId)) continue
+    remoteGroupIds.add(group.id)
     const current = groups.get(group.id)
     if (!current) {
       groups.set(group.id, group)
@@ -431,12 +433,23 @@ export function mergePulledData(
       changed = true
     }
   }
-  // Группы не удаляем только потому, что их нет в облаке: иначе телефон
-  // с пустым каталогом групп затирает семейные названия навсегда.
   for (const id of deletedGroups) {
     if (!groups.has(id)) continue
     groups.delete(id)
     changed = true
+  }
+  // Пустая группа, которой уже нет в облаке, не должна жить локально и
+  // снова уезжать в catalog при push. Новые/изменённые после lastPulledAt сохраняем.
+  // Не трогаем группы с вложенными списками и не стираем всё при «каталог не пришёл».
+  if (options.lastPulledAt && remote.groups) {
+    for (const [id, group] of [...groups.entries()]) {
+      if (remoteGroupIds.has(id) || deletedGroups.has(id)) continue
+      if (locallyNewer(group.updatedAt, options.lastPulledAt)) continue
+      const hasMembers = [...stores.values()].some((store) => store.groupId === id)
+      if (hasMembers) continue
+      groups.delete(id)
+      changed = true
+    }
   }
 
   const templateFolders = mergeTemplateFolders(
