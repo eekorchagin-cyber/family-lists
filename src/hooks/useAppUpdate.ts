@@ -85,6 +85,9 @@ export function useAppUpdate() {
     if (!remote) return
     try {
       sessionStorage.setItem(RELOAD_KEY, remote.version)
+      // Описание уже показали до обновления — после удачной перезагрузки
+      // не открываем второе окно с теми же notes и «Понятно».
+      localStorage.setItem(SEEN_KEY, remote.version)
     } catch {
       /* ignore */
     }

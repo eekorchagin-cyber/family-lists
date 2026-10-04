@@ -10,7 +10,6 @@ import { MyTemplatesPanel } from '../components/MyTemplatesPanel'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { SyncPanel } from '../components/SyncPanel'
 import { PeoplePanel } from '../components/PeoplePanel'
-import { SyncPhoneGuide } from '../components/SyncPhoneGuide'
 import { UserGuide } from '../components/UserGuide'
 import { globalCategories, groupCatalog, sortCatalog } from '../data/catalog'
 import {
@@ -343,15 +342,17 @@ export function SettingsScreen({
             <AddIconButton ariaLabel="Новый товар" onClick={() => setEditing('new')} />
           ) : undefined
         }
+        helpGuideIds={
+          section === 'categories'
+            ? ['guide-categories']
+            : section === 'people'
+              ? ['guide-forward']
+              : section === 'appearance'
+                ? ['guide-lists']
+                : undefined
+        }
         help={
-          section === null ? (
-            <UserGuide />
-          ) : section === 'categories' ? (
-            <>
-              <p>Порядок отделов задаётся в каждом списке отдельно.</p>
-              <p>Новая общая категория не появится в списках сама — её нужно добавить.</p>
-            </>
-          ) : section === 'myTemplates' ? (
+          section === 'myTemplates' ? (
             <>
               <p>
                 Группа собирает шаблоны. Например, «Продукты для приготовления блюд», а внутри —
@@ -359,24 +360,12 @@ export function SettingsScreen({
               </p>
               <p>Эти шаблоны только ваши и подставляются в любой список.</p>
             </>
-          ) : section === 'appearance' ? (
-            <>
-              <p>Тема, размер шрифта и вид значков — на этом телефоне.</p>
-              <p>
-                Число на ярлыке — сумма некупленных из отмеченных списков; тоже только этот телефон.
-              </p>
-            </>
           ) : section === 'catalog' ? (
             <p>
               Если выбрать товар из справочника, он попадёт в свою категорию в любом списке.
             </p>
           ) : section === 'sync' ? (
-            <SyncPhoneGuide />
-          ) : section === 'people' ? (
-            <>
-              <p>Код на U отправляют сообщением.</p>
-              <p>Присланный список приходит отдельно и не смешивается со списками семьи.</p>
-            </>
+            <UserGuide sectionIds={['guide-family', 'guide-connect', 'guide-codes', 'guide-shortcut']} />
           ) : section === 'transfer' ? (
             <>
               <p>Экспорт сохраняет названия товаров и категории.</p>
@@ -392,11 +381,13 @@ export function SettingsScreen({
           ) : undefined
         }
         helpTitle={
-          section === null
-            ? 'Как пользоваться'
-            : section === 'sync'
-              ? 'Семья на телефоне'
-              : undefined
+          section === 'sync'
+            ? 'Семья'
+            : section === 'categories'
+              ? 'Категории'
+              : section === 'people'
+                ? 'Пересылка списка'
+                : undefined
         }
       />
       <main className="content">
@@ -453,7 +444,7 @@ export function SettingsScreen({
 
         {section === 'guide' && (
           <section className="settings-block">
-            <UserGuide />
+            <UserGuide onOpenFamily={() => setSection('sync')} />
           </section>
         )}
 

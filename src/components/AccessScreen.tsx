@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ConnectSteps } from './ConnectSteps'
 import { Header } from './Header'
-import { UserGuide } from './UserGuide'
 import { editCode, kindFromCode, mustUseHomeScreenShortcut } from '../data/sync/codes'
 
 type AccessScreenProps = {
@@ -36,7 +35,7 @@ export function AccessScreen({
     <form className="screen" onSubmit={submit}>
       <Header
         title="Вход"
-        help={<UserGuide />}
+        helpGuideIds={['guide-shortcut', 'guide-install', 'guide-codes']}
         helpTitle="Как пользоваться"
       />
       <main className="content access-content">

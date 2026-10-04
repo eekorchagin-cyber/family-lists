@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { AccessScreen } from './components/AccessScreen'
 import { MergeDialog } from './components/MergeDialog'
 import { UpdateBanner } from './components/UpdateBanner'
+import { UserGuide } from './components/UserGuide'
 import { categoriesForStore, CONTOUR_OFFER_KEY, hasContourReplacements, knownCategoriesForStore, sortCategories, unusedGlobalCategories } from './data/categories'
 import { publishIconStyle } from './data/iconStyle'
 import { ContourIconsDialog } from './components/ContourIconsDialog'
@@ -26,6 +27,10 @@ const SettingsScreen = lazy(() =>
 )
 
 function App() {
+  const guidePreview =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('guidePreview')
+
   const {
     data,
     replaceData,
@@ -223,6 +228,23 @@ function App() {
       ) : null}
     </>
   )
+
+  if (guidePreview) {
+    return (
+      <div className="screen">
+        <header className="header">
+          <div className="header-side" />
+          <div className="header-titles">
+            <h1 className="header-title">Как пользоваться</h1>
+          </div>
+          <div className="header-side header-side-right" />
+        </header>
+        <main className="content">
+          <UserGuide />
+        </main>
+      </div>
+    )
+  }
 
   if (needsAccess) {
     return (

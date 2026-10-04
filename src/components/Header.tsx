@@ -8,6 +8,8 @@ type HeaderProps = {
   left?: ReactNode
   right?: ReactNode
   help?: ReactNode
+  /** Id разделов общей справки для кнопки «?». */
+  helpGuideIds?: string[]
   helpTitle?: string
   updated?: boolean
   onTitleLongPress?: () => void
@@ -19,10 +21,12 @@ export function Header({
   left,
   right,
   help,
+  helpGuideIds,
   helpTitle,
   updated = false,
   onTitleLongPress,
 }: HeaderProps) {
+  const hasHelp = Boolean(help) || Boolean(helpGuideIds?.length)
   return (
     <header className={updated ? 'header header--updated' : 'header'}>
       <div className="header-side">{left}</div>
@@ -44,7 +48,9 @@ export function Header({
         {subtitle ? <p className="header-subtitle">{subtitle}</p> : null}
       </div>
       <div className="header-side header-side-right">
-        {help ? <HelpButton text={help} title={helpTitle} /> : null}
+        {hasHelp ? (
+          <HelpButton text={help} guideIds={helpGuideIds} title={helpTitle} />
+        ) : null}
         {right}
       </div>
     </header>

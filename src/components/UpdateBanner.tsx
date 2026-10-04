@@ -40,11 +40,7 @@ export function UpdateBanner({
         </>
       ) : alreadyCurrent ? (
         <>
-          {remote.notes?.trim() ? (
-            <p className="update-banner-text">{remote.notes.trim()}</p>
-          ) : (
-            <p className="update-banner-text">Программа уже обновлена.</p>
-          )}
+          <p className="update-banner-text">Программа обновлена.</p>
           <div className="update-banner-actions">
             <button type="button" className="button-primary" onClick={onDismiss}>
               Понятно
