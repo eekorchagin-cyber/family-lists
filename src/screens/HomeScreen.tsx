@@ -25,7 +25,17 @@ import { resolveLoyaltyCard } from '../data/loyalty'
 import { playConfirmSound } from '../data/sounds'
 import { APP_VERSION } from '../data/version'
 import type { Person } from '../data/sync/forwardApi'
-import type { Category, Item, LoyaltyCard, Settings, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
+import type {
+  Category,
+  Item,
+  LoyaltyCard,
+  Settings,
+  Store,
+  StoreGroup,
+  StoreVisibility,
+  TemplateFolder,
+  TemplateItem,
+} from '../types'
 
 function CommandButton({
   label,
@@ -77,14 +87,15 @@ type HomeScreenProps = {
   onOpenListTemplates: (storeId: string) => void
   onOpenListCategories: (storeId: string) => void
   onSetStoreInBadge: (storeId: string, included: boolean) => void
+  templateFolders?: TemplateFolder[]
   onSaveGroupTemplate: (
     groupId: string,
     draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
-  ) => void
+  ) => boolean | void
   onSaveStoreTemplate: (
     storeId: string,
     draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
-  ) => void
+  ) => boolean | void
   onDeleteGroupTemplate: (groupId: string, templateId: string) => void
   onReorderStores: (orderedIds: string[]) => void
   onReorderHome: (orderedKeys: string[]) => void
@@ -156,6 +167,7 @@ export function HomeScreen({
   onOpenListTemplates,
   onOpenListCategories,
   onSetStoreInBadge,
+  templateFolders = [],
   onSaveGroupTemplate,
   onSaveStoreTemplate,
   onDeleteGroupTemplate,
@@ -1184,6 +1196,9 @@ export function HomeScreen({
             name: 'Группа',
           }}
           stores={stores.filter((store) => store.groupId === templateGroupId)}
+          allStores={stores}
+          allGroups={groups}
+          templateFolders={templateFolders}
           categories={categories}
           syncEnabled={syncEnabled}
           myId={myId}

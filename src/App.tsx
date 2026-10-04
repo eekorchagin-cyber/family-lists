@@ -191,6 +191,7 @@ function App() {
     onOpenListCategories: (storeId: string) =>
       setScreen({ name: 'storeSettings', storeId, section: 'categories' }),
     onSetStoreInBadge: setStoreInBadge,
+    templateFolders: data.templateFolders ?? [],
     onSaveGroupTemplate: saveGroupTemplate,
     onSaveStoreTemplate: saveStoreTemplate,
     onDeleteGroupTemplate: (_groupId, templateId) => deleteTemplate(templateId),
@@ -413,6 +414,7 @@ function App() {
             }
             onDeleteListTemplate={(templateId) => deleteTemplate(templateId)}
             myId={sync.session?.userId}
+            stores={data.stores}
             groups={data.groups ?? []}
             templateFolders={data.templateFolders ?? []}
             onSetLoyalty={(card) => setStoreLoyalty(store.id, card)}

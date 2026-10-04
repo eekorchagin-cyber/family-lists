@@ -9,6 +9,7 @@ type TemplateDraftDialogProps = {
   template: NamedTemplate
   categories: Category[]
   syncEnabled?: boolean
+  validateName?: (name: string) => string | null
   onClose: () => void
   onSave: (draft: {
     id: string
@@ -23,6 +24,7 @@ export function TemplateDraftDialog({
   template,
   categories,
   syncEnabled = false,
+  validateName,
   onClose,
   onSave,
   onDelete,
@@ -36,6 +38,7 @@ export function TemplateDraftDialog({
   const [product, setProduct] = useState('')
   const [categoryId, setCategoryId] = useState(categoryOptions[0]?.id ?? 'other')
   const [confirming, setConfirming] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   function addProduct() {
     const parsed = parseItem(product)
@@ -56,8 +59,12 @@ export function TemplateDraftDialog({
             id="list-template-edit-name"
             className="input"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value)
+              if (nameError) setNameError(null)
+            }}
           />
+          {nameError ? <p className="hint hint--error">{nameError}</p> : null}
           {syncEnabled ? (
             <>
               <p className="field-label">Кто видит</p>
@@ -144,7 +151,16 @@ export function TemplateDraftDialog({
               type="button"
               className="button-primary"
               disabled={!name.trim() || items.length === 0}
-              onClick={() => onSave({ id: template.id, name: name.trim(), items, visibility })}
+              onClick={() => {
+                const trimmed = name.trim()
+                const problem = validateName?.(trimmed) ?? null
+                if (problem) {
+                  setNameError(problem)
+                  return
+                }
+                setNameError(null)
+                onSave({ id: template.id, name: trimmed, items, visibility })
+              }}
             >
               Сохранить
             </button>

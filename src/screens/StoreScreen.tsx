@@ -22,7 +22,9 @@ import { includesRu } from '../data/text'
 import { resolveLoyaltyCard } from '../data/loyalty'
 import {
   classifyTemplateItems,
+  findTemplateNameConflict,
   placeTemplateTarget,
+  templateNameConflictMessage,
   templatesForList,
   type TemplateSaveTarget,
 } from '../data/templates'
@@ -720,6 +722,14 @@ export function StoreScreen({
           initial={`Шаблон ${(store.templates?.length ?? 0) + 1}`}
           confirmLabel="Сохранить"
           inputId="store-template-name"
+          validate={(name) => {
+            const conflict = findTemplateNameConflict(name, {
+              stores: [store, ...otherStores],
+              groups,
+              folders: templateFolders,
+            })
+            return conflict ? templateNameConflictMessage(conflict) : null
+          }}
           extra={
             <TemplateSaveFields
               store={store}

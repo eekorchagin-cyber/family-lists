@@ -90,7 +90,7 @@ type SettingsScreenProps = {
   onSaveFolderTemplate: (
     folderId: string,
     draft: { id?: string; name: string; items: TemplateItem[] },
-  ) => void
+  ) => boolean | void
   onDeleteFolderTemplate: (folderId: string, templateId: string) => void
   onBack: () => void
   onTheme: (theme: Theme) => void
@@ -491,6 +491,8 @@ export function SettingsScreen({
         {section === 'myTemplates' && (
           <MyTemplatesPanel
             folders={templateFolders}
+            stores={stores}
+            groups={groups}
             categories={categories}
             myId={myId}
             catalog={catalog}

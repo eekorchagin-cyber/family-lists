@@ -1,6 +1,6 @@
 import type { Store, StoreGroup } from '../types'
 import { parseLoyaltyCard } from './loyalty'
-import { parseTemplateList } from './templates'
+import { mergeTemplates, parseTemplateList } from './templates'
 
 export const HOME_ORDER_KEY = 'pokupki-home-order'
 export const GROUP_COLLAPSED_KEY = 'pokupki-group-collapsed'
@@ -276,23 +276,14 @@ function applyGroupTemplates(
   other: StoreGroup,
   userId: string | undefined,
 ): StoreGroup {
-  if (!winner.templates) {
-    if (other.templates?.length) return { ...winner, templates: other.templates }
-    return winner
-  }
-  const templates = [...winner.templates]
-  const ids = new Set(templates.map((template) => template.id))
-  // Своего шаблона, которого нет в более новой копии, не возвращаем: его удалили.
-  for (const template of other.templates ?? []) {
-    if (ids.has(template.id)) continue
-    const foreign =
-      template.visibility === 'private' &&
-      Boolean(template.ownerId) &&
-      Boolean(userId) &&
-      template.ownerId !== userId
-    if (!foreign) continue
-    templates.push(template)
-    ids.add(template.id)
+  // winner = более новая сторона; local=other, remote=winner — id из winner
+  // важнее, но шаблоны только у other не выкидываем (см. mergeTemplates).
+  const templates = mergeTemplates(other.templates, winner.templates, userId)
+  if (templates.length === 0) {
+    if (!winner.templates && !other.templates) return winner
+    const next = { ...winner }
+    delete next.templates
+    return next
   }
   return { ...winner, templates }
 }

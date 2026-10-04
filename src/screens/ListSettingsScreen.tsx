@@ -14,7 +14,9 @@ import { categoryName, isLocalToStore } from '../data/categories'
 import { resolveLoyaltyCard } from '../data/loyalty'
 import { playConfirmSound } from '../data/sounds'
 import {
+  findTemplateNameConflict,
   placeTemplateTarget,
+  templateNameConflictMessage,
   templatesForList,
   type TemplateSaveTarget,
 } from '../data/templates'
@@ -86,9 +88,10 @@ type ListSettingsScreenProps = {
       visibility: StoreVisibility
     },
     groupId?: string,
-  ) => void
+  ) => boolean | void
   onDeleteListTemplate: (templateId: string) => void
   myId?: string
+  stores?: Store[]
   groups?: StoreGroup[]
   templateFolders?: TemplateFolder[]
   onSetLoyalty?: (card: LoyaltyCard | undefined) => void
@@ -117,6 +120,7 @@ export function ListSettingsScreen({
   onUpdatePlaceTemplate,
   onDeleteListTemplate,
   myId,
+  stores,
   groups = [],
   templateFolders = [],
   onSetLoyalty,
@@ -431,6 +435,11 @@ export function ListSettingsScreen({
                       onClick={() => setEditingTemplate({ template, groupId })}
                     >
                       {template.name}
+                      {groupId ? (
+                        <span className="hint" style={{ display: 'block', margin: 0 }}>
+                          из группы
+                        </span>
+                      ) : null}
                     </button>
                     {template.visibility === 'private' ? (
                       <span className="store-local-mark store-local-mark--icon" title="личное">
@@ -510,6 +519,14 @@ export function ListSettingsScreen({
           initial={`Шаблон ${(store.templates?.length ?? 0) + 1}`}
           confirmLabel="Сохранить"
           inputId="list-template-name"
+          validate={(name) => {
+            const conflict = findTemplateNameConflict(name, {
+              stores: stores ?? [store],
+              groups,
+              folders: templateFolders,
+            })
+            return conflict ? templateNameConflictMessage(conflict) : null
+          }}
           extra={
             <TemplateSaveFields
               store={store}
@@ -537,6 +554,18 @@ export function ListSettingsScreen({
           placeholder="Например, На неделю"
           initial={renamingTemplate.template.name}
           confirmLabel="Сохранить"
+          validate={(name) => {
+            const conflict = findTemplateNameConflict(
+              name,
+              {
+                stores: stores ?? [store],
+                groups,
+                folders: templateFolders,
+              },
+              renamingTemplate.template.id,
+            )
+            return conflict ? templateNameConflictMessage(conflict) : null
+          }}
           onClose={() => setRenamingTemplate(null)}
           onConfirm={(name) => {
             onUpdatePlaceTemplate(
@@ -610,9 +639,22 @@ export function ListSettingsScreen({
           template={editingTemplate.template}
           categories={[...categories, ...unusedCategories]}
           syncEnabled={syncEnabled}
+          validateName={(name) => {
+            const conflict = findTemplateNameConflict(
+              name,
+              {
+                stores: stores ?? [store],
+                groups,
+                folders: templateFolders,
+              },
+              editingTemplate.template.id,
+            )
+            return conflict ? templateNameConflictMessage(conflict) : null
+          }}
           onClose={() => setEditingTemplate(null)}
           onSave={(draft) => {
-            onUpdatePlaceTemplate(draft, editingTemplate.groupId)
+            const ok = onUpdatePlaceTemplate(draft, editingTemplate.groupId)
+            if (ok === false) return
             setEditingTemplate(null)
           }}
           onDelete={(templateId) => {

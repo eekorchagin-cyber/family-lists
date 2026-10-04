@@ -1330,6 +1330,11 @@ button.template-pick-name {
   color: var(--danger, #b45309);
 }
 
+.hint--error {
+  color: var(--danger, #b42318);
+  margin: 8px 0 0;
+}
+
 .template-pick-groups {
   display: flex;
   flex-direction: column;

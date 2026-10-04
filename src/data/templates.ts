@@ -1,15 +1,76 @@
-import type { Category, NamedTemplate, Store, StoreGroup, TemplateItem } from '../types'
+import type {
+  Category,
+  NamedTemplate,
+  Store,
+  StoreGroup,
+  TemplateFolder,
+  TemplateItem,
+} from '../types'
 import { knownCategoriesForStore } from './categories'
 import { sameRuText } from './text'
+
+export type TemplateNameConflict = {
+  level: 'list' | 'group' | 'personal'
+  place: string
+}
+
+/** Одинаковые имена запрещены между списком, группой и «Мои шаблоны». */
+export function findTemplateNameConflict(
+  name: string,
+  sources: {
+    stores?: Store[]
+    groups?: StoreGroup[]
+    folders?: TemplateFolder[]
+  },
+  exceptId?: string,
+): TemplateNameConflict | null {
+  const trimmed = name.trim()
+  if (!trimmed) return null
+  for (const store of sources.stores ?? []) {
+    for (const template of store.templates ?? []) {
+      if (exceptId && template.id === exceptId) continue
+      if (sameRuText(template.name, trimmed)) {
+        return { level: 'list', place: store.name }
+      }
+    }
+  }
+  for (const group of sources.groups ?? []) {
+    for (const template of group.templates ?? []) {
+      if (exceptId && template.id === exceptId) continue
+      if (sameRuText(template.name, trimmed)) {
+        return { level: 'group', place: group.name }
+      }
+    }
+  }
+  for (const folder of sources.folders ?? []) {
+    for (const template of folder.templates ?? []) {
+      if (exceptId && template.id === exceptId) continue
+      if (sameRuText(template.name, trimmed)) {
+        return { level: 'personal', place: folder.name }
+      }
+    }
+  }
+  return null
+}
+
+export function templateNameConflictMessage(conflict: TemplateNameConflict): string {
+  if (conflict.level === 'list') {
+    return `Имя уже занято шаблоном списка «${conflict.place}». Выберите другое.`
+  }
+  if (conflict.level === 'group') {
+    return `Имя уже занято шаблоном группы «${conflict.place}». Выберите другое.`
+  }
+  return `Имя уже занято в «Мои шаблоны» («${conflict.place}»). Выберите другое.`
+}
 
 export type TemplateSaveTarget =
   | { kind: 'store' }
   | { kind: 'group'; groupId: string }
   | { kind: 'folder'; folderId: string }
 
-/** Куда класть новый шаблон списка: в его группу, а если группы нет — в сам список. */
-export function placeTemplateTarget(store: Pick<Store, 'groupId'>): TemplateSaveTarget {
-  return store.groupId ? { kind: 'group', groupId: store.groupId } : { kind: 'store' }
+/** Куда класть новый шаблон списка по умолчанию: в сам список (группу можно выбрать отдельно). */
+export function placeTemplateTarget(_store: Pick<Store, 'groupId'>): TemplateSaveTarget {
+  return { kind: 'store' }
 }
 
 export type TemplateSaveChoice = {
@@ -117,20 +178,25 @@ export function templateVisible(template: NamedTemplate, userId: string | undefi
   return template.ownerId === userId
 }
 
+/**
+ * Сводим шаблоны списка/группы.
+ * Одинаковый id — берём remote; локальные, которых нет в remote, сохраняем
+ * (раньше «домашние» локальные затирались пустым/урезанным remote).
+ */
 export function mergeTemplates(
   local: NamedTemplate[] | undefined,
   remote: NamedTemplate[] | undefined,
   userId: string | undefined,
 ): NamedTemplate[] {
-  const remoteVisible = (remote ?? []).filter((template) => templateVisible(template, userId))
-  const remoteIds = new Set(remoteVisible.map((template) => template.id))
-  const ownPrivate = (local ?? []).filter(
-    (template) =>
-      template.visibility === 'private' &&
-      !remoteIds.has(template.id) &&
-      (!template.ownerId || !userId || template.ownerId === userId),
-  )
-  return [...remoteVisible, ...ownPrivate]
+  const byId = new Map<string, NamedTemplate>()
+  for (const template of remote ?? []) {
+    if (templateVisible(template, userId)) byId.set(template.id, template)
+  }
+  for (const template of local ?? []) {
+    if (!templateVisible(template, userId)) continue
+    if (!byId.has(template.id)) byId.set(template.id, template)
+  }
+  return [...byId.values()]
 }
 
 export function sharedTemplates(

@@ -4,7 +4,19 @@ import { includesRu } from '../data/text'
 import { foldersForUser } from '../data/myTemplates'
 import { parseItem } from '../data/parseItem'
 import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
-import type { CatalogEntry, Category, ParsedItem, TemplateFolder, TemplateItem } from '../types'
+import {
+  findTemplateNameConflict,
+  templateNameConflictMessage,
+} from '../data/templates'
+import type {
+  CatalogEntry,
+  Category,
+  ParsedItem,
+  Store,
+  StoreGroup,
+  TemplateFolder,
+  TemplateItem,
+} from '../types'
 import { CategoryMark } from './CategoryMark'
 import { ConfirmDialog } from './ConfirmDialog'
 import { DialogHeading } from './DialogHeading'
@@ -170,6 +182,8 @@ type Menu =
 
 type MyTemplatesPanelProps = {
   folders: TemplateFolder[]
+  stores?: Store[]
+  groups?: StoreGroup[]
   categories: Category[]
   catalog: CatalogEntry[]
   myId?: string
@@ -183,12 +197,17 @@ type MyTemplatesPanelProps = {
   onAddFolder: (name: string) => void
   onRenameFolder: (folderId: string, name: string) => void
   onDeleteFolder: (folderId: string) => void
-  onSaveTemplate: (folderId: string, draft: { id?: string; name: string; items: TemplateItem[] }) => void
+  onSaveTemplate: (
+    folderId: string,
+    draft: { id?: string; name: string; items: TemplateItem[] },
+  ) => boolean | void
   onDeleteTemplate: (folderId: string, templateId: string) => void
 }
 
 export function MyTemplatesPanel({
   folders,
+  stores = [],
+  groups = [],
   categories,
   catalog,
   myId,
@@ -654,6 +673,14 @@ export function MyTemplatesPanel({
           placeholder="Продукты для плова на 8 человек"
           initial={namingTemplate.name}
           confirmLabel="Сохранить"
+          validate={(name) => {
+            const conflict = findTemplateNameConflict(
+              name,
+              { stores, groups, folders },
+              namingTemplate.id,
+            )
+            return conflict ? templateNameConflictMessage(conflict) : null
+          }}
           onClose={() => setNamingTemplate(null)}
           onConfirm={(name) => {
             const next = { ...namingTemplate, name }

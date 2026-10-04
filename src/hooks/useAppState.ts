@@ -40,6 +40,7 @@ import { loadSession } from '../data/sync/session'
 import {
   classifyTemplateItems,
   findSharedTemplate,
+  findTemplateNameConflict,
   type SharedTemplate,
   type TemplateSaveTarget,
 } from '../data/templates'
@@ -845,12 +846,22 @@ export function useAppState() {
       snapshot?: Item[],
       visibility: StoreVisibility = 'home',
       target: TemplateSaveTarget = { kind: 'store' },
-    ) => {
+    ): boolean => {
     const trimmed = name.trim()
-    if (!trimmed) return
+    if (!trimmed) return false
+    let saved = false
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       if (!store) return current
+      if (
+        findTemplateNameConflict(trimmed, {
+          stores: current.stores,
+          groups: current.groups,
+          folders: current.templateFolders,
+        })
+      ) {
+        return current
+      }
       const source =
         snapshot ?? current.items.filter((item) => item.storeId === storeId)
       const items = source.map((item) => ({
@@ -870,6 +881,7 @@ export function useAppState() {
           ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
           : {}),
       }
+      saved = true
       if (target.kind === 'folder') {
         const folders = current.templateFolders ?? []
         if (folders.some((folder) => folder.id === target.folderId)) {
@@ -882,6 +894,8 @@ export function useAppState() {
             ),
           })
         }
+        saved = false
+        return current
       }
       if (target.kind === 'group') {
         const groups = current.groups ?? []
@@ -895,6 +909,8 @@ export function useAppState() {
             ),
           })
         }
+        saved = false
+        return current
       }
       return persist(
         patchStore(current, storeId, {
@@ -902,6 +918,7 @@ export function useAppState() {
         }),
       )
     })
+    return saved
   }, [])
 
   const applyTemplate = useCallback((
@@ -1063,7 +1080,7 @@ export function useAppState() {
   }, [])
 
   const saveFolderTemplate = useCallback(
-    (folderId: string, draft: { id?: string; name: string; items: TemplateItem[] }) => {
+    (folderId: string, draft: { id?: string; name: string; items: TemplateItem[] }): boolean => {
       const trimmed = draft.name.trim()
       const items = draft.items
         .map((item) => ({
@@ -1073,17 +1090,32 @@ export function useAppState() {
           unit: item.unit.trim() || 'шт',
         }))
         .filter((item) => item.name && item.qty > 0)
-      if (!trimmed || (items.length === 0 && !draft.id)) return
-      const owner = actorId()
-      const template: NamedTemplate = {
-        id: draft.id || newId(),
-        name: trimmed,
-        items,
-        visibility: 'private',
-        ...(owner ? { ownerId: owner } : {}),
-      }
-      setData((current) =>
-        persist({
+      if (!trimmed || (items.length === 0 && !draft.id)) return false
+      let saved = false
+      setData((current) => {
+        if (
+          findTemplateNameConflict(
+            trimmed,
+            {
+              stores: current.stores,
+              groups: current.groups,
+              folders: current.templateFolders,
+            },
+            draft.id,
+          )
+        ) {
+          return current
+        }
+        const owner = actorId()
+        const template: NamedTemplate = {
+          id: draft.id || newId(),
+          name: trimmed,
+          items,
+          visibility: 'private',
+          ...(owner ? { ownerId: owner } : {}),
+        }
+        saved = true
+        return persist({
           ...current,
           templateFolders: (current.templateFolders ?? []).map((folder) => {
             if (folder.id !== folderId) return folder
@@ -1097,8 +1129,9 @@ export function useAppState() {
                 : [...templates, template],
             }
           }),
-        }),
-      )
+        })
+      })
+      return saved
     },
     [],
   )
@@ -1142,7 +1175,7 @@ export function useAppState() {
     (
       groupId: string,
       draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
-    ) => {
+    ): boolean => {
       const trimmed = draft.name.trim()
       const items = draft.items
         .map((item) => ({
@@ -1152,17 +1185,32 @@ export function useAppState() {
           unit: item.unit.trim() || 'шт',
         }))
         .filter((item) => item.name && item.qty > 0)
-      if (!trimmed || items.length === 0) return
-      const owner = actorId()
-      const template: NamedTemplate = {
-        id: draft.id || newId(),
-        name: trimmed,
-        items,
-        ...(draft.visibility === 'private'
-          ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
-          : {}),
-      }
+      if (!trimmed || items.length === 0) return false
+      let saved = false
       setData((current) => {
+        if (
+          findTemplateNameConflict(
+            trimmed,
+            {
+              stores: current.stores,
+              groups: current.groups,
+              folders: current.templateFolders,
+            },
+            draft.id,
+          )
+        ) {
+          return current
+        }
+        const owner = actorId()
+        const template: NamedTemplate = {
+          id: draft.id || newId(),
+          name: trimmed,
+          items,
+          ...(draft.visibility === 'private'
+            ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
+            : {}),
+        }
+        saved = true
         const groups = (current.groups ?? []).map((group) => {
           if (group.id !== groupId) return group
           const templates = group.templates ?? []
@@ -1176,6 +1224,7 @@ export function useAppState() {
         })
         return persist({ ...current, groups })
       })
+      return saved
     },
     [],
   )
@@ -1184,7 +1233,7 @@ export function useAppState() {
     (
       storeId: string,
       draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
-    ) => {
+    ): boolean => {
       const trimmed = draft.name.trim()
       const items = draft.items
         .map((item) => ({
@@ -1194,21 +1243,36 @@ export function useAppState() {
           unit: item.unit.trim() || 'шт',
         }))
         .filter((item) => item.name && item.qty > 0)
-      if (!trimmed || items.length === 0) return
-      const owner = actorId()
-      const template: NamedTemplate = {
-        id: draft.id || newId(),
-        name: trimmed,
-        items,
-        ...(draft.visibility === 'private'
-          ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
-          : {}),
-      }
+      if (!trimmed || items.length === 0) return false
+      let saved = false
       setData((current) => {
+        if (
+          findTemplateNameConflict(
+            trimmed,
+            {
+              stores: current.stores,
+              groups: current.groups,
+              folders: current.templateFolders,
+            },
+            draft.id,
+          )
+        ) {
+          return current
+        }
         const store = current.stores.find((item) => item.id === storeId)
         if (!store) return current
+        const owner = actorId()
+        const template: NamedTemplate = {
+          id: draft.id || newId(),
+          name: trimmed,
+          items,
+          ...(draft.visibility === 'private'
+            ? { visibility: 'private' as const, ...(owner ? { ownerId: owner } : {}) }
+            : {}),
+        }
         const templates = store.templates ?? []
         const exists = templates.some((item) => item.id === template.id)
+        saved = true
         return persist(
           patchStore(current, storeId, {
             templates: exists
@@ -1217,6 +1281,7 @@ export function useAppState() {
           }),
         )
       })
+      return saved
     },
     [],
   )

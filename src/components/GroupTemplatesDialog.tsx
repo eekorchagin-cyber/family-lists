@@ -3,8 +3,20 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { DialogHeading } from './DialogHeading'
 import { parseItem } from '../data/parseItem'
 import { formatQty } from '../data/qty'
-import { templateVisible } from '../data/templates'
-import type { Category, NamedTemplate, Store, StoreGroup, StoreVisibility, TemplateItem } from '../types'
+import {
+  findTemplateNameConflict,
+  templateNameConflictMessage,
+  templateVisible,
+} from '../data/templates'
+import type {
+  Category,
+  NamedTemplate,
+  Store,
+  StoreGroup,
+  StoreVisibility,
+  TemplateFolder,
+  TemplateItem,
+} from '../types'
 
 type Draft = {
   id?: string
@@ -17,18 +29,24 @@ type Draft = {
 type GroupTemplatesDialogProps = {
   group: StoreGroup
   stores?: Store[]
+  allStores?: Store[]
+  allGroups?: StoreGroup[]
+  templateFolders?: TemplateFolder[]
   categories: Category[]
   syncEnabled?: boolean
   myId?: string
   onClose: () => void
-  onSave: (draft: Draft) => void
-  onSaveStore: (storeId: string, draft: Draft) => void
+  onSave: (draft: Draft) => boolean | void
+  onSaveStore: (storeId: string, draft: Draft) => boolean | void
   onDelete: (templateId: string) => void
 }
 
 export function GroupTemplatesDialog({
   group,
   stores = [],
+  allStores,
+  allGroups,
+  templateFolders = [],
   categories,
   syncEnabled = false,
   myId,
@@ -39,6 +57,7 @@ export function GroupTemplatesDialog({
 }: GroupTemplatesDialogProps) {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [confirming, setConfirming] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
   const [product, setProduct] = useState('')
   const options = categories.filter((category) => !category.storeId)
   const categoryOptions = [...(options.length > 0 ? options : categories)].sort((a, b) =>
@@ -57,6 +76,7 @@ export function GroupTemplatesDialog({
 
   function startCreate() {
     setProduct('')
+    setNameError(null)
     setDraft({
       name: `Шаблон ${(group.templates?.length ?? 0) + 1}`,
       items: [],
@@ -66,6 +86,7 @@ export function GroupTemplatesDialog({
 
   function startEdit(template: NamedTemplate, storeId?: string) {
     setProduct('')
+    setNameError(null)
     setDraft({
       id: template.id,
       name: template.name,
@@ -103,8 +124,12 @@ export function GroupTemplatesDialog({
               id="group-template-name"
               className="input"
               value={draft.name}
-              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+              onChange={(event) => {
+                setDraft({ ...draft, name: event.target.value })
+                if (nameError) setNameError(null)
+              }}
             />
+            {nameError ? <p className="hint hint--error">{nameError}</p> : null}
             {syncEnabled ? (
               <>
                 <p className="field-label">Кто видит</p>
@@ -197,8 +222,22 @@ export function GroupTemplatesDialog({
                 className="button-primary"
                 disabled={!draft.name.trim() || draft.items.length === 0}
                 onClick={() => {
-                  if (draft.storeId) onSaveStore(draft.storeId, draft)
-                  else onSave(draft)
+                  const conflict = findTemplateNameConflict(
+                    draft.name,
+                    {
+                      stores: allStores ?? stores,
+                      groups: allGroups ?? [group],
+                      folders: templateFolders,
+                    },
+                    draft.id,
+                  )
+                  if (conflict) {
+                    setNameError(templateNameConflictMessage(conflict))
+                    return
+                  }
+                  const ok = draft.storeId ? onSaveStore(draft.storeId, draft) : onSave(draft)
+                  if (ok === false) return
+                  setNameError(null)
                   setDraft(null)
                 }}
               >
