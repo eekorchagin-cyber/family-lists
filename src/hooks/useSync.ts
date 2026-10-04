@@ -27,6 +27,7 @@ import {
 import { playConfirmSound } from '../data/sounds'
 import { supabaseConfigured } from '../data/sync/client'
 import { wipeDeviceData } from '../data/storage'
+import { isTransferDemo } from '../data/transferDemo'
 import { kindFromCode } from '../data/sync/codes'
 import { applyForwardedLists, buildForwardPayload } from '../data/forward'
 import {
@@ -102,15 +103,22 @@ export function useSync(
   replaceRef.current = replaceData
   mergeRemoteRef.current = mergeRemote
 
-  const [session, setSession] = useState<SyncSession | null>(() => loadSession())
+  const demoMode = isTransferDemo()
+  const [session, setSession] = useState<SyncSession | null>(() =>
+    isTransferDemo() ? null : loadSession(),
+  )
   const [members, setMembers] = useState<HomeMember[]>([])
   const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [pairingCode, setPairingCode] = useState<string | null>(null)
   const [accessInfo, setAccessInfo] = useState<AccessInfo | null>(null)
-  const [updatedStoreIds, setUpdatedStoreIds] = useState<string[]>(() => loadUpdatedStoreIds())
+  const [updatedStoreIds, setUpdatedStoreIds] = useState<string[]>(() =>
+    isTransferDemo() ? [] : loadUpdatedStoreIds(),
+  )
   const [error, setError] = useState<string | null>(null)
-  const [people, setPeople] = useState<Person[]>(() => loadCachedPeople())
-  const [myContactCode, setMyContactCode] = useState<string | null>(() => loadCachedContactCode())
+  const [people, setPeople] = useState<Person[]>(() => (isTransferDemo() ? [] : loadCachedPeople()))
+  const [myContactCode, setMyContactCode] = useState<string | null>(() =>
+    isTransferDemo() ? null : loadCachedContactCode(),
+  )
   const [forwardError, setForwardError] = useState<string | null>(null)
   const forwardOffRef = useRef(false)
   const [busy, setBusy] = useState(false)
@@ -122,7 +130,7 @@ export function useSync(
   const dismissedErrorRef = useRef<string | null>(null)
   errorRef.current = error
 
-  const configured = supabaseConfigured()
+  const configured = !demoMode && supabaseConfigured()
 
   useEffect(() => {
     saveUpdatedStoreIds(updatedStoreIds)

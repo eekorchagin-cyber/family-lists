@@ -65,6 +65,7 @@ function App() {
     saveStoreTemplate,
     deleteGroupTemplate,
     transferItems,
+    createStoreFromItems,
     reorderStores,
     reorderHome,
     addGroup,
@@ -452,8 +453,12 @@ function App() {
           groups={data.groups ?? []}
           templateFolders={data.templateFolders ?? []}
           onApplyTemplate={(templateId, mode) => applyTemplate(store.id, templateId, mode)}
-          onCopyToStore={(storeId) => transferItems(store.id, storeId, 'copy')}
-          onMoveToStore={(storeId) => transferItems(store.id, storeId, 'move')}
+          onTransferToStore={(storeId, mode, onlyItemIds) =>
+            transferItems(store.id, storeId, mode, onlyItemIds)
+          }
+          onCreateStoreFromItems={(name, items, removeFromSource) => {
+            createStoreFromItems(name, items, removeFromSource)
+          }}
         />
         {overlay}
       </>

@@ -4,6 +4,9 @@ import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isLocalHost } from './data/sync/codes'
+import { activateTransferDemoFromUrl } from './data/transferDemo'
+
+activateTransferDemoFromUrl()
 
 if (import.meta.hot) {
   import.meta.hot.on('vite:beforeUpdate', (payload) => {

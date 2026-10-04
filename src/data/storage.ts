@@ -37,6 +37,11 @@ import {
   STORE_ORDER_KEY,
   STORAGE_KEY,
 } from './defaults'
+import {
+  createTransferDemoData,
+  isTransferDemo,
+  TRANSFER_DEMO_DATA_KEY,
+} from './transferDemo'
 
 const CHEESE_ICON_KEY = 'pokupki-cheese-contour'
 
@@ -365,6 +370,24 @@ function withFileCategories(data: AppData): AppData {
 }
 
 export function loadData(): AppData {
+  if (isTransferDemo()) {
+    try {
+      const raw = sessionStorage.getItem(TRANSFER_DEMO_DATA_KEY)
+      if (raw) {
+        const data = migrate(JSON.parse(raw))
+        if (!isEmptyData(data)) return withFileCategories(data)
+      }
+    } catch {
+      /* ignore */
+    }
+    const demo = withFileCategories(createTransferDemoData())
+    try {
+      sessionStorage.setItem(TRANSFER_DEMO_DATA_KEY, JSON.stringify(demo))
+    } catch {
+      /* ignore */
+    }
+    return demo
+  }
   try {
     if (localStorage.getItem(FRESH_START_KEY) === '1') {
       const raw = localStorage.getItem(STORAGE_KEY)
@@ -431,6 +454,10 @@ export function wipeDeviceData(): void {
 }
 
 export function saveData(data: AppData): void {
+  if (isTransferDemo()) {
+    sessionStorage.setItem(TRANSFER_DEMO_DATA_KEY, JSON.stringify(data))
+    return
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
 }
 

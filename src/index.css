@@ -1348,6 +1348,17 @@ button.template-pick-name {
   overflow-y: auto;
 }
 
+.transfer-leftover-list {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.transfer-leftover-list li {
+  margin: 0;
+  padding: 2px 0;
+}
+
 .dialog .input + .sheet-list,
 .dialog .input + .hint {
   margin-top: 10px;

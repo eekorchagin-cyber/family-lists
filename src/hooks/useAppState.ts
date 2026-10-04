@@ -16,6 +16,7 @@ import {
   rememberStoreCategory,
   upsertCatalog,
 } from '../data/catalog'
+import { partitionItemsForTransfer, type TransferSummary } from '../data/listTransfer'
 import { sameRuText } from '../data/text'
 import { emptyStoreFields } from '../data/defaults'
 import { applyAppearance, loadClearedStoreIds, loadData, loadStoreOrder, saveClearedAt, saveClearedStoreIds, saveData, saveStoreOrder } from '../data/storage'
@@ -45,6 +46,7 @@ import {
 import type {
   AppData,
   CatalogEntry,
+  Category,
   CategorySort,
   FontSize,
   IconStyle,
@@ -1213,34 +1215,66 @@ export function useAppState() {
   }, [])
 
   const transferItems = useCallback(
-    (fromStoreId: string, toStoreId: string, mode: 'copy' | 'move') => {
-      if (fromStoreId === toStoreId) return
+    (
+      fromStoreId: string,
+      toStoreId: string,
+      mode: 'copy' | 'move',
+      onlyItemIds?: string[],
+    ): TransferSummary => {
+      const empty: TransferSummary = { transferredCount: 0, leftoverItems: [] }
+      if (fromStoreId === toStoreId) return empty
+      let summary = empty
       setData((current) => {
-        const fromStore = current.stores.find((store) => store.id === fromStoreId)
         const toStore = current.stores.find((store) => store.id === toStoreId)
-        if (!fromStore || !toStore) return current
+        if (!toStore) return current
 
+        const allowIds = onlyItemIds ? new Set(onlyItemIds) : null
         const sourceActive = current.items.filter(
-          (item) => item.storeId === fromStoreId && !item.bought,
+          (item) =>
+            item.storeId === fromStoreId &&
+            !item.bought &&
+            (!allowIds || allowIds.has(item.id)),
         )
-        if (sourceActive.length > 0) forgetCleared(toStoreId)
+        const { matching, leftover } = partitionItemsForTransfer(
+          sourceActive,
+          toStore,
+          current.categories,
+        )
+        summary = {
+          transferredCount: matching.length,
+          leftoverItems: leftover.map((item) => ({ ...item })),
+        }
+        if (matching.length === 0) return current
+
+        forgetCleared(toStoreId)
         let items = [...current.items]
-        for (const entry of sourceActive) {
+        for (const { item: entry, targetCategoryId } of matching) {
           const existing = items.find(
             (item) =>
               item.storeId === toStoreId &&
               !item.bought &&
-              item.categoryId === entry.categoryId &&
+              item.categoryId === targetCategoryId &&
               sameRuText(item.name, entry.name),
           )
-          if (existing) continue
+          if (existing) {
+            items = items.map((item) =>
+              item.id === existing.id
+                ? withUpdatedAt({
+                    ...item,
+                    qty: item.qty + entry.qty,
+                    unit: entry.unit.trim() || item.unit,
+                  })
+                : item,
+            )
+            continue
+          }
           items = [
             ...items,
             {
               id: newId(),
               storeId: toStoreId,
               name: entry.name,
-              categoryId: entry.categoryId,
+              categoryId: targetCategoryId,
               qty: entry.qty,
               unit: entry.unit,
               bought: false,
@@ -1251,22 +1285,14 @@ export function useAppState() {
         }
 
         if (mode === 'move') {
-          const sourceIds = new Set(sourceActive.map((item) => item.id))
+          const sourceIds = new Set(matching.map(({ item }) => item.id))
           for (const id of sourceIds) queueDeleted('items', id)
           items = items.filter((item) => !sourceIds.has(item.id))
         }
 
-        let stores = current.stores.map((store) =>
-          store.id === toStoreId
-            ? withCategoriesEnabled(
-                store,
-                sourceActive.map((entry) => entry.categoryId),
-                current.categories,
-              )
-            : store,
-        )
-        for (const entry of sourceActive) {
-          stores = rememberCategoryInStore(stores, toStoreId, entry.name, entry.categoryId)
+        let stores = current.stores
+        for (const { item: entry, targetCategoryId } of matching) {
+          stores = rememberCategoryInStore(stores, toStoreId, entry.name, targetCategoryId)
         }
         return persist({
           ...current,
@@ -1275,8 +1301,99 @@ export function useAppState() {
           stores,
         })
       })
+      return summary
     },
     [forgetCleared],
+  )
+
+  /** Новый список из остатка экспорта: отделы — по категориям этих товаров. */
+  const createStoreFromItems = useCallback(
+    (
+      name: string,
+      sourceItems: Pick<Item, 'id' | 'name' | 'categoryId' | 'qty' | 'unit'>[],
+      removeFromSource?: boolean,
+    ): string | undefined => {
+      const trimmed = name.trim()
+      if (!trimmed || sourceItems.length === 0) return undefined
+      const storeId = newId()
+      const updatedAt = nowIso()
+      flushSync(() => {
+        setData((current) => {
+          const globalIds = new Set(
+            current.categories.filter((category) => !category.storeId).map((category) => category.id),
+          )
+          const categoryOrder = [
+            ...new Set(
+              sourceItems
+                .map((item) => item.categoryId)
+                .filter((categoryId) => globalIds.has(categoryId)),
+            ),
+          ]
+          const localNeeded = new Map<string, Category>()
+          for (const item of sourceItems) {
+            if (globalIds.has(item.categoryId)) continue
+            const category = current.categories.find((row) => row.id === item.categoryId)
+            if (!category || localNeeded.has(category.id)) continue
+            localNeeded.set(category.id, category)
+          }
+          const idMap = new Map<string, string>()
+          const newLocals: Category[] = []
+          for (const category of localNeeded.values()) {
+            const nextId = newId()
+            idMap.set(category.id, nextId)
+            newLocals.push({
+              id: nextId,
+              name: category.name,
+              color: category.color,
+              ...(category.icon ? { icon: category.icon } : {}),
+              storeId,
+              updatedAt,
+            })
+          }
+          const created: Item[] = sourceItems.map((entry) => ({
+            id: newId(),
+            storeId,
+            name: entry.name,
+            categoryId: idMap.get(entry.categoryId) ?? entry.categoryId,
+            qty: entry.qty,
+            unit: entry.unit,
+            bought: false,
+            addedBy: actorId(),
+            updatedAt,
+          }))
+          let stores: Store[] = [
+            ...current.stores,
+            {
+              id: storeId,
+              name: trimmed,
+              ...emptyStoreFields(categoryOrder),
+              ownerId: actorId(),
+              visibility: actorId() ? 'home' : 'private',
+              updatedAt,
+              ...(iconIdFromName(trimmed) !== 'other' ? { icon: iconIdFromName(trimmed) } : {}),
+            },
+          ]
+          for (const item of created) {
+            stores = rememberCategoryInStore(stores, storeId, item.name, item.categoryId)
+          }
+          let items = [...current.items, ...created]
+          if (removeFromSource) {
+            const removeIds = new Set(sourceItems.map((item) => item.id))
+            for (const id of removeIds) queueDeleted('items', id)
+            items = items.filter((item) => !removeIds.has(item.id))
+          }
+          return persist({
+            ...current,
+            stores,
+            categories: [...current.categories, ...newLocals],
+            items,
+            catalog: mergeCatalogFromItems(current.catalog ?? [], created),
+          })
+        })
+      })
+      return storeId
+    },
+    [],
   )
 
   const reorderStores = useCallback((orderedIds: string[]) => {
@@ -1619,6 +1736,7 @@ export function useAppState() {
     saveStoreTemplate,
     deleteGroupTemplate,
     transferItems,
+    createStoreFromItems,
     reorderStores,
     reorderHome,
     addGroup,

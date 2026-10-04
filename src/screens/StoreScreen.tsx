@@ -27,6 +27,7 @@ import {
 } from '../data/templates'
 import { TemplateSaveFields } from '../components/TemplateSaveFields'
 import type { HomeMember } from '../data/sync/session'
+import type { TransferSummary } from '../data/listTransfer'
 import type { Category, Item, ParsedItem, Store, StoreGroup, StoreVisibility, TemplateFolder } from '../types'
 
 type StoreScreenProps = {
@@ -61,8 +62,16 @@ type StoreScreenProps = {
   groups?: StoreGroup[]
   templateFolders?: TemplateFolder[]
   onApplyTemplate?: (templateId: string, mode?: 'all' | 'matching') => void
-  onCopyToStore?: (storeId: string) => void
-  onMoveToStore?: (storeId: string) => void
+  onTransferToStore?: (
+    storeId: string,
+    mode: 'copy' | 'move',
+    onlyItemIds?: string[],
+  ) => TransferSummary
+  onCreateStoreFromItems?: (
+    name: string,
+    items: Item[],
+    removeFromSource?: boolean,
+  ) => void
 }
 
 export function StoreScreen({
@@ -92,8 +101,8 @@ export function StoreScreen({
   groups = [],
   templateFolders = [],
   onApplyTemplate,
-  onCopyToStore,
-  onMoveToStore,
+  onTransferToStore,
+  onCreateStoreFromItems,
 }: StoreScreenProps) {
   const [query, setQuery] = useState('')
   const [editItem, setEditItem] = useState<Item | null>(null)
@@ -729,18 +738,14 @@ export function StoreScreen({
           }}
         />
       )}
-      {transferring && onCopyToStore && onMoveToStore && (
+      {transferring && onTransferToStore && onCreateStoreFromItems && (
         <TransferDialog
           stores={otherStores}
           activeCount={activeItems.length}
           onClose={() => setTransferring(false)}
-          onCopy={(storeId) => {
-            onCopyToStore(storeId)
-            setTransferring(false)
-          }}
-          onMove={(storeId) => {
-            onMoveToStore(storeId)
-            setTransferring(false)
+          onTransfer={onTransferToStore}
+          onCreateStore={(name, leftover, mode) => {
+            onCreateStoreFromItems(name, leftover, mode === 'move')
           }}
         />
       )}
