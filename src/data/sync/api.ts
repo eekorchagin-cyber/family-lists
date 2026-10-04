@@ -531,34 +531,17 @@ export async function pushLocal(
     (store) => (store.ownerId ?? ownerId) === ownerId,
   )
   const groupById = new Map((data.groups ?? []).map((group) => [group.id, group]))
-  const remoteMarkers = new Map<string, { groupId?: string; groupName?: string }>()
-  if (ownedStores.length > 0) {
-    const { data: existingRows } = await client
-      .from('stores')
-      .select('id, category_names')
-      .in(
-        'id',
-        ownedStores.map((store) => store.id),
-      )
-    for (const row of existingRows ?? []) {
-      const marked = stripGroupMarker(
-        asCategoryNames((row as { category_names?: unknown }).category_names),
-      )
-      remoteMarkers.set(row.id as string, {
-        ...(marked.groupId ? { groupId: marked.groupId } : {}),
-        ...(marked.groupName ? { groupName: marked.groupName } : {}),
-      })
-    }
-  }
   const storeRows = ownedStores.map((store) => {
-    const remote = remoteMarkers.get(store.id)
     const localGroup = store.groupId ? groupById.get(store.groupId) : undefined
     const hideGroup = Boolean(store.incomingFrom) || localGroup?.visibility === 'private'
-    const groupId = hideGroup ? undefined : (store.groupId ?? remote?.groupId)
+    // Не подставляем remote.groupId: иначе вывод списка из группы не доходит до облака,
+    // и пустая группа снова собирается из метаданных списков при pull.
+    const groupId = hideGroup ? undefined : store.groupId
     const groupName = hideGroup
       ? undefined
-      : ((groupId ? groupById.get(groupId)?.name : undefined) ??
-        (store.groupId ? undefined : remote?.groupName))
+      : groupId
+        ? groupById.get(groupId)?.name
+        : undefined
     return {
       id: store.id,
       home_id: homeId,

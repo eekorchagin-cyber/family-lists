@@ -29,7 +29,9 @@ export function CategoryMarkFace({
   if (hasCategorySpecialIcon(iconId)) {
     return <CategorySpecialIcon id={iconId} />
   }
-  return categoryGlyph(category)
+  // Важно: глиф по уже выбранному iconId. Иначе при «Цветные» и icon=file*
+  // categoryGlyph(category) возвращает пустую строку — кружки без значков.
+  return categoryGlyph({ name: category.name, icon: iconId })
 }
 
 export function CategoryMark({ category, className }: CategoryMarkProps) {

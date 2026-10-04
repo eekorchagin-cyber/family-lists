@@ -79,6 +79,12 @@ export function fileIconIdForName(name: string): FileCategoryIconId | undefined 
 }
 
 export function fileIconSrc(file: string): string {
-  const base = import.meta.env.BASE_URL
-  return `${base.endsWith('/') ? base : `${base}/`}category-icons/${file}`
+  // Каталог приложения, а не «родитель» без завершающего / (ломает ./category-icons на gh-pages).
+  let dir = location.pathname
+  if (/\.[a-z0-9]+$/i.test(dir.split('/').pop() ?? '')) {
+    dir = dir.replace(/\/[^/]+$/, '/')
+  } else if (!dir.endsWith('/')) {
+    dir = `${dir}/`
+  }
+  return `${dir}category-icons/${file}`
 }

@@ -86,11 +86,10 @@ function mergeStore(local: Store, remote: Store, userId?: string): Store {
     const remoteAt = remote.updatedAt ?? ''
     if (remoteAt > localAt) next = keepLoyalty(remote, local, remote)
     else if (localAt > remoteAt) {
-      next =
-        remote.groupId && !local.groupId
-          ? keepLoyalty({ ...local, groupId: remote.groupId }, local, remote)
-          : keepLoyalty(local, local, remote)
+      // Локально новее — доверяем снятию groupId (вывод из группы / удаление группы).
+      next = keepLoyalty(local, local, remote)
     } else if (remote.groupId && !local.groupId) {
+      // Одинаковое время: группа с другого телефона ещё не подтянута в local.
       next = keepLoyalty({ ...local, groupId: remote.groupId }, local, remote)
     } else next = keepLoyalty(local, local, remote)
   }
