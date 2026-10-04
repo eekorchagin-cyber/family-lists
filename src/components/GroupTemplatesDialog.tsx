@@ -64,15 +64,50 @@ export function GroupTemplatesDialog({
     a.name.localeCompare(b.name, 'ru'),
   )
   const [categoryId, setCategoryId] = useState(categoryOptions[0]?.id ?? 'other')
-  const templates = (group.templates ?? []).filter((template) => templateVisible(template, myId))
-  const rows = [
-    ...templates.map((template) => ({ template, storeId: undefined as string | undefined, storeName: undefined as string | undefined })),
-    ...stores.flatMap((store) =>
-      (store.templates ?? [])
-        .filter((template) => templateVisible(template, myId))
-        .map((template) => ({ template, storeId: store.id, storeName: store.name })),
-    ),
-  ]
+  const groupRows = (group.templates ?? [])
+    .filter((template) => templateVisible(template, myId))
+    .map((template) => ({ template, storeId: undefined as string | undefined, storeName: undefined as string | undefined }))
+  const storeRows = stores.flatMap((store) =>
+    (store.templates ?? [])
+      .filter((template) => templateVisible(template, myId))
+      .map((template) => ({ template, storeId: store.id, storeName: store.name })),
+  )
+  const empty = groupRows.length === 0 && storeRows.length === 0
+
+  function templateMeta(template: NamedTemplate, storeName?: string) {
+    const parts = [
+      storeName ? `из списка «${storeName}»` : null,
+      `товаров: ${template.items.length}`,
+      syncEnabled ? (template.visibility === 'private' ? 'Только я' : 'Весь дом') : null,
+    ].filter(Boolean)
+    return parts.join(' · ')
+  }
+
+  function renderRow({
+    template,
+    storeId,
+    storeName,
+  }: {
+    template: NamedTemplate
+    storeId?: string
+    storeName?: string
+  }) {
+    return (
+      <li key={`${storeId ?? group.id}:${template.id}`} className="template-row">
+        <div className="template-copy">
+          <span>{template.name}</span>
+          <span className="settings-nav-hint">{templateMeta(template, storeName)}</span>
+        </div>
+        <button
+          type="button"
+          className="button-secondary template-action"
+          onClick={() => startEdit(template, storeId)}
+        >
+          Изменить
+        </button>
+      </li>
+    )
+  }
 
   function startCreate() {
     setProduct('')
@@ -252,30 +287,31 @@ export function GroupTemplatesDialog({
           </>
         ) : (
           <>
-            {rows.length === 0 ? (
+            {empty ? (
               <p className="hint">В группе пока нет шаблонов. Шаблон можно подставить в любой список.</p>
             ) : (
-              <ul className="template-list">
-                {rows.map(({ template, storeId, storeName }) => (
-                  <li key={`${storeId ?? group.id}:${template.id}`} className="template-row">
-                    <div className="template-copy">
-                      <span>{template.name}</span>
-                      <span className="settings-nav-hint">
-                        {storeName ? `из списка ${storeName} · ` : ''}
-                        товаров: {template.items.length}
-                        {syncEnabled
-                          ? template.visibility === 'private'
-                            ? ' · Только я'
-                            : ' · Весь дом'
-                          : ''}
-                      </span>
-                    </div>
-                    <button type="button" className="button-secondary template-action" onClick={() => startEdit(template, storeId)}>
-                      Изменить
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="template-pick-groups">
+                <section className="template-pick-group">
+                  <h3 className="template-pick-heading">Шаблоны группы</h3>
+                  {groupRows.length === 0 ? (
+                    <p className="hint">Пока нет общих шаблонов группы.</p>
+                  ) : (
+                    <ul className="template-list template-list--nested">
+                      {groupRows.map(renderRow)}
+                    </ul>
+                  )}
+                </section>
+                <section className="template-pick-group">
+                  <h3 className="template-pick-heading">Шаблоны списков</h3>
+                  {storeRows.length === 0 ? (
+                    <p className="hint">У списков этой группы своих шаблонов нет.</p>
+                  ) : (
+                    <ul className="template-list template-list--nested">
+                      {storeRows.map(renderRow)}
+                    </ul>
+                  )}
+                </section>
+              </div>
             )}
             <div className="choice-row">
               <button type="button" className="button-primary" onClick={startCreate}>
