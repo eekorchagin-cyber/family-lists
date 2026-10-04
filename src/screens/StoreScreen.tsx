@@ -83,6 +83,7 @@ type StoreScreenProps = {
     items: Item[],
     removeFromSource?: boolean,
   ) => void
+  onMarkItemsBought?: (itemIds: string[]) => void
   onImportLines?: (actions: ImportAction[]) => void
 }
 
@@ -116,6 +117,7 @@ export function StoreScreen({
   onApplyTemplate,
   onTransferToStore,
   onCreateStoreFromItems,
+  onMarkItemsBought,
   onImportLines,
 }: StoreScreenProps) {
   const [query, setQuery] = useState('')
@@ -764,7 +766,7 @@ export function StoreScreen({
           }}
         />
       )}
-      {transferring && onTransferToStore && onCreateStoreFromItems && (
+      {transferring && onTransferToStore && onCreateStoreFromItems && onMarkItemsBought && (
         <TransferDialog
           stores={otherStores}
           activeCount={activeItems.length}
@@ -772,6 +774,9 @@ export function StoreScreen({
           onTransfer={onTransferToStore}
           onCreateStore={(name, leftover, mode) => {
             onCreateStoreFromItems(name, leftover, mode === 'move')
+          }}
+          onMarkLeftoverHave={(leftover) => {
+            onMarkItemsBought(leftover.map((item) => item.id))
           }}
         />
       )}

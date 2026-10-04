@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { Item, Store } from '../types'
 import type { TransferSummary } from '../data/listTransfer'
 import { DialogHeading } from './DialogHeading'
@@ -20,6 +21,8 @@ type TransferDialogProps = {
     items: Item[],
     mode: TransferMode,
   ) => void
+  /** Остаток уже есть: отметить купленным, из списка не удалять. */
+  onMarkLeftoverHave: (items: Item[]) => void
 }
 
 type Phase =
@@ -30,6 +33,8 @@ type Phase =
       leftover: Item[]
       transferredCount: number
       targetName: string
+      /** Больше некуда раздавать — только сохранить остаток. */
+      exhausted?: boolean
     }
   | { kind: 'create'; mode: TransferMode; leftover: Item[] }
 
@@ -44,6 +49,7 @@ export function TransferDialog({
   onClose,
   onTransfer,
   onCreateStore,
+  onMarkLeftoverHave,
 }: TransferDialogProps) {
   const sorted = useMemo(
     () => [...stores].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
@@ -51,26 +57,59 @@ export function TransferDialog({
   )
   const [targetId, setTargetId] = useState(sorted[0]?.id ?? '')
   const [phase, setPhase] = useState<Phase>({ kind: 'pick' })
+  /** Списки, куда в этой раздаче уже попали товары — повторно не предлагаем. */
+  const [filledStoreIds, setFilledStoreIds] = useState<string[]>([])
 
-  const pendingCount = phase.kind === 'pick' && phase.pending ? phase.pending.length : activeCount
-  const canTransfer = Boolean(targetId) && pendingCount > 0
+  const pendingItems = phase.kind === 'pick' ? phase.pending : undefined
+  const pendingCount = pendingItems ? pendingItems.length : activeCount
+  const freeStores = sorted.filter((store) => !filledStoreIds.includes(store.id))
+  const targetFilled = Boolean(targetId) && filledStoreIds.includes(targetId)
+  const canTransfer = Boolean(targetId) && pendingCount > 0 && !targetFilled
+  /** Продолжение раздачи, а свободных списков больше нет — нужно сохранить остаток. */
+  const stuckWithRemainder =
+    Boolean(pendingItems) && pendingCount > 0 && freeStores.length === 0
+
+  function openRemainderSave(mode: TransferMode, leftover: Item[]) {
+    setPhase({
+      kind: 'leftover',
+      mode,
+      leftover,
+      transferredCount: 0,
+      targetName: '',
+      exhausted: true,
+    })
+  }
 
   function runTransfer(mode: TransferMode) {
-    if (!targetId) return
+    if (!targetId || filledStoreIds.includes(targetId)) return
     const pending = phase.kind === 'pick' ? phase.pending : undefined
     const onlyIds = pending?.map((item) => item.id)
     const summary = onTransfer(targetId, mode, onlyIds)
     const targetName = sorted.find((store) => store.id === targetId)?.name ?? 'список'
+    const nextFilled =
+      summary.transferredCount > 0 || summary.alreadyPresentCount > 0
+        ? filledStoreIds.includes(targetId)
+          ? filledStoreIds
+          : [...filledStoreIds, targetId]
+        : filledStoreIds
+    if (nextFilled !== filledStoreIds) {
+      setFilledStoreIds(nextFilled)
+    }
     if (summary.leftoverItems.length === 0) {
       onClose()
       return
     }
-    setPhase({
-      kind: 'leftover',
-      mode,
-      leftover: summary.leftoverItems,
-      transferredCount: summary.transferredCount,
-      targetName,
+    const stillFree = sorted.some((store) => !nextFilled.includes(store.id))
+    // Сразу после записи данных, чтобы экран остатка не потерялся при перерисовке списка
+    flushSync(() => {
+      setPhase({
+        kind: 'leftover',
+        mode,
+        leftover: summary.leftoverItems,
+        transferredCount: summary.transferredCount,
+        targetName,
+        exhausted: !stillFree,
+      })
     })
   }
 
@@ -92,50 +131,71 @@ export function TransferDialog({
   }
 
   if (phase.kind === 'leftover') {
-    const { leftover, transferredCount, targetName, mode } = phase
+    const { leftover, transferredCount, targetName, mode, exhausted } = phase
     return (
-      <div className="overlay" role="presentation" onClick={onClose}>
+      <div className="overlay overlay--capture" role="presentation">
         <div className="dialog" onClick={(event) => event.stopPropagation()}>
           <DialogHeading title="Остались товары" onClose={onClose} />
           <p className="hint">
-            {transferredCount > 0
-              ? `В «${targetName}» ${mode === 'copy' ? 'скопировано' : 'перенесено'}: ${transferredCount}. `
-              : `В «${targetName}» ничего не попало — нет подходящих отделов. `}
-            Не назначено: {leftover.length}. Выберите другой список или создайте новый для остатка.
+            {exhausted
+              ? `Раздача по спискам закончена. Осталось ${leftover.length} — сохраните отдельным списком или отметьте, что уже есть. `
+              : transferredCount > 0
+                ? `В «${targetName}» ${mode === 'copy' ? 'скопировано' : 'перенесено'}: ${transferredCount}. `
+                : `В «${targetName}» ничего нового не попало — подходящие товары там уже есть или нет отделов. `}
+            {!exhausted
+              ? `Не назначено: ${leftover.length}. «Остальное есть, очистить» — отметить остаток купленным (уже есть), из списка не удалять. Закрыть окно (←) — остаток как был.`
+              : '«Остальное есть, очистить» — отметить остаток купленным, из списка не удалять. Закрыть окно (←) — остаток как был.'}
           </p>
-          <ul className="sheet-list transfer-leftover-list">
-            {leftover.slice(0, 8).map((item) => (
-              <li key={item.id} className="hint">
-                {itemLabel(item)}
-              </li>
+          <ul className="transfer-leftover-list">
+            {leftover.map((item) => (
+              <li key={item.id}>{itemLabel(item)}</li>
             ))}
-            {leftover.length > 8 ? (
-              <li className="hint">и ещё {leftover.length - 8}…</li>
-            ) : null}
           </ul>
           <div className="choice-row">
+            {!exhausted ? (
+              <button
+                type="button"
+                className="button-primary"
+                onClick={() => {
+                  const justFilled =
+                    transferredCount > 0 || filledStoreIds.includes(targetId)
+                      ? targetId
+                      : ''
+                  const filled = new Set(
+                    justFilled ? [...filledStoreIds, justFilled] : filledStoreIds,
+                  )
+                  const nextTarget =
+                    sorted.find((store) => store.id !== targetId && !filled.has(store.id))
+                      ?.id ??
+                    sorted.find((store) => !filled.has(store.id))?.id ??
+                    ''
+                  if (!nextTarget) {
+                    openRemainderSave(mode, leftover)
+                    return
+                  }
+                  setTargetId(nextTarget)
+                  setPhase({ kind: 'pick', mode, pending: leftover })
+                }}
+              >
+                В другой список
+              </button>
+            ) : null}
             <button
               type="button"
-              className="button-primary"
-              onClick={() => {
-                const nextTarget = sorted.find((store) => store.id !== targetId)?.id ?? sorted[0]?.id ?? ''
-                setTargetId(nextTarget)
-                setPhase({ kind: 'pick', mode, pending: leftover })
-              }}
+              className={exhausted ? 'button-primary' : 'button-secondary'}
+              onClick={() => setPhase({ kind: 'create', mode, leftover })}
             >
-              В другой список
+              Создать из этого список
             </button>
             <button
               type="button"
               className="button-secondary"
-              onClick={() => setPhase({ kind: 'create', mode, leftover })}
+              onClick={() => {
+                onMarkLeftoverHave(leftover)
+                onClose()
+              }}
             >
-              Создать список
-            </button>
-          </div>
-          <div className="dialog-actions dialog-actions-single">
-            <button type="button" className="button-secondary" onClick={onClose}>
-              Оставить здесь
+              Остальное есть, очистить
             </button>
           </div>
         </div>
@@ -150,34 +210,90 @@ export function TransferDialog({
     <div className="overlay" role="presentation" onClick={onClose}>
       <div className="dialog" onClick={(event) => event.stopPropagation()}>
         <DialogHeading
-          title={isContinue ? 'Куда ещё' : 'В другой список'}
+          title={
+            stuckWithRemainder
+              ? 'Остались товары'
+              : isContinue
+                ? 'Куда ещё'
+                : 'В другой список'
+          }
           onClose={onClose}
         />
-        {pendingCount > 0 ? (
+        {stuckWithRemainder ? (
+          <p className="hint">
+            Все доступные списки уже получили товары. Осталось {pendingCount} — сохраните
+            отдельным списком или отметьте, что уже есть.
+          </p>
+        ) : pendingCount > 0 ? (
           <p className="hint">
             {isContinue
-              ? `Осталось ${pendingCount}. Попадут только товары, чьи отделы есть в выбранном списке.`
-              : 'Попадут только некупленные товары с отделами, которые уже есть в целевом списке. Скопировать — останутся здесь. Перенести — уберутся из этого списка.'}
+              ? `Осталось ${pendingCount}. Попадут только товары, чьи отделы есть в выбранном списке. С пометкой «уже» — в этой раздаче уже получали, повторно не копируем.`
+              : 'Попадут только некупленные товары с отделами, которые уже есть в целевом списке. Скопировать — останутся здесь. Перенести — уберутся из этого списка. Если товар в цели уже есть — второй раз не копируется.'}
           </p>
         ) : (
           <p className="hint">Нет некупленных товаров. Купленные не копируются и не переносятся.</p>
         )}
-        <p className="field-label">Куда</p>
-        <ul className="choice-row sheet-list">
-          {sorted.map((store) => (
-            <li key={store.id}>
+        {!stuckWithRemainder ? (
+          <>
+            <p className="field-label">Куда</p>
+            <ul className="choice-row sheet-list">
+              {sorted.map((store) => {
+                const received = filledStoreIds.includes(store.id)
+                const classes = [
+                  'choice',
+                  store.id === targetId && !received ? 'active' : '',
+                  received ? 'choice--received' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+                return (
+                  <li key={store.id}>
+                    <button
+                      type="button"
+                      className={classes}
+                      disabled={received}
+                      aria-disabled={received}
+                      onClick={() => {
+                        if (!received) setTargetId(store.id)
+                      }}
+                    >
+                      <span className="choice-label">{store.name}</span>
+                      {received ? <span className="choice-received-mark">уже</span> : null}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </>
+        ) : pendingItems ? (
+          <ul className="transfer-leftover-list">
+            {pendingItems.map((item) => (
+              <li key={item.id}>{itemLabel(item)}</li>
+            ))}
+          </ul>
+        ) : null}
+        <div className="choice-row">
+          {stuckWithRemainder && pendingItems && lockedMode ? (
+            <>
               <button
                 type="button"
-                className={store.id === targetId ? 'choice active' : 'choice'}
-                onClick={() => setTargetId(store.id)}
+                className="button-primary"
+                onClick={() => setPhase({ kind: 'create', mode: lockedMode, leftover: pendingItems })}
               >
-                {store.name}
+                Создать из этого список
               </button>
-            </li>
-          ))}
-        </ul>
-        <div className="choice-row">
-          {lockedMode ? (
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  onMarkLeftoverHave(pendingItems)
+                  onClose()
+                }}
+              >
+                Остальное есть, очистить
+              </button>
+            </>
+          ) : lockedMode ? (
             <button
               type="button"
               className="button-primary"

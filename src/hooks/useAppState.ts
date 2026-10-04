@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import {
   appendCategoryToStores,
@@ -161,6 +161,8 @@ export function useAppState() {
   })
 
   const [clearedStoreIds, setClearedStoreIds] = useState<string[]>(() => loadClearedStoreIds())
+  const dataRef = useRef(data)
+  dataRef.current = data
 
   const rememberCleared = useCallback((storeId: string) => {
     saveClearedAt(storeId, nowIso())
@@ -794,6 +796,23 @@ export function useAppState() {
     )
   }, [])
 
+  const markItemsBought = useCallback((itemIds: string[]) => {
+    const ids = new Set(itemIds.filter(Boolean))
+    if (ids.size === 0) return
+    flushSync(() => {
+      setData((current) =>
+        persist({
+          ...current,
+          items: current.items.map((item) =>
+            ids.has(item.id)
+              ? withUpdatedAt({ ...item, bought: true, boughtBy: actorId() })
+              : item,
+          ),
+        }),
+      )
+    })
+  }, [])
+
   const clearBought = useCallback((storeId: string) => {
     // Сразу в localStorage, до React: иначе параллельный pull может вернуть купленное.
     saveClearedAt(storeId, nowIso())
@@ -1300,84 +1319,92 @@ export function useAppState() {
       mode: 'copy' | 'move',
       onlyItemIds?: string[],
     ): TransferSummary => {
-      const empty: TransferSummary = { transferredCount: 0, leftoverItems: [] }
+      const empty: TransferSummary = {
+        transferredCount: 0,
+        transferredItemIds: [],
+        alreadyPresentCount: 0,
+        leftoverItems: [],
+      }
       if (fromStoreId === toStoreId) return empty
-      let summary = empty
-      setData((current) => {
-        const toStore = current.stores.find((store) => store.id === toStoreId)
-        if (!toStore) return current
 
-        const allowIds = onlyItemIds ? new Set(onlyItemIds) : null
-        const sourceActive = current.items.filter(
+      const current = dataRef.current
+      const toStore = current.stores.find((store) => store.id === toStoreId)
+      if (!toStore) return empty
+
+      const allowIds = onlyItemIds ? new Set(onlyItemIds) : null
+      const sourceActive = current.items.filter(
+        (item) =>
+          item.storeId === fromStoreId &&
+          !item.bought &&
+          (!allowIds || allowIds.has(item.id)),
+      )
+      const { matching, leftover } = partitionItemsForTransfer(
+        sourceActive,
+        toStore,
+        current.categories,
+      )
+      // Уже есть в цели с тем же именем и отделом — повторно не копируем (qty не наращиваем).
+      const fresh = matching.filter(({ item: entry, targetCategoryId }) => {
+        return !current.items.some(
           (item) =>
-            item.storeId === fromStoreId &&
+            item.storeId === toStoreId &&
             !item.bought &&
-            (!allowIds || allowIds.has(item.id)),
+            item.categoryId === targetCategoryId &&
+            sameRuText(item.name, entry.name),
         )
-        const { matching, leftover } = partitionItemsForTransfer(
-          sourceActive,
-          toStore,
-          current.categories,
-        )
-        summary = {
-          transferredCount: matching.length,
-          leftoverItems: leftover.map((item) => ({ ...item })),
-        }
-        if (matching.length === 0) return current
+      })
+      const duplicates = matching.filter(
+        (row) => !fresh.some((item) => item.item.id === row.item.id),
+      )
+      const summary: TransferSummary = {
+        transferredCount: fresh.length,
+        transferredItemIds: fresh.map(({ item }) => item.id),
+        alreadyPresentCount: duplicates.length,
+        leftoverItems: leftover.map((item) => ({ ...item })),
+      }
+      // Копирование: нечего нового добавить. Перенос: ещё можно убрать дубликаты из источника.
+      if (fresh.length === 0 && (mode === 'copy' || duplicates.length === 0)) {
+        return summary
+      }
 
-        forgetCleared(toStoreId)
-        let items = [...current.items]
-        for (const { item: entry, targetCategoryId } of matching) {
-          const existing = items.find(
-            (item) =>
-              item.storeId === toStoreId &&
-              !item.bought &&
-              item.categoryId === targetCategoryId &&
-              sameRuText(item.name, entry.name),
-          )
-          if (existing) {
-            items = items.map((item) =>
-              item.id === existing.id
-                ? withUpdatedAt({
-                    ...item,
-                    qty: item.qty + entry.qty,
-                    unit: entry.unit.trim() || item.unit,
-                  })
-                : item,
-            )
-            continue
+      if (fresh.length > 0) forgetCleared(toStoreId)
+      flushSync(() => {
+        setData((live) => {
+          let items = [...live.items]
+          for (const { item: entry, targetCategoryId } of fresh) {
+            items = [
+              ...items,
+              {
+                id: newId(),
+                storeId: toStoreId,
+                name: entry.name,
+                categoryId: targetCategoryId,
+                qty: entry.qty,
+                unit: entry.unit,
+                bought: false,
+                addedBy: actorId(),
+                updatedAt: nowIso(),
+              },
+            ]
           }
-          items = [
-            ...items,
-            {
-              id: newId(),
-              storeId: toStoreId,
-              name: entry.name,
-              categoryId: targetCategoryId,
-              qty: entry.qty,
-              unit: entry.unit,
-              bought: false,
-              addedBy: actorId(),
-              updatedAt: nowIso(),
-            },
-          ]
-        }
 
-        if (mode === 'move') {
-          const sourceIds = new Set(matching.map(({ item }) => item.id))
-          for (const id of sourceIds) queueDeleted('items', id)
-          items = items.filter((item) => !sourceIds.has(item.id))
-        }
+          if (mode === 'move') {
+            // Убрать из источника и новые, и те, что в цели уже были (перенос без дубля qty).
+            const sourceIds = new Set(matching.map(({ item }) => item.id))
+            for (const id of sourceIds) queueDeleted('items', id)
+            items = items.filter((item) => !sourceIds.has(item.id))
+          }
 
-        let stores = current.stores
-        for (const { item: entry, targetCategoryId } of matching) {
-          stores = rememberCategoryInStore(stores, toStoreId, entry.name, targetCategoryId)
-        }
-        return persist({
-          ...current,
-          items,
-          catalog: mergeCatalogFromItems(current.catalog ?? [], items),
-          stores,
+          let stores = live.stores
+          for (const { item: entry, targetCategoryId } of fresh) {
+            stores = rememberCategoryInStore(stores, toStoreId, entry.name, targetCategoryId)
+          }
+          return persist({
+            ...live,
+            items,
+            catalog: mergeCatalogFromItems(live.catalog ?? [], items),
+            stores,
+          })
         })
       })
       return summary
@@ -1800,6 +1827,7 @@ export function useAppState() {
     moveCategory,
     updateItem,
     markBought,
+    markItemsBought,
     unmarkBought,
     clearBought,
     saveTemplate,

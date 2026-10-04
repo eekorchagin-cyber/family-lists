@@ -1319,6 +1319,38 @@ button.template-pick-name {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
 
+.sheet-list .choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sheet-list .choice:disabled,
+.sheet-list .choice.choice--received {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.choice.choice--received {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.choice.choice--received .choice-label {
+  font-weight: 650;
+}
+
+.choice-received-mark {
+  margin-left: 8px;
+  flex-shrink: 0;
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  color: var(--accent);
+}
+
 .category-chip-store {
   margin-left: auto;
   font-size: 0.75em;
@@ -1375,11 +1407,20 @@ button.template-pick-name {
   margin: 0 0 12px;
   padding: 0;
   list-style: none;
+  max-height: min(45vh, 320px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 12px;
 }
 
 .transfer-leftover-list li {
   margin: 0;
-  padding: 2px 0;
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 0.9em;
+  line-height: 1.35;
 }
 
 .dialog .input + .sheet-list,

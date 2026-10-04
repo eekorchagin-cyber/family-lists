@@ -38,5 +38,9 @@ export function partitionItemsForTransfer(
 
 export type TransferSummary = {
   transferredCount: number
+  /** Id исходных товаров, которые ушли в цель (скопированы или перенесены). */
+  transferredItemIds: string[]
+  /** Подходящие по отделу, но в цели уже были — повторно не копировали. */
+  alreadyPresentCount: number
   leftoverItems: Item[]
 }

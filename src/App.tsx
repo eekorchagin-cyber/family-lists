@@ -51,6 +51,7 @@ function App() {
     moveCategory,
     updateItem,
     markBought,
+    markItemsBought,
     unmarkBought,
     clearBought,
     saveTemplate,
@@ -461,6 +462,7 @@ function App() {
           onCreateStoreFromItems={(name, items, removeFromSource) => {
             createStoreFromItems(name, items, removeFromSource)
           }}
+          onMarkItemsBought={markItemsBought}
           onImportLines={(actions) => importLineItems(store.id, actions)}
         />
         {overlay}
