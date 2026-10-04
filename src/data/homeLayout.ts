@@ -277,16 +277,14 @@ function applyGroupTemplates(
   userId: string | undefined,
   deletedTemplateIds?: Iterable<string>,
 ): StoreGroup {
-  // winner = более новая сторона; local=other, remote=winner — id из winner
-  // важнее, но шаблоны только у other не выкидываем (см. mergeTemplates).
-  const templates = mergeTemplates(
-    other.templates,
-    winner.templates,
-    userId,
-    deletedTemplateIds,
-  )
+  // Более новая сторона задаёт состав шаблонов. Иначе удаление откатывается:
+  // remote ещё держит старый шаблон, union снова его подмешивает.
+  // Заглушка из списков без поля templates — берём шаблоны другой стороны.
+  const source =
+    winner.templates !== undefined ? winner.templates : other.templates
+  const templates = mergeTemplates(undefined, source, userId, deletedTemplateIds)
   if (templates.length === 0) {
-    if (!winner.templates && !other.templates) return winner
+    if (winner.templates === undefined && other.templates === undefined) return winner
     const next = { ...winner }
     delete next.templates
     return next

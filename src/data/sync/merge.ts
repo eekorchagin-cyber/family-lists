@@ -425,8 +425,15 @@ export function mergePulledData(
       }
     } else if ((group.updatedAt ?? '') > (current.updatedAt ?? '')) {
       if (current.templates || group.templates) {
-        const templates = mergeTemplates(current.templates, group.templates, options.userId)
-        groups.set(group.id, { ...group, templates })
+        // Remote новее — его состав шаблонов; tombstone не даёт вернуть удалённое.
+        const templates = mergeTemplates(undefined, group.templates, options.userId)
+        if (templates.length === 0) {
+          const next = { ...group }
+          delete next.templates
+          groups.set(group.id, next)
+        } else {
+          groups.set(group.id, { ...group, templates })
+        }
       } else {
         groups.set(group.id, group)
       }

@@ -194,7 +194,7 @@ function App() {
     templateFolders: data.templateFolders ?? [],
     onSaveGroupTemplate: saveGroupTemplate,
     onSaveStoreTemplate: saveStoreTemplate,
-    onDeleteGroupTemplate: (_groupId, templateId) => deleteTemplate(templateId),
+    onDeleteGroupTemplate: (groupId, templateId) => deleteGroupTemplate(groupId, templateId),
     myId: sync.session?.userId,
     onReorderStores: reorderStores,
     onReorderHome: reorderHome,

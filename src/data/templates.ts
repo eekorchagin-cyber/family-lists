@@ -205,6 +205,30 @@ export function mergeTemplates(
   return [...byId.values()]
 }
 
+/** Убрать tombstone-шаблоны из групп перед записью в облако. */
+export function dropDeletedTemplatesFromGroups(
+  groups: StoreGroup[],
+  deletedIds: Iterable<string>,
+  userId?: string,
+): StoreGroup[] {
+  const deleted = new Set(deletedIds)
+  if (deleted.size === 0) return groups
+  return groups.map((group) => {
+    const templates = group.templates
+    if (!templates?.length) return group
+    const next = templates.filter(
+      (template) => !deleted.has(template.id) && templateVisible(template, userId),
+    )
+    if (next.length === templates.length) return group
+    if (next.length === 0) {
+      const cleared = { ...group }
+      delete cleared.templates
+      return cleared
+    }
+    return { ...group, templates: next }
+  })
+}
+
 export function sharedTemplates(
   stores: Store[],
   userId?: string,

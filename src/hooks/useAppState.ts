@@ -1155,6 +1155,7 @@ export function useAppState() {
   }, [])
 
   const deleteTemplate = useCallback((templateId: string) => {
+    queueDeleted('templates', templateId)
     setData((current) => {
       const found = findSharedTemplate(current.stores, templateId, current.groups ?? [])
       if (!found) return current
@@ -1162,7 +1163,6 @@ export function useAppState() {
         ? (current.groups ?? []).find((group) => group.id === found.groupId)?.templates
         : current.stores.find((item) => item.id === found.storeId)?.templates
       if (!source) return current
-      queueDeleted('templates', templateId)
       return persist(
         writeTemplates(
           current,

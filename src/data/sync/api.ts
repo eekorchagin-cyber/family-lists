@@ -29,7 +29,11 @@ import {
   MY_TEMPLATES_CATALOG_ID,
   parseTemplateFolders,
 } from '../myTemplates'
-import { groupTemplatesForUser, templateVisible } from '../templates'
+import {
+  dropDeletedTemplatesFromGroups,
+  groupTemplatesForUser,
+  templateVisible,
+} from '../templates'
 import { nowIso } from './merge'
 import { loadSession, type HomeMember, type SyncSession } from './session'
 
@@ -647,12 +651,16 @@ export async function pushLocal(
         : null
     // Пустой [] — валидный результат удаления; не откатываться на legacy.
     const remoteGroups = resolveRemoteGroups(homeGroups, legacyGroups)
-    mergedGroups = mergeGroups(
-      remoteGroups,
-      data.groups ?? [],
-      pending.groups,
-      ownerId,
+    mergedGroups = dropDeletedTemplatesFromGroups(
+      mergeGroups(
+        remoteGroups,
+        data.groups ?? [],
+        pending.groups,
+        ownerId,
+        pending.templates,
+      ),
       pending.templates,
+      ownerId,
     )
     const groupsAt =
       mergedGroups.map((group) => group.updatedAt ?? '').sort().at(-1) || at
