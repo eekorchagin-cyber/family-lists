@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { ConfirmDialog } from './ConfirmDialog'
 import { DialogHeading } from './DialogHeading'
+import { defaultCategoryId } from '../data/categories'
 import { parseItem } from '../data/parseItem'
-import { formatQty } from '../data/qty'
+import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
+import { QtyRow } from './QtyRow'
+import { TemplateItemsByCategory } from './TemplateItemsByCategory'
 import {
   findTemplateNameConflict,
   templateNameConflictMessage,
@@ -59,11 +62,14 @@ export function GroupTemplatesDialog({
   const [confirming, setConfirming] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
   const [product, setProduct] = useState('')
+  const [qtyText, setQtyText] = useState('1')
+  const [unit, setUnit] = useState(lastUnit())
   const options = categories.filter((category) => !category.storeId)
   const categoryOptions = [...(options.length > 0 ? options : categories)].sort((a, b) =>
     a.name.localeCompare(b.name, 'ru'),
   )
-  const [categoryId, setCategoryId] = useState(categoryOptions[0]?.id ?? 'other')
+  const [categoryId, setCategoryId] = useState(defaultCategoryId(categoryOptions))
+  const qty = parseQty(qtyText)
   const groupRows = (group.templates ?? [])
     .filter((template) => templateVisible(template, myId))
     .map((template) => ({ template, storeId: undefined as string | undefined, storeName: undefined as string | undefined }))
@@ -131,15 +137,19 @@ export function GroupTemplatesDialog({
     })
   }
 
-  function addProduct() {
+  function confirmPosition() {
     if (!draft) return
     const parsed = parseItem(product)
-    if (!parsed) return
+    if (!parsed || qty === null) return
+    const nextUnit = unit.trim() || lastUnit() || 'шт'
+    rememberUnit(nextUnit)
     setDraft({
       ...draft,
-      items: [...draft.items, { ...parsed, categoryId }],
+      items: [...draft.items, { name: parsed.name, qty, unit: nextUnit, categoryId }],
     })
     setProduct('')
+    setQtyText('1')
+    setUnit(nextUnit)
   }
 
   return (
@@ -186,51 +196,45 @@ export function GroupTemplatesDialog({
                 </div>
               </>
             ) : null}
-            <p className="field-label">Товары</p>
+            <p className="field-label">Товары в шаблоне</p>
             {draft.items.length === 0 ? (
-              <p className="hint">Добавьте хотя бы один товар. Можно сразу: Молоко: 2 шт</p>
+              <p className="hint">Позиций пока нет. Добавьте название, количество и отдел ниже.</p>
             ) : (
-              <ul className="template-list">
-                {draft.items.map((item, index) => (
-                  <li key={`${item.name}-${index}`} className="template-row">
-                    <div className="template-copy">
-                      <span>
-                        {item.name}: {formatQty(item.qty)} {item.unit}
-                      </span>
-                      <span className="settings-nav-hint">
-                        {categoryOptions.find((category) => category.id === item.categoryId)?.name ??
-                          'Без категории'}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="qty-button"
-                      aria-label={`Убрать ${item.name}`}
-                      onClick={() =>
-                        setDraft({
-                          ...draft,
-                          items: draft.items.filter((_, itemIndex) => itemIndex !== index),
-                        })
-                      }
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <TemplateItemsByCategory
+                items={draft.items}
+                categories={categoryOptions}
+                onRemove={(index) =>
+                  setDraft({
+                    ...draft,
+                    items: draft.items.filter((_, itemIndex) => itemIndex !== index),
+                  })
+                }
+              />
             )}
             <div className="template-add">
+              <p className="field-label">Добавить позицию:</p>
               <input
                 className="input"
                 value={product}
-                placeholder="Товар или Товар: 2 шт"
-                aria-label="Новый товар шаблона"
+                placeholder="Название товара"
+                aria-label="Название товара"
                 onChange={(event) => setProduct(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault()
-                    addProduct()
+                    confirmPosition()
                   }
+                }}
+              />
+              <p className="field-label">Количество</p>
+              <QtyRow
+                qtyText={qtyText}
+                unit={unit}
+                onQtyText={setQtyText}
+                onUnit={setUnit}
+                onCommit={() => {
+                  if (qty === null) setQtyText('1')
+                  else setQtyText(formatQty(qty))
                 }}
               />
               {categoryOptions.length > 0 ? (
@@ -247,8 +251,13 @@ export function GroupTemplatesDialog({
                   ))}
                 </select>
               ) : null}
-              <button type="button" className="button-secondary" onClick={addProduct} disabled={!product.trim()}>
-                Добавить
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={confirmPosition}
+                disabled={!product.trim() || qty === null}
+              >
+                Подтвердить
               </button>
             </div>
             <div className="dialog-actions dialog-actions-single">
@@ -257,6 +266,7 @@ export function GroupTemplatesDialog({
                 className="button-primary"
                 disabled={!draft.name.trim() || draft.items.length === 0}
                 onClick={() => {
+                  if (!draft.name.trim() || draft.items.length === 0) return
                   const conflict = findTemplateNameConflict(
                     draft.name,
                     {
@@ -273,10 +283,11 @@ export function GroupTemplatesDialog({
                   const ok = draft.storeId ? onSaveStore(draft.storeId, draft) : onSave(draft)
                   if (ok === false) return
                   setNameError(null)
+                  setProduct('')
                   setDraft(null)
                 }}
               >
-                Сохранить
+                Сохранить шаблон
               </button>
             </div>
             {draft.id ? (

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { catalogCategoryId } from '../data/catalog'
+import { defaultCategoryId } from '../data/categories'
 import { includesRu } from '../data/text'
 import { foldersForUser } from '../data/myTemplates'
 import { parseItem } from '../data/parseItem'

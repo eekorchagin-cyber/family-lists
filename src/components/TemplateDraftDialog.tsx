@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { defaultCategoryId } from '../data/categories'
 import { parseItem } from '../data/parseItem'
-import { formatQty } from '../data/qty'
+import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
 import type { Category, NamedTemplate, StoreVisibility, TemplateItem } from '../types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { DialogHeading } from './DialogHeading'
+import { QtyRow } from './QtyRow'
+import { TemplateItemsByCategory } from './TemplateItemsByCategory'
 
 type TemplateDraftDialogProps = {
   template: NamedTemplate
@@ -36,15 +39,25 @@ export function TemplateDraftDialog({
     template.visibility === 'private' ? 'private' : 'home',
   )
   const [product, setProduct] = useState('')
-  const [categoryId, setCategoryId] = useState(categoryOptions[0]?.id ?? 'other')
+  const [qtyText, setQtyText] = useState('1')
+  const [unit, setUnit] = useState(lastUnit())
+  const [categoryId, setCategoryId] = useState(defaultCategoryId(categoryOptions))
   const [confirming, setConfirming] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
+  const qty = parseQty(qtyText)
 
-  function addProduct() {
+  function confirmPosition() {
     const parsed = parseItem(product)
-    if (!parsed) return
-    setItems((current) => [...current, { ...parsed, categoryId }])
+    if (!parsed || qty === null) return
+    const nextUnit = unit.trim() || lastUnit() || 'шт'
+    rememberUnit(nextUnit)
+    setItems((current) => [
+      ...current,
+      { name: parsed.name, qty, unit: nextUnit, categoryId },
+    ])
     setProduct('')
+    setQtyText('1')
+    setUnit(nextUnit)
   }
 
   return (
@@ -86,46 +99,42 @@ export function TemplateDraftDialog({
               </div>
             </>
           ) : null}
-          <p className="field-label">Товары</p>
+          <p className="field-label">Товары в шаблоне</p>
           {items.length === 0 ? (
-            <p className="hint">Добавьте хотя бы один товар. Можно сразу: Молоко: 2 шт</p>
+            <p className="hint">Позиций пока нет. Добавьте название, количество и отдел ниже.</p>
           ) : (
-            <ul className="template-list">
-              {items.map((item, index) => (
-                <li key={`${item.name}-${index}`} className="template-row">
-                  <div className="template-copy">
-                    <span>
-                      {item.name}: {formatQty(item.qty)} {item.unit}
-                    </span>
-                    <span className="settings-nav-hint">
-                      {categoryOptions.find((category) => category.id === item.categoryId)?.name ??
-                        'Без категории'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="qty-button"
-                    aria-label={`Убрать ${item.name}`}
-                    onClick={() => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <TemplateItemsByCategory
+              items={items}
+              categories={categoryOptions}
+              onRemove={(index) =>
+                setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
+              }
+            />
           )}
           <div className="template-add">
+            <p className="field-label">Добавить позицию:</p>
             <input
               className="input"
               value={product}
-              placeholder="Товар или Товар: 2 шт"
-              aria-label="Новый товар шаблона"
+              placeholder="Название товара"
+              aria-label="Название товара"
               onChange={(event) => setProduct(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault()
-                  addProduct()
+                  confirmPosition()
                 }
+              }}
+            />
+            <p className="field-label">Количество</p>
+            <QtyRow
+              qtyText={qtyText}
+              unit={unit}
+              onQtyText={setQtyText}
+              onUnit={setUnit}
+              onCommit={() => {
+                if (qty === null) setQtyText('1')
+                else setQtyText(formatQty(qty))
               }}
             />
             {categoryOptions.length > 0 ? (
@@ -142,8 +151,13 @@ export function TemplateDraftDialog({
                 ))}
               </select>
             ) : null}
-            <button type="button" className="button-secondary" onClick={addProduct} disabled={!product.trim()}>
-              Добавить
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={confirmPosition}
+              disabled={!product.trim() || qty === null}
+            >
+              Подтвердить
             </button>
           </div>
           <div className="dialog-actions dialog-actions-single">
@@ -153,6 +167,7 @@ export function TemplateDraftDialog({
               disabled={!name.trim() || items.length === 0}
               onClick={() => {
                 const trimmed = name.trim()
+                if (!trimmed || items.length === 0) return
                 const problem = validateName?.(trimmed) ?? null
                 if (problem) {
                   setNameError(problem)
@@ -162,7 +177,7 @@ export function TemplateDraftDialog({
                 onSave({ id: template.id, name: trimmed, items, visibility })
               }}
             >
-              Сохранить
+              Сохранить шаблон
             </button>
           </div>
           <button type="button" className="button-danger add-category" onClick={() => setConfirming(true)}>

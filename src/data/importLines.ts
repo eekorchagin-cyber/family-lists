@@ -1,5 +1,5 @@
 import { catalogCategoryId } from './catalog'
-import { categoriesForStore } from './categories'
+import { categoriesForStore, defaultCategoryId } from './categories'
 import { foldRu, sameRuText } from './text'
 import type { CatalogEntry, Category, Item, Store } from '../types'
 
@@ -125,12 +125,10 @@ export function otherCategoryId(
   store: Pick<Store, 'id' | 'categoryOrder'>,
 ): string {
   const enabled = categoriesForStore(categories, store)
-  const inStore = enabled.find((category) => sameRuText(category.name, 'Другое'))
-  if (inStore) return inStore.id
-  const global = categories.find(
-    (category) => !category.storeId && sameRuText(category.name, 'Другое'),
-  )
-  return global?.id ?? 'filecat-13'
+  const fromEnabled = defaultCategoryId(enabled, '')
+  if (fromEnabled) return fromEnabled
+  const global = categories.filter((category) => !category.storeId)
+  return defaultCategoryId(global, 'filecat-13')
 }
 
 export function resolveImportCategoryId(

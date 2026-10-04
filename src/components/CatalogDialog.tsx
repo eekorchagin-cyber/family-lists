@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react'
+import { defaultCategoryId } from '../data/categories'
 import { canAutofocus } from '../data/viewport'
 import { CategoryMark } from './CategoryMark'
 import { DialogHeading } from './DialogHeading'

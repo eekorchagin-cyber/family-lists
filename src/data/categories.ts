@@ -5,6 +5,35 @@ import {
   fileIconIdForName,
   type FileCategoryIconId,
 } from './categoryIconFiles'
+import { sameRuText } from './text'
+
+/** Не предлагать алкоголь как категорию по умолчанию (первая в алфавите). */
+export function isAlcoholCategory(category: Pick<Category, 'id' | 'name' | 'icon'>): boolean {
+  if (category.icon === 'file01' || category.id === 'file01') return true
+  return sameRuText(category.name, 'Алкогольные напитки')
+}
+
+/**
+ * Категория по умолчанию для выбора: «Другое», иначе первая не-алкогольная.
+ */
+export function defaultCategoryId(
+  categories: Pick<Category, 'id' | 'name' | 'icon'>[],
+  fallback = 'other',
+): string {
+  if (categories.length === 0) return fallback
+  const other = categories.find(
+    (category) =>
+      sameRuText(category.name, 'Другое') ||
+      category.id === 'other' ||
+      category.icon === 'other' ||
+      category.icon === 'file13' ||
+      category.id === 'file13' ||
+      category.id === 'filecat-13',
+  )
+  if (other) return other.id
+  const neutral = categories.find((category) => !isAlcoholCategory(category))
+  return neutral?.id ?? categories[0]?.id ?? fallback
+}
 
 export const CATEGORY_COLORS = [
   'none',

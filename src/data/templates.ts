@@ -6,7 +6,7 @@ import type {
   TemplateFolder,
   TemplateItem,
 } from '../types'
-import { knownCategoriesForStore } from './categories'
+import { defaultCategoryId, knownCategoriesForStore } from './categories'
 import { peekDeletes } from './sync/deletes'
 import { sameRuText } from './text'
 
@@ -330,9 +330,9 @@ export function mapTemplateCategoryId(
   const known = knownCategoriesForStore(categories, store.id)
   if (known.some((category) => category.id === entry.categoryId)) return entry.categoryId
   const source = categories.find((category) => category.id === entry.categoryId)
-  if (!source) return known[0]?.id ?? entry.categoryId
+  if (!source) return defaultCategoryId(known, entry.categoryId)
   const byName = known.find(
     (category) => category.name.trim().toLowerCase() === source.name.trim().toLowerCase(),
   )
-  return byName?.id ?? known[0]?.id ?? entry.categoryId
+  return byName?.id ?? defaultCategoryId(known, entry.categoryId)
 }
