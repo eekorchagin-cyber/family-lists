@@ -7,6 +7,7 @@ import type {
   TemplateItem,
 } from '../types'
 import { knownCategoriesForStore } from './categories'
+import { peekDeletes } from './sync/deletes'
 import { sameRuText } from './text'
 
 export type TemplateNameConflict = {
@@ -182,17 +183,22 @@ export function templateVisible(template: NamedTemplate, userId: string | undefi
  * Сводим шаблоны списка/группы.
  * Одинаковый id — берём remote; локальные, которых нет в remote, сохраняем
  * (раньше «домашние» локальные затирались пустым/урезанным remote).
+ * Явно удалённые (tombstone в pending.templates) не возвращаем из remote.
  */
 export function mergeTemplates(
   local: NamedTemplate[] | undefined,
   remote: NamedTemplate[] | undefined,
   userId: string | undefined,
+  deletedIds: Iterable<string> = peekDeletes().templates,
 ): NamedTemplate[] {
+  const deleted = new Set(deletedIds)
   const byId = new Map<string, NamedTemplate>()
   for (const template of remote ?? []) {
+    if (deleted.has(template.id)) continue
     if (templateVisible(template, userId)) byId.set(template.id, template)
   }
   for (const template of local ?? []) {
+    if (deleted.has(template.id)) continue
     if (!templateVisible(template, userId)) continue
     if (!byId.has(template.id)) byId.set(template.id, template)
   }

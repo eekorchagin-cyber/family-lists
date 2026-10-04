@@ -1137,6 +1137,7 @@ export function useAppState() {
   )
 
   const deleteFolderTemplate = useCallback((folderId: string, templateId: string) => {
+    queueDeleted('templates', templateId)
     setData((current) =>
       persist({
         ...current,
@@ -1161,6 +1162,7 @@ export function useAppState() {
         ? (current.groups ?? []).find((group) => group.id === found.groupId)?.templates
         : current.stores.find((item) => item.id === found.storeId)?.templates
       if (!source) return current
+      queueDeleted('templates', templateId)
       return persist(
         writeTemplates(
           current,
@@ -1287,6 +1289,7 @@ export function useAppState() {
   )
 
   const deleteGroupTemplate = useCallback((groupId: string, templateId: string) => {
+    queueDeleted('templates', templateId)
     setData((current) => {
       const groups = (current.groups ?? []).map((group) => {
         if (group.id !== groupId) return group

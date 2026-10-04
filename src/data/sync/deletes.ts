@@ -10,6 +10,8 @@ export type PendingDeletes = {
   storeCategories: string[]
   catalog: string[]
   templateFolders: string[]
+  /** Удалённые шаблоны (список / группа / «Мои шаблоны») — id шаблона */
+  templates: string[]
 }
 
 function empty(): PendingDeletes {
@@ -22,6 +24,7 @@ function empty(): PendingDeletes {
     storeCategories: [],
     catalog: [],
     templateFolders: [],
+    templates: [],
   }
 }
 
@@ -39,6 +42,7 @@ function load(): PendingDeletes {
       storeCategories: value.storeCategories ?? [],
       catalog: value.catalog ?? [],
       templateFolders: value.templateFolders ?? [],
+      templates: value.templates ?? [],
     }
   } catch {
     return empty()
@@ -86,6 +90,7 @@ export function restoreDeletes(pending: PendingDeletes): void {
     ],
     catalog: [...new Set([...pending.catalog, ...current.catalog])],
     templateFolders: [...new Set([...(pending.templateFolders ?? []), ...(current.templateFolders ?? [])])],
+    templates: [...new Set([...(pending.templates ?? []), ...(current.templates ?? [])])],
   })
 }
 

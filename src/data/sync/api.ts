@@ -479,10 +479,13 @@ export async function pullRemote(): Promise<AppData> {
   // всё равно соберёт группы из метаданных списков.
   // Catalog — приоритетнее заглушек из списков (см. mergeGroups).
   // Удалённые локально группы не возвращаем из облака, пока tombstone в pending.
+  const pendingDeletes = peekDeletes()
   const groups = mergeGroups(
     catalogGroups,
     groupsFromStores(storesList, groupNames),
-    peekDeletes().groups,
+    pendingDeletes.groups,
+    loadSession()?.userId,
+    pendingDeletes.templates,
   )
     .map((group) => groupTemplatesForUser(group, loadSession()?.userId))
     .filter((group) => groupVisibleTo(group, loadSession()?.userId))
@@ -644,7 +647,13 @@ export async function pushLocal(
         : null
     // Пустой [] — валидный результат удаления; не откатываться на legacy.
     const remoteGroups = resolveRemoteGroups(homeGroups, legacyGroups)
-    mergedGroups = mergeGroups(remoteGroups, data.groups ?? [], pending.groups, ownerId)
+    mergedGroups = mergeGroups(
+      remoteGroups,
+      data.groups ?? [],
+      pending.groups,
+      ownerId,
+      pending.templates,
+    )
     const groupsAt =
       mergedGroups.map((group) => group.updatedAt ?? '').sort().at(-1) || at
     const groupsPayload = JSON.stringify(mergedGroups)
@@ -673,7 +682,7 @@ export async function pushLocal(
   } catch (groupsError) {
     // Списки/товары уже в облаке — не валим весь sync из‑за групп.
     console.warn('groups sync failed', groupsError)
-    if (pending.groups.length > 0) {
+    if (pending.groups.length > 0 || pending.templates.length > 0) {
       restoreDeletes({
         items: [],
         clearedItems: [],
@@ -683,6 +692,7 @@ export async function pushLocal(
         storeCategories: [],
         catalog: [],
         templateFolders: [],
+        templates: pending.templates,
       })
     }
   }
@@ -716,7 +726,7 @@ export async function pushLocal(
     foldersSaved = true
   } catch (foldersError) {
     console.warn('my templates sync failed', foldersError)
-    if (pending.templateFolders.length > 0) {
+    if (pending.templateFolders.length > 0 || pending.templates.length > 0) {
       restoreDeletes({
         items: [],
         clearedItems: [],
@@ -726,6 +736,7 @@ export async function pushLocal(
         storeCategories: [],
         catalog: [],
         templateFolders: pending.templateFolders,
+        templates: pending.templates,
       })
     }
   }

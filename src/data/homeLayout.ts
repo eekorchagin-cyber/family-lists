@@ -275,10 +275,16 @@ function applyGroupTemplates(
   winner: StoreGroup,
   other: StoreGroup,
   userId: string | undefined,
+  deletedTemplateIds?: Iterable<string>,
 ): StoreGroup {
   // winner = более новая сторона; local=other, remote=winner — id из winner
   // важнее, но шаблоны только у other не выкидываем (см. mergeTemplates).
-  const templates = mergeTemplates(other.templates, winner.templates, userId)
+  const templates = mergeTemplates(
+    other.templates,
+    winner.templates,
+    userId,
+    deletedTemplateIds,
+  )
   if (templates.length === 0) {
     if (!winner.templates && !other.templates) return winner
     const next = { ...winner }
@@ -312,6 +318,7 @@ export function mergeGroups(
   local: StoreGroup[],
   deletedIds: Iterable<string> = [],
   userId?: string,
+  deletedTemplateIds?: Iterable<string>,
 ): StoreGroup[] {
   const deleted = new Set(deletedIds)
   const byId = new Map<string, StoreGroup>()
@@ -328,17 +335,41 @@ export function mergeGroups(
     }
     // Заглушка «Группа» из списков не должна перебивать имя из catalog.
     if (isPlaceholderGroupName(group.name) && !isPlaceholderGroupName(current.name)) {
-      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(current, group, userId), group))
+      byId.set(
+        group.id,
+        preservePrivateGroup(
+          applyGroupTemplates(current, group, userId, deletedTemplateIds),
+          group,
+        ),
+      )
       continue
     }
     if (isPlaceholderGroupName(current.name) && !isPlaceholderGroupName(group.name)) {
-      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(group, current, userId), current))
+      byId.set(
+        group.id,
+        preservePrivateGroup(
+          applyGroupTemplates(group, current, userId, deletedTemplateIds),
+          current,
+        ),
+      )
       continue
     }
     if ((group.updatedAt ?? '') >= (current.updatedAt ?? '')) {
-      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(group, current, userId), current))
+      byId.set(
+        group.id,
+        preservePrivateGroup(
+          applyGroupTemplates(group, current, userId, deletedTemplateIds),
+          current,
+        ),
+      )
     } else {
-      byId.set(group.id, preservePrivateGroup(applyGroupTemplates(current, group, userId), group))
+      byId.set(
+        group.id,
+        preservePrivateGroup(
+          applyGroupTemplates(current, group, userId, deletedTemplateIds),
+          group,
+        ),
+      )
     }
   }
   return [...byId.values()]
