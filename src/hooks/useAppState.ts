@@ -664,6 +664,85 @@ export function useAppState() {
     [forgetCleared],
   )
 
+  /** Пакетная вставка из буфера/файла: add или replace похожего. */
+  const importLineItems = useCallback(
+    (
+      storeId: string,
+      actions: Array<{
+        kind: 'add' | 'replace'
+        itemId?: string
+        name: string
+        qty: number
+        unit: string
+        bought: boolean
+        categoryId: string
+      }>,
+    ) => {
+      if (actions.length === 0) return
+      forgetCleared(storeId)
+      flushSync(() => {
+        setData((current) => {
+          let items = [...current.items]
+          let catalog = current.catalog ?? []
+          let stores = current.stores
+          const at = nowIso()
+          for (const action of actions) {
+            const name = action.name.trim()
+            if (!name) continue
+            const unit = action.unit.trim() || 'шт'
+            catalog = rememberCatalog(catalog, name, action.categoryId)
+            stores = stores.map((store) => {
+              if (store.id !== storeId) return store
+              const next = withCategoryEnabled(store, action.categoryId, current.categories)
+              return next === store ? store : withUpdatedAt(next)
+            })
+            stores = rememberCategoryInStore(stores, storeId, name, action.categoryId)
+
+            if (action.kind === 'replace' && action.itemId) {
+              items = items.map((item) =>
+                item.id === action.itemId
+                  ? withUpdatedAt({
+                      ...item,
+                      name,
+                      qty: action.qty,
+                      unit,
+                      categoryId: action.categoryId,
+                      bought: action.bought,
+                      ...(action.bought ? { boughtBy: actorId() } : { boughtBy: undefined }),
+                    })
+                  : item,
+              )
+              continue
+            }
+
+            items = [
+              ...items,
+              {
+                id: newId(),
+                storeId,
+                name,
+                categoryId: action.categoryId,
+                qty: action.qty,
+                unit,
+                bought: action.bought,
+                ...(action.bought ? { boughtBy: actorId() } : {}),
+                addedBy: actorId(),
+                updatedAt: at,
+              },
+            ]
+          }
+          return persist({
+            ...current,
+            items,
+            catalog: mergeCatalogFromItems(catalog, items),
+            stores,
+          })
+        })
+      })
+    },
+    [forgetCleared],
+  )
+
   const updateItem = useCallback(
     (itemId: string, patch: Partial<Pick<Item, 'name' | 'qty' | 'unit' | 'categoryId'>>) => {
       setData((current) => {
@@ -1702,6 +1781,7 @@ export function useAppState() {
     renameStore,
     deleteStore,
     addItem,
+    importLineItems,
     addCategory,
     addGlobalCategory,
     enableCategoryInStore,

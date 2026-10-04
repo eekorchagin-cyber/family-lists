@@ -66,6 +66,7 @@ function App() {
     deleteGroupTemplate,
     transferItems,
     createStoreFromItems,
+    importLineItems,
     reorderStores,
     reorderHome,
     addGroup,
@@ -428,6 +429,7 @@ function App() {
           categories={storeCategories}
           knownCategories={knownCategoriesForStore(data.categories, store.id)}
           allNames={allNames}
+          catalog={data.catalog ?? []}
           members={sync.members}
           myId={sync.session?.userId}
           thisListUpdated={sync.updatedStoreIds.includes(store.id)}
@@ -459,6 +461,7 @@ function App() {
           onCreateStoreFromItems={(name, items, removeFromSource) => {
             createStoreFromItems(name, items, removeFromSource)
           }}
+          onImportLines={(actions) => importLineItems(store.id, actions)}
         />
         {overlay}
       </>

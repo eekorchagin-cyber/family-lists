@@ -11,6 +11,7 @@ import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
 import { BackIcon, CardIcon, ClearBoughtIcon, SettingsIcon, TransferIcon } from '../components/NavIcons'
+import { ImportListDialog, type ImportAction } from '../components/ImportListDialog'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
 import { playConfirmSound } from '../data/sounds'
@@ -28,7 +29,16 @@ import {
 import { TemplateSaveFields } from '../components/TemplateSaveFields'
 import type { HomeMember } from '../data/sync/session'
 import type { TransferSummary } from '../data/listTransfer'
-import type { Category, Item, ParsedItem, Store, StoreGroup, StoreVisibility, TemplateFolder } from '../types'
+import type {
+  CatalogEntry,
+  Category,
+  Item,
+  ParsedItem,
+  Store,
+  StoreGroup,
+  StoreVisibility,
+  TemplateFolder,
+} from '../types'
 
 type StoreScreenProps = {
   store: Store
@@ -36,6 +46,7 @@ type StoreScreenProps = {
   categories: Category[]
   knownCategories?: Category[]
   allNames: string[]
+  catalog?: CatalogEntry[]
   onBack: () => void
   onOpenSettings: () => void
   onRenameStore: (name: string) => void
@@ -72,6 +83,7 @@ type StoreScreenProps = {
     items: Item[],
     removeFromSource?: boolean,
   ) => void
+  onImportLines?: (actions: ImportAction[]) => void
 }
 
 export function StoreScreen({
@@ -80,6 +92,7 @@ export function StoreScreen({
   categories,
   knownCategories = [],
   allNames,
+  catalog = [],
   onBack,
   onOpenSettings,
   onRenameStore,
@@ -103,6 +116,7 @@ export function StoreScreen({
   onApplyTemplate,
   onTransferToStore,
   onCreateStoreFromItems,
+  onImportLines,
 }: StoreScreenProps) {
   const [query, setQuery] = useState('')
   const [editItem, setEditItem] = useState<Item | null>(null)
@@ -120,6 +134,7 @@ export function StoreScreen({
   const [pickingTemplate, setPickingTemplate] = useState(false)
   const [templateFit, setTemplateFit] = useState<{ id: string; names: string[] } | null>(null)
   const [transferring, setTransferring] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [completionArmed, setCompletionArmed] = useState(false)
   const completionHandled = useRef(false)
   const templateSnapshot = useRef<Item[] | null>(null)
@@ -300,7 +315,7 @@ export function StoreScreen({
         onTitleLongPress={() => setRenamingStore(true)}
         help={[
           'Введите товар и нажмите «Далее». Можно сразу указать количество, например: Молоко: 2 шт.',
-          '«Из шаблона» подставляет сразу несколько товаров.',
+          '«Из шаблона» подставляет сразу несколько товаров. «Вставить список» — из буфера или файла, каждый товар с новой строки; символы до названия пропускаются.',
           'Нажмите товар, чтобы отметить купленным; нажмите купленный ещё раз, чтобы вернуть.',
           'Стрелки вверху — скопировать или перенести некупленные в другой список.',
           'Щётка между ними убирает из списка только купленные товары: пока купленных нет, она бледная, когда появляются — становится яркой и её можно нажать.',
@@ -380,13 +395,24 @@ export function StoreScreen({
               Далее
             </button>
           </form>
-          <button
-            type="button"
-            className="button-secondary template-pick"
-            onClick={() => setPickingTemplate(true)}
-          >
-            Из шаблона
-          </button>
+          <div className="store-extra-actions">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => setPickingTemplate(true)}
+            >
+              Из шаблона
+            </button>
+            {onImportLines ? (
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => setImporting(true)}
+              >
+                Вставить список
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {loyalty ? (
@@ -749,6 +775,19 @@ export function StoreScreen({
           }}
         />
       )}
+      {importing && onImportLines ? (
+        <ImportListDialog
+          store={store}
+          items={items}
+          categories={knownCategories.length > 0 ? knownCategories : categories}
+          catalog={catalog}
+          onClose={() => setImporting(false)}
+          onImport={(actions) => {
+            onImportLines(actions)
+            setImporting(false)
+          }}
+        />
+      ) : null}
       {showingCard && loyalty ? (
         <LoyaltyCardSheet
           card={loyalty.card}
