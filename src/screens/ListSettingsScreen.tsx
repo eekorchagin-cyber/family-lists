@@ -622,10 +622,12 @@ export function ListSettingsScreen({
               >
                 <span className="command-label">Изменить</span>
               </button>
-              {templateMenu.groupId && onMoveTemplateToStore ? (
+            </div>
+            {templateMenu.groupId && onMoveTemplateToStore ? (
+              <div className="command-row command-row--move">
                 <button
                   type="button"
-                  className="command-button command-button--text"
+                  className="command-button command-button--text command-button--move"
                   onClick={() => {
                     onMoveTemplateToStore(templateMenu.template.id, store.id)
                     setTemplateMenu(null)
@@ -633,11 +635,13 @@ export function ListSettingsScreen({
                 >
                   <span className="command-label">Из группы в список</span>
                 </button>
-              ) : null}
-              {!templateMenu.groupId && store.groupId && onMoveTemplateToGroup ? (
+              </div>
+            ) : null}
+            {!templateMenu.groupId && store.groupId && onMoveTemplateToGroup ? (
+              <div className="command-row command-row--move">
                 <button
                   type="button"
-                  className="command-button command-button--text"
+                  className="command-button command-button--text command-button--move"
                   onClick={() => {
                     const groupId = store.groupId
                     if (!groupId) return
@@ -647,8 +651,8 @@ export function ListSettingsScreen({
                 >
                   <span className="command-label">Из списка в группу</span>
                 </button>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

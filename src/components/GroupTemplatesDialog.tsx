@@ -390,10 +390,12 @@ export function GroupTemplatesDialog({
             >
               <span className="command-label">Изменить</span>
             </button>
+          </div>
+          <div className="command-row command-row--move">
             {menu.storeId ? (
               <button
                 type="button"
-                className="command-button command-button--text"
+                className="command-button command-button--text command-button--move"
                 disabled={!onMoveToGroup}
                 onClick={() => {
                   onMoveToGroup?.(menu.template.id, group.id)
@@ -405,7 +407,7 @@ export function GroupTemplatesDialog({
             ) : (
               <button
                 type="button"
-                className="command-button command-button--text"
+                className="command-button command-button--text command-button--move"
                 disabled={!onMoveToStore || stores.length === 0}
                 onClick={() => requestMoveToStore(menu.template)}
               >

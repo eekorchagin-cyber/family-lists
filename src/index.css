@@ -1026,6 +1026,27 @@ ul {
   gap: 8px;
 }
 
+.command-row.command-row--move {
+  grid-template-columns: 1fr;
+  margin-top: 8px;
+}
+
+.command-button--move {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 14px;
+}
+
+.command-button--move .command-label {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: center;
+}
+
 .command-button {
   display: flex;
   flex-direction: column;
