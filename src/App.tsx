@@ -70,6 +70,8 @@ function App() {
     deleteFolderTemplate,
     saveStoreTemplate,
     deleteGroupTemplate,
+    moveTemplateToStore,
+    moveTemplateToGroup,
     transferItems,
     createStoreFromItems,
     importLineItems,
@@ -195,6 +197,8 @@ function App() {
     onSaveGroupTemplate: saveGroupTemplate,
     onSaveStoreTemplate: saveStoreTemplate,
     onDeleteGroupTemplate: (groupId, templateId) => deleteGroupTemplate(groupId, templateId),
+    onMoveTemplateToStore: moveTemplateToStore,
+    onMoveTemplateToGroup: moveTemplateToGroup,
     myId: sync.session?.userId,
     onReorderStores: reorderStores,
     onReorderHome: reorderHome,
@@ -413,6 +417,8 @@ function App() {
               groupId ? saveGroupTemplate(groupId, draft) : saveStoreTemplate(store.id, draft)
             }
             onDeleteListTemplate={(templateId) => deleteTemplate(templateId)}
+            onMoveTemplateToStore={moveTemplateToStore}
+            onMoveTemplateToGroup={moveTemplateToGroup}
             myId={sync.session?.userId}
             stores={data.stores}
             groups={data.groups ?? []}

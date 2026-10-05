@@ -42,6 +42,8 @@ type GroupTemplatesDialogProps = {
   onSave: (draft: Draft) => boolean | void
   onSaveStore: (storeId: string, draft: Draft) => boolean | void
   onDelete: (templateId: string) => void
+  onMoveToStore?: (templateId: string, storeId: string) => boolean | void
+  onMoveToGroup?: (templateId: string, groupId: string) => boolean | void
 }
 
 export function GroupTemplatesDialog({
@@ -57,10 +59,17 @@ export function GroupTemplatesDialog({
   onSave,
   onSaveStore,
   onDelete,
+  onMoveToStore,
+  onMoveToGroup,
 }: GroupTemplatesDialogProps) {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
+  const [menu, setMenu] = useState<{
+    template: NamedTemplate
+    storeId?: string
+  } | null>(null)
+  const [pickingStoreFor, setPickingStoreFor] = useState<NamedTemplate | null>(null)
   const [product, setProduct] = useState('')
   const [qtyText, setQtyText] = useState('1')
   const [unit, setUnit] = useState(lastUnit())
@@ -89,6 +98,22 @@ export function GroupTemplatesDialog({
     return parts.join(' · ')
   }
 
+  function moveGroupTemplateToStore(template: NamedTemplate, storeId: string) {
+    onMoveToStore?.(template.id, storeId)
+    setPickingStoreFor(null)
+    setMenu(null)
+  }
+
+  function requestMoveToStore(template: NamedTemplate) {
+    if (stores.length === 0) return
+    if (stores.length === 1) {
+      moveGroupTemplateToStore(template, stores[0].id)
+      return
+    }
+    setMenu(null)
+    setPickingStoreFor(template)
+  }
+
   function renderRow({
     template,
     storeId,
@@ -106,10 +131,11 @@ export function GroupTemplatesDialog({
         </div>
         <button
           type="button"
-          className="button-secondary template-action"
-          onClick={() => startEdit(template, storeId)}
+          className="qty-button store-menu"
+          aria-label={`Меню шаблона ${template.name}`}
+          onClick={() => setMenu({ template, storeId })}
         >
-          Изменить
+          ⋯
         </button>
       </li>
     )
@@ -347,6 +373,81 @@ export function GroupTemplatesDialog({
           setDraft(null)
         }}
       />
+    ) : null}
+    {menu ? (
+      <div className="overlay overlay--capture" role="presentation" onClick={() => setMenu(null)}>
+        <div className="dialog" onClick={(event) => event.stopPropagation()}>
+          <DialogHeading title={menu.template.name} onClose={() => setMenu(null)} />
+          <div className="command-row">
+            <button
+              type="button"
+              className="command-button command-button--text"
+              onClick={() => {
+                const { template, storeId } = menu
+                setMenu(null)
+                startEdit(template, storeId)
+              }}
+            >
+              <span className="command-label">Изменить</span>
+            </button>
+            {menu.storeId ? (
+              <button
+                type="button"
+                className="command-button command-button--text"
+                disabled={!onMoveToGroup}
+                onClick={() => {
+                  onMoveToGroup?.(menu.template.id, group.id)
+                  setMenu(null)
+                }}
+              >
+                <span className="command-label">Из списка в группу</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="command-button command-button--text"
+                disabled={!onMoveToStore || stores.length === 0}
+                onClick={() => requestMoveToStore(menu.template)}
+              >
+                <span className="command-label">Из группы в список</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    ) : null}
+    {pickingStoreFor ? (
+      <div
+        className="overlay overlay--capture"
+        role="presentation"
+        onClick={() => setPickingStoreFor(null)}
+      >
+        <div className="dialog" onClick={(event) => event.stopPropagation()}>
+          <DialogHeading
+            title={`Куда перенести «${pickingStoreFor.name}»`}
+            onClose={() => setPickingStoreFor(null)}
+          />
+          <p className="hint">Выберите список группы.</p>
+          <ul className="template-list">
+            {[...stores]
+              .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+              .map((store) => (
+                <li key={store.id} className="template-row">
+                  <div className="template-copy">
+                    <span>{store.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="button-secondary template-action"
+                    onClick={() => moveGroupTemplateToStore(pickingStoreFor, store.id)}
+                  >
+                    Сюда
+                  </button>
+                </li>
+              ))}
+          </ul>
+        </div>
+      </div>
     ) : null}
     </>
   )

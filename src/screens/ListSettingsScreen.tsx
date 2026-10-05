@@ -90,6 +90,8 @@ type ListSettingsScreenProps = {
     groupId?: string,
   ) => boolean | void
   onDeleteListTemplate: (templateId: string) => void
+  onMoveTemplateToStore?: (templateId: string, storeId: string) => boolean | void
+  onMoveTemplateToGroup?: (templateId: string, groupId: string) => boolean | void
   myId?: string
   stores?: Store[]
   groups?: StoreGroup[]
@@ -119,6 +121,8 @@ export function ListSettingsScreen({
   onSaveTemplate,
   onUpdatePlaceTemplate,
   onDeleteListTemplate,
+  onMoveTemplateToStore,
+  onMoveTemplateToGroup,
   myId,
   stores,
   groups = [],
@@ -618,6 +622,32 @@ export function ListSettingsScreen({
               >
                 <span className="command-label">Изменить</span>
               </button>
+              {templateMenu.groupId && onMoveTemplateToStore ? (
+                <button
+                  type="button"
+                  className="command-button command-button--text"
+                  onClick={() => {
+                    onMoveTemplateToStore(templateMenu.template.id, store.id)
+                    setTemplateMenu(null)
+                  }}
+                >
+                  <span className="command-label">Из группы в список</span>
+                </button>
+              ) : null}
+              {!templateMenu.groupId && store.groupId && onMoveTemplateToGroup ? (
+                <button
+                  type="button"
+                  className="command-button command-button--text"
+                  onClick={() => {
+                    const groupId = store.groupId
+                    if (!groupId) return
+                    onMoveTemplateToGroup(templateMenu.template.id, groupId)
+                    setTemplateMenu(null)
+                  }}
+                >
+                  <span className="command-label">Из списка в группу</span>
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

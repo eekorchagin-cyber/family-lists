@@ -1302,6 +1302,107 @@ export function useAppState() {
     })
   }, [])
 
+  /** Перенос без tombstone: шаблон остаётся, меняется только уровень. */
+  const moveTemplateToStore = useCallback((templateId: string, storeId: string): boolean => {
+    let moved = false
+    setData((current) => {
+      const store = current.stores.find((item) => item.id === storeId)
+      if (!store) return current
+      let template: NamedTemplate | undefined
+      let fromGroupId: string | undefined
+      for (const group of current.groups ?? []) {
+        const found = (group.templates ?? []).find((item) => item.id === templateId)
+        if (found) {
+          template = found
+          fromGroupId = group.id
+          break
+        }
+      }
+      if (!template) {
+        for (const row of current.stores) {
+          if (row.id === storeId) continue
+          const found = (row.templates ?? []).find((item) => item.id === templateId)
+          if (found) {
+            template = found
+            break
+          }
+        }
+      }
+      if (!template) return current
+      if ((store.templates ?? []).some((item) => item.id === templateId)) {
+        // Уже в целевом списке — только убрать с группы/другого списка.
+      }
+      let next: AppData = current
+      if (fromGroupId) {
+        next = {
+          ...next,
+          groups: (next.groups ?? []).map((group) =>
+            group.id === fromGroupId
+              ? withUpdatedAt({
+                  ...group,
+                  templates: (group.templates ?? []).filter((item) => item.id !== templateId),
+                })
+              : group,
+          ),
+        }
+      }
+      next = {
+        ...next,
+        stores: next.stores.map((row) => {
+          const without = (row.templates ?? []).filter((item) => item.id !== templateId)
+          if (row.id === storeId) {
+            const has = (row.templates ?? []).some((item) => item.id === templateId)
+            return withUpdatedAt({
+              ...row,
+              templates: has ? row.templates : [...without, template!],
+            })
+          }
+          if (without.length === (row.templates ?? []).length) return row
+          return withUpdatedAt({ ...row, templates: without })
+        }),
+      }
+      moved = true
+      return persist(next)
+    })
+    return moved
+  }, [])
+
+  const moveTemplateToGroup = useCallback((templateId: string, groupId: string): boolean => {
+    let moved = false
+    setData((current) => {
+      const group = (current.groups ?? []).find((item) => item.id === groupId)
+      if (!group) return current
+      let template: NamedTemplate | undefined
+      for (const store of current.stores) {
+        const found = (store.templates ?? []).find((item) => item.id === templateId)
+        if (found) {
+          template = found
+          break
+        }
+      }
+      if (!template) return current
+      if ((group.templates ?? []).some((item) => item.id === templateId)) return current
+      moved = true
+      return persist({
+        ...current,
+        stores: current.stores.map((store) => {
+          const nextTemplates = (store.templates ?? []).filter((item) => item.id !== templateId)
+          if (nextTemplates.length === (store.templates ?? []).length) return store
+          return withUpdatedAt({ ...store, templates: nextTemplates })
+        }),
+        groups: (current.groups ?? []).map((row) =>
+          row.id === groupId
+            ? withUpdatedAt({
+                ...row,
+                templates: [...(row.templates ?? []), template!],
+              })
+            : row,
+        ),
+      })
+    })
+    return moved
+  }, [])
+
   const saveCatalogEntry = useCallback((name: string, categoryId: string, entryId?: string) => {
     const trimmed = name.trim()
     if (!trimmed || !categoryId) return false
@@ -1911,6 +2012,8 @@ export function useAppState() {
     deleteFolderTemplate,
     saveStoreTemplate,
     deleteGroupTemplate,
+    moveTemplateToStore,
+    moveTemplateToGroup,
     transferItems,
     createStoreFromItems,
     reorderStores,

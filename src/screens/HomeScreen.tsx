@@ -97,6 +97,8 @@ type HomeScreenProps = {
     draft: { id?: string; name: string; items: TemplateItem[]; visibility: StoreVisibility },
   ) => boolean | void
   onDeleteGroupTemplate: (groupId: string, templateId: string) => void
+  onMoveTemplateToStore?: (templateId: string, storeId: string) => boolean | void
+  onMoveTemplateToGroup?: (templateId: string, groupId: string) => boolean | void
   onReorderStores: (orderedIds: string[]) => void
   onReorderHome: (orderedKeys: string[]) => void
   syncEnabled?: boolean
@@ -171,6 +173,8 @@ export function HomeScreen({
   onSaveGroupTemplate,
   onSaveStoreTemplate,
   onDeleteGroupTemplate,
+  onMoveTemplateToStore,
+  onMoveTemplateToGroup,
   onReorderStores,
   onReorderHome,
   syncEnabled = false,
@@ -1206,6 +1210,8 @@ export function HomeScreen({
           onSave={(draft) => onSaveGroupTemplate(templateGroupId, draft)}
           onSaveStore={(storeId, draft) => onSaveStoreTemplate(storeId, draft)}
           onDelete={(templateId) => onDeleteGroupTemplate(templateGroupId, templateId)}
+          onMoveToStore={onMoveTemplateToStore}
+          onMoveToGroup={onMoveTemplateToGroup}
         />
       ) : null}
 
