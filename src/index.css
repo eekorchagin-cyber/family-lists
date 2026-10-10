@@ -158,6 +158,8 @@ ul {
 .header-side {
   display: flex;
   align-items: center;
+  position: relative;
+  z-index: 1;
 }
 
 .header-side-right {
@@ -165,6 +167,20 @@ ul {
   min-width: 56px;
   gap: 0;
   flex-wrap: nowrap;
+  z-index: 0;
+  max-width: min(220px, 58vw);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.header-side-right::-webkit-scrollbar {
+  display: none;
+}
+
+.header-back {
+  position: relative;
+  z-index: 2;
 }
 
 .help-text {

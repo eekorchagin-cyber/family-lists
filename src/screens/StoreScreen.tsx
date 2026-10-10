@@ -322,7 +322,7 @@ export function StoreScreen({
         left={
           <button
             type="button"
-            className="icon-button"
+            className="icon-button header-back"
             onClick={() => {
               onDismissStoreUpdate?.()
               onBack()
@@ -344,7 +344,7 @@ export function StoreScreen({
                 <CardIcon />
               </button>
             ) : null}
-            {otherStores.length > 0 ? (
+            {otherStores.length > 0 && onTransferToStore ? (
               <button
                 type="button"
                 className="icon-button"
@@ -360,8 +360,14 @@ export function StoreScreen({
               aria-label="Удалить купленные из списка"
               disabled={boughtItems.length === 0}
               onClick={() => {
+                const leave = allDone
                 playConfirmSound('clear')
                 onClearBought()
+                if (leave) {
+                  rememberDismiss()
+                  onDismissStoreUpdate?.()
+                  onBack()
+                }
               }}
             >
               <ClearBoughtIcon />
@@ -655,7 +661,7 @@ export function StoreScreen({
         />
       )}
 
-      {showCompletion && allDone && !editItem && !addingCategory && !namingTemplate && (
+      {showCompletion && allDone && !editItem && !addingCategory && !namingTemplate && !showingCard && (
         <div className="overlay overlay--capture" role="presentation">
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <DialogHeading
@@ -668,15 +674,28 @@ export function StoreScreen({
             />
             <p className="hint">Что сделать со списком?</p>
             <div className="choice-row">
+              {loyalty ? (
+                <button
+                  type="button"
+                  className="button-primary"
+                  disabled={!completionArmed}
+                  onClick={() => {
+                    if (!completionArmed) return
+                    setShowingCard(true)
+                  }}
+                >
+                  Бонусная карта
+                </button>
+              ) : null}
               <button
                 type="button"
-                className="button-primary"
+                className={loyalty ? 'button-secondary' : 'button-primary'}
                 disabled={!completionArmed}
                 onClick={() => {
                   if (!completionArmed) return
+                  rememberDismiss()
                   playConfirmSound('clear')
                   onClearBought()
-                  rememberDismiss()
                   onDismissStoreUpdate?.()
                   onBack()
                 }}

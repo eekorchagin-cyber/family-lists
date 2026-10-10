@@ -1,5 +1,5 @@
 import type { Store, StoreGroup } from '../types'
-import { parseLoyaltyCard } from './loyalty'
+import { hasLoyaltyCard, parseLoyaltyCard } from './loyalty'
 import { mergeTemplates, parseTemplateList } from './templates'
 
 export const HOME_ORDER_KEY = 'pokupki-home-order'
@@ -299,12 +299,25 @@ export function groupsFromStores(
     byId.set(store.groupId, {
       id: store.groupId,
       name: name || 'Группа',
-      updatedAt: store.updatedAt,
+      // Без updatedAt: иначе свежий список перебивает каталог и сносит карту/значок.
     })
   }
   return [...byId.values()]
 }
 
+/** Карта и значок не должны пропадать, если победитель merge — заглушка без них. */
+function keepGroupExtras(winner: StoreGroup, other: StoreGroup): StoreGroup {
+  let next = winner
+  if (!(next.loyaltyCard && hasLoyaltyCard(next.loyaltyCard))) {
+    if (other.loyaltyCard && hasLoyaltyCard(other.loyaltyCard)) {
+      next = { ...next, loyaltyCard: other.loyaltyCard }
+    }
+  }
+  if (!next.icon?.trim() && other.icon?.trim()) {
+    next = { ...next, icon: other.icon }
+  }
+  return next
+}
 
 function applyGroupTemplates(
   winner: StoreGroup,
@@ -318,13 +331,18 @@ function applyGroupTemplates(
   const source =
     winner.templates !== undefined ? winner.templates : other.templates
   const templates = mergeTemplates(undefined, source, userId, deletedTemplateIds)
+  let next: StoreGroup
   if (templates.length === 0) {
-    if (winner.templates === undefined && other.templates === undefined) return winner
-    const next = { ...winner }
-    delete next.templates
-    return next
+    if (winner.templates === undefined && other.templates === undefined) {
+      next = winner
+    } else {
+      next = { ...winner }
+      delete next.templates
+    }
+  } else {
+    next = { ...winner, templates }
   }
-  return { ...winner, templates }
+  return keepGroupExtras(next, other)
 }
 
 function preservePrivateGroup(winner: StoreGroup, other: StoreGroup): StoreGroup {
