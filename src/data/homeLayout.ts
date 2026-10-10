@@ -4,6 +4,7 @@ import { mergeTemplates, parseTemplateList } from './templates'
 
 export const HOME_ORDER_KEY = 'pokupki-home-order'
 export const GROUP_COLLAPSED_KEY = 'pokupki-group-collapsed'
+export const HOME_PENDING_ONLY_KEY = 'pokupki-home-pending-only'
 export const GROUPS_CATALOG_ID = '__pokupki_groups__'
 export const STORE_ICON_KEY = '__ic'
 export const GROUP_NAME_KEY = '__g'
@@ -110,6 +111,40 @@ export function saveCollapsedGroups(map: Record<string, boolean>): void {
     if (value) collapsed[id] = true
   }
   localStorage.setItem(GROUP_COLLAPSED_KEY, JSON.stringify(collapsed))
+}
+
+export function loadHomePendingOnly(): boolean {
+  try {
+    return localStorage.getItem(HOME_PENDING_ONLY_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function saveHomePendingOnly(value: boolean): void {
+  try {
+    if (value) localStorage.setItem(HOME_PENDING_ONLY_KEY, '1')
+    else localStorage.removeItem(HOME_PENDING_ONLY_KEY)
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Только списки с некупленными, без плашек групп, на первом уровне. */
+export function buildPendingOnlyRows(
+  stores: Store[],
+  groups: StoreGroup[],
+  homeOrder: string[],
+  unboughtByStoreId: Map<string, number>,
+): HomeRow[] {
+  const expanded = buildHomeRows(stores, groups, homeOrder, {})
+  const rows: HomeRow[] = []
+  for (const row of expanded) {
+    if (row.kind !== 'store') continue
+    if ((unboughtByStoreId.get(row.store.id) ?? 0) <= 0) continue
+    rows.push({ key: row.store.id, kind: 'store', store: row.store, depth: 0 })
+  }
+  return rows
 }
 
 export function ensureHomeOrder(

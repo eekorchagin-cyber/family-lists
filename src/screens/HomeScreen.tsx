@@ -8,17 +8,21 @@ import { GroupTemplatesDialog } from '../components/GroupTemplatesDialog'
 import { Header } from '../components/Header'
 import { LoyaltyCardEditor } from '../components/LoyaltyCardEditor'
 import { NameDialog } from '../components/NameDialog'
+import { EyeIcon } from '../components/NavIcons'
 import { SettingsIcon } from '../components/SettingsIcon'
 import { isGroupInBadge, isStoreInBadge } from '../data/appBadge'
 import { resolvedGroupIcon, storeHasLocalCategories } from '../data/categories'
 import {
   buildHomeRows,
+  buildPendingOnlyRows,
   ensureHomeOrder,
   groupHomeKey,
   loadCollapsedGroups,
   loadHomeOrder,
+  loadHomePendingOnly,
   saveCollapsedGroups,
   saveHomeOrder,
+  saveHomePendingOnly,
   type HomeRow,
 } from '../data/homeLayout'
 import { resolveLoyaltyCard } from '../data/loyalty'
@@ -218,6 +222,7 @@ export function HomeScreen({
   const [addingMenu, setAddingMenu] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => loadCollapsedGroups())
   const [homeOrder, setHomeOrder] = useState(() => ensureHomeOrder(stores, groups, loadHomeOrder()))
+  const [pendingOnly, setPendingOnly] = useState(() => loadHomePendingOnly())
   const [draftStores, setDraftStores] = useState<Store[] | null>(null)
   const [draftHomeOrder, setDraftHomeOrder] = useState<string[] | null>(null)
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
@@ -304,10 +309,32 @@ export function HomeScreen({
 
   const displayedStores = draftStores ?? stores
   const displayedHomeOrder = draftHomeOrder ?? homeOrder
-  const rows = useMemo(
-    () => buildHomeRows(displayedStores, groups, displayedHomeOrder, collapsed),
-    [collapsed, displayedHomeOrder, displayedStores, groups],
-  )
+  const rows = useMemo(() => {
+    if (pendingOnly) {
+      return buildPendingOnlyRows(
+        displayedStores,
+        groups,
+        displayedHomeOrder,
+        unboughtByStoreId,
+      )
+    }
+    return buildHomeRows(displayedStores, groups, displayedHomeOrder, collapsed)
+  }, [
+    collapsed,
+    displayedHomeOrder,
+    displayedStores,
+    groups,
+    pendingOnly,
+    unboughtByStoreId,
+  ])
+
+  function togglePendingOnly() {
+    setPendingOnly((current) => {
+      const next = !current
+      saveHomePendingOnly(next)
+      return next
+    })
+  }
 
   function unbindWindow() {
     if (!boundRef.current) return
@@ -457,6 +484,7 @@ export function HomeScreen({
 
   function onPointerDown(event: ReactPointerEvent<HTMLButtonElement>, row: HomeRow) {
     if (event.button !== 0) return
+    if (pendingOnly) return
     skipClick.current = false
     window.clearTimeout(holdTimer.current)
     unbindWindow()
@@ -537,7 +565,24 @@ export function HomeScreen({
             <SettingsIcon />
           </button>
         }
-        right={<AddIconButton ariaLabel="Добавить" onClick={() => setAddingMenu(true)} />}
+        right={
+          <>
+            <button
+              type="button"
+              className={pendingOnly ? 'icon-button icon-button--accent' : 'icon-button'}
+              aria-label={
+                pendingOnly
+                  ? 'Показать все списки'
+                  : 'Только списки с некупленными'
+              }
+              aria-pressed={pendingOnly}
+              onClick={togglePendingOnly}
+            >
+              <EyeIcon />
+            </button>
+            <AddIconButton ariaLabel="Добавить" onClick={() => setAddingMenu(true)} />
+          </>
+        }
       />
 
       <main className="content">
@@ -603,6 +648,8 @@ export function HomeScreen({
         ) : null}
         {empty ? (
           <p className="empty">Нет списков. Нажмите «+», чтобы добавить список или группу.</p>
+        ) : pendingOnly && rows.length === 0 ? (
+          <p className="empty">Все куплено :)</p>
         ) : (
           <ul
             className={draggingKey ? 'store-list store-list--reordering' : 'store-list'}
