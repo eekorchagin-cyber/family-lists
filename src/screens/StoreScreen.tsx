@@ -135,6 +135,8 @@ export function StoreScreen({
   const [renamingStore, setRenamingStore] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
   const [showingCard, setShowingCard] = useState(false)
+  /** После «Стереть исполненное» — предложить бонусную карту, затем уйти на главный. */
+  const [afterClearOffer, setAfterClearOffer] = useState(false)
   const [pickingTemplate, setPickingTemplate] = useState(false)
   const [templateFit, setTemplateFit] = useState<{ id: string; names: string[] } | null>(null)
   const [transferring, setTransferring] = useState(false)
@@ -231,6 +233,27 @@ export function StoreScreen({
 
   function dismissCompletion() {
     rememberDismiss()
+  }
+
+  function leaveToHome() {
+    setAfterClearOffer(false)
+    setShowingCard(false)
+    onDismissStoreUpdate?.()
+    onBack()
+  }
+
+  /** Стереть купленное; если есть карта — показать кнопку бонуса, иначе сразу на главный. */
+  function clearBoughtAndOfferCard() {
+    rememberDismiss()
+    playConfirmSound('clear')
+    onClearBought()
+    setShowCompletion(false)
+    setCompletionArmed(false)
+    if (loyalty) {
+      setAfterClearOffer(true)
+      return
+    }
+    leaveToHome()
   }
 
   const { grouped, unmatched } = useMemo(() => {
@@ -360,14 +383,12 @@ export function StoreScreen({
               aria-label="Удалить купленные из списка"
               disabled={boughtItems.length === 0}
               onClick={() => {
-                const leave = allDone
+                if (allDone) {
+                  clearBoughtAndOfferCard()
+                  return
+                }
                 playConfirmSound('clear')
                 onClearBought()
-                if (leave) {
-                  rememberDismiss()
-                  onDismissStoreUpdate?.()
-                  onBack()
-                }
               }}
             >
               <ClearBoughtIcon />
@@ -661,43 +682,31 @@ export function StoreScreen({
         />
       )}
 
-      {showCompletion && allDone && !editItem && !addingCategory && !namingTemplate && !showingCard && (
+      {showCompletion &&
+        allDone &&
+        !editItem &&
+        !addingCategory &&
+        !namingTemplate &&
+        !showingCard &&
+        !afterClearOffer && (
         <div className="overlay overlay--capture" role="presentation">
           <div className="dialog" onClick={(event) => event.stopPropagation()}>
             <DialogHeading
               title="Все товары куплены"
               onClose={() => {
                 dismissCompletion()
-                onDismissStoreUpdate?.()
-                onBack()
+                leaveToHome()
               }}
             />
             <p className="hint">Что сделать со списком?</p>
             <div className="choice-row">
-              {loyalty ? (
-                <button
-                  type="button"
-                  className="button-primary"
-                  disabled={!completionArmed}
-                  onClick={() => {
-                    if (!completionArmed) return
-                    setShowingCard(true)
-                  }}
-                >
-                  Бонусная карта
-                </button>
-              ) : null}
               <button
                 type="button"
-                className={loyalty ? 'button-secondary' : 'button-primary'}
+                className="button-primary"
                 disabled={!completionArmed}
                 onClick={() => {
                   if (!completionArmed) return
-                  rememberDismiss()
-                  playConfirmSound('clear')
-                  onClearBought()
-                  onDismissStoreUpdate?.()
-                  onBack()
+                  clearBoughtAndOfferCard()
                 }}
               >
                 Стереть исполненное
@@ -732,6 +741,27 @@ export function StoreScreen({
           </div>
         </div>
       )}
+
+      {afterClearOffer && loyalty && !showingCard ? (
+        <div className="overlay overlay--capture" role="presentation">
+          <div className="dialog" onClick={(event) => event.stopPropagation()}>
+            <DialogHeading title="Исполненное стёрто" onClose={leaveToHome} />
+            <p className="hint">Можно открыть бонусную карту.</p>
+            <div className="choice-row">
+              <button
+                type="button"
+                className="button-primary"
+                onClick={() => setShowingCard(true)}
+              >
+                Бонусная карта
+              </button>
+              <button type="button" className="button-secondary" onClick={leaveToHome}>
+                К спискам
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {namingTemplate && (
         <NameDialog
@@ -820,7 +850,10 @@ export function StoreScreen({
         <LoyaltyCardSheet
           card={loyalty.card}
           source={loyalty.source}
-          onClose={() => setShowingCard(false)}
+          onClose={() => {
+            setShowingCard(false)
+            if (afterClearOffer) leaveToHome()
+          }}
         />
       ) : null}
       {templateFit ? (
