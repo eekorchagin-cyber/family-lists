@@ -509,23 +509,21 @@ export function useAppState() {
     })
   }, [])
 
-  const moveCategory = useCallback((storeId: string, categoryId: string, direction: -1 | 1) => {
+  const reorderCategories = useCallback((storeId: string, orderedIds: string[]) => {
     setData((current) => {
       const store = current.stores.find((item) => item.id === storeId)
       if (!store) return current
       const cats = categoriesForStore(current.categories, store)
-      const order = ensureCategoryOrder(store, cats)
-      const index = order.indexOf(categoryId)
-      const next = index + direction
-      if (index < 0 || next < 0 || next >= order.length) return current
-      const swapped = [...order]
-      const currentId = swapped[index]
-      const swapId = swapped[next]
-      if (!currentId || !swapId) return current
-      swapped[index] = swapId
-      swapped[next] = currentId
+      if (orderedIds.length !== cats.length) return current
+      const allowed = new Set(cats.map((category) => category.id))
+      for (const id of orderedIds) {
+        if (!allowed.has(id)) return current
+      }
+      const previous = ensureCategoryOrder(store, cats)
+      const unchanged = orderedIds.every((id, index) => id === previous[index])
+      if (unchanged && store.categorySort === 'custom') return current
       return persist(
-        patchStore(current, storeId, { categorySort: 'custom', categoryOrder: swapped }),
+        patchStore(current, storeId, { categorySort: 'custom', categoryOrder: orderedIds }),
       )
     })
   }, [])
@@ -1993,7 +1991,7 @@ export function useAppState() {
     renameCategory,
     setCategoryScope,
     setCategorySort,
-    moveCategory,
+    reorderCategories,
     updateItem,
     markBought,
     markItemsBought,

@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { AddIconButton } from '../components/AddIconButton'
 import { AddListCategoryDialog } from '../components/AddListCategoryDialog'
 import { CategoryMark } from '../components/CategoryMark'
@@ -35,6 +41,10 @@ import type {
 } from '../types'
 
 type ListSettingsSection = 'list' | 'categories' | 'templates'
+
+const LONG_PRESS_MS = 450
+const MOVE_CANCEL_PX = 12
+const DRAG_THRESHOLD_PX = 10
 
 const SECTIONS: { id: ListSettingsSection; title: string; hint: string }[] = [
   { id: 'list', title: 'Список', hint: 'Название, кто видит и удаление' },
@@ -75,7 +85,7 @@ type ListSettingsScreenProps = {
   onDeleteStore: () => void
   onSort: (sort: CategorySort) => void
   onSetScope: (categoryId: string, name: string, global: boolean) => void
-  onMove: (categoryId: string, direction: -1 | 1) => void
+  onReorderCategories: (orderedIds: string[]) => void
   onAddCategory: (name: string, color: string, icon?: string, global?: boolean) => string
   onEnableCategory: (categoryIds: string[]) => void
   onRemoveCategory: (categoryId: string) => void
@@ -114,7 +124,7 @@ export function ListSettingsScreen({
   onDeleteStore,
   onSort,
   onSetScope,
-  onMove,
+  onReorderCategories,
   onAddCategory,
   onEnableCategory,
   onRemoveCategory,
@@ -190,6 +200,174 @@ export function ListSettingsScreen({
     [groups, myId, store],
   )
 
+  const listRef = useRef<HTMLUListElement>(null)
+  const drag = useRef<{
+    id: string
+    pointerId: number
+    startX: number
+    startY: number
+    armed: boolean
+    dragging: boolean
+  } | null>(null)
+  const holdTimer = useRef(0)
+  const draftOrderRef = useRef<string[] | null>(null)
+  const orderRef = useRef(categories.map((category) => category.id))
+  const boundRef = useRef(false)
+  const liveWindow = useRef({
+    move: (_event: PointerEvent) => {},
+    up: (_event: PointerEvent) => {},
+    touch: (_event: TouchEvent) => {},
+  })
+  const stableWindow = useRef({
+    move: (event: PointerEvent) => liveWindow.current.move(event),
+    up: (event: PointerEvent) => liveWindow.current.up(event),
+    touch: (event: TouchEvent) => liveWindow.current.touch(event),
+  })
+
+  const [draftOrder, setDraftOrder] = useState<string[] | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+
+  orderRef.current = categories.map((category) => category.id)
+
+  const orderedCategories = useMemo(() => {
+    const order = draftOrder ?? categories.map((category) => category.id)
+    const byId = new Map(categories.map((category) => [category.id, category]))
+    return order
+      .map((id) => byId.get(id))
+      .filter((category): category is Category => Boolean(category))
+  }, [categories, draftOrder])
+
+  function reorderIds(ids: string[], fromId: string, toId: string): string[] {
+    const from = ids.indexOf(fromId)
+    const to = ids.indexOf(toId)
+    if (from < 0 || to < 0 || from === to) return ids
+    const next = [...ids]
+    const [row] = next.splice(from, 1)
+    if (!row) return ids
+    next.splice(to, 0, row)
+    return next
+  }
+
+  function unbindWindow() {
+    if (!boundRef.current) return
+    window.removeEventListener('pointermove', stableWindow.current.move)
+    window.removeEventListener('pointerup', stableWindow.current.up)
+    window.removeEventListener('pointercancel', stableWindow.current.up)
+    window.removeEventListener('touchmove', stableWindow.current.touch)
+    boundRef.current = false
+  }
+
+  function onWindowTouchMove(event: TouchEvent) {
+    if (drag.current?.armed) event.preventDefault()
+  }
+
+  function onWindowPointerMove(event: PointerEvent) {
+    const state = drag.current
+    if (!state || event.pointerId !== state.pointerId) return
+    const dx = event.clientX - state.startX
+    const dy = event.clientY - state.startY
+    const moved = dx * dx + dy * dy
+    if (!state.armed) {
+      if (moved > MOVE_CANCEL_PX * MOVE_CANCEL_PX) {
+        window.clearTimeout(holdTimer.current)
+        unbindWindow()
+        drag.current = null
+      }
+      return
+    }
+    if (!state.dragging) {
+      if (moved < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return
+      state.dragging = true
+    }
+    event.preventDefault()
+
+    const list = listRef.current
+    if (!list) return
+    const nodes = [...list.querySelectorAll<HTMLElement>('[data-category-id]')]
+    let targetId: string | null = null
+    for (const node of nodes) {
+      const rect = node.getBoundingClientRect()
+      if (event.clientY < rect.top + rect.height / 2) {
+        targetId = node.dataset.categoryId ?? null
+        break
+      }
+    }
+    if (!targetId) targetId = nodes[nodes.length - 1]?.dataset.categoryId ?? null
+    if (!targetId) return
+    const current = draftOrderRef.current ?? orderRef.current
+    const next = reorderIds(current, state.id, targetId)
+    if (next === current) return
+    draftOrderRef.current = next
+    setDraftOrder(next)
+  }
+
+  function finishDrag() {
+    window.clearTimeout(holdTimer.current)
+    unbindWindow()
+    const state = drag.current
+    if (!state) return
+    if (state.dragging) {
+      const order = draftOrderRef.current ?? orderRef.current
+      onReorderCategories(order)
+    }
+    draftOrderRef.current = null
+    setDraftOrder(null)
+    setDraggingId(null)
+    drag.current = null
+  }
+
+  function onWindowPointerUp(event: PointerEvent) {
+    const state = drag.current
+    if (!state || event.pointerId !== state.pointerId) return
+    finishDrag()
+  }
+
+  function onCategoryPointerDown(
+    event: ReactPointerEvent<HTMLButtonElement>,
+    categoryId: string,
+  ) {
+    if (!custom || event.button !== 0) return
+    window.clearTimeout(holdTimer.current)
+    unbindWindow()
+    const pointerId = event.pointerId
+    const target = event.currentTarget
+    drag.current = {
+      id: categoryId,
+      pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      armed: false,
+      dragging: false,
+    }
+    boundRef.current = true
+    window.addEventListener('pointermove', stableWindow.current.move)
+    window.addEventListener('pointerup', stableWindow.current.up)
+    window.addEventListener('pointercancel', stableWindow.current.up)
+    window.addEventListener('touchmove', stableWindow.current.touch, { passive: false })
+    holdTimer.current = window.setTimeout(() => {
+      const state = drag.current
+      if (!state || state.pointerId !== pointerId) return
+      state.armed = true
+      setDraggingId(state.id)
+      draftOrderRef.current = orderRef.current
+      setDraftOrder(orderRef.current)
+      try {
+        target.setPointerCapture(pointerId)
+      } catch {
+        /* iOS */
+      }
+      navigator.vibrate?.(15)
+    }, LONG_PRESS_MS)
+  }
+
+  liveWindow.current.move = onWindowPointerMove
+  liveWindow.current.up = onWindowPointerUp
+  liveWindow.current.touch = onWindowTouchMove
+
+  useEffect(() => () => {
+    window.clearTimeout(holdTimer.current)
+    unbindWindow()
+  }, [])
 
   return (
     <div className="screen">
@@ -374,9 +552,40 @@ export function ListSettingsScreen({
               {categories.length === 0 ? (
                 <p className="hint">Нажмите «+», чтобы добавить категории в этот список.</p>
               ) : (
-                <ul className="category-edit-list">
-                  {categories.map((category, index) => (
-                    <li key={category.id} className="category-edit-row">
+                <ul
+                  ref={listRef}
+                  className={
+                    draggingId
+                      ? 'category-edit-list category-edit-list--reordering'
+                      : 'category-edit-list'
+                  }
+                >
+                  {orderedCategories.map((category) => (
+                    <li
+                      key={category.id}
+                      data-category-id={category.id}
+                      className={[
+                        'category-edit-row',
+                        draggingId === category.id ? 'category-edit-row--dragging' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      {custom ? (
+                        <button
+                          type="button"
+                          className="category-drag-handle"
+                          aria-label={`Переместить ${categoryName(category, store)}`}
+                          onPointerDown={(event) => onCategoryPointerDown(event, category.id)}
+                          onContextMenu={(event) => event.preventDefault()}
+                        >
+                          <span className="store-handle" aria-hidden="true">
+                            <span />
+                            <span />
+                            <span />
+                          </span>
+                        </button>
+                      ) : null}
                       <CategoryMark category={category} />
                       <button
                         type="button"
@@ -386,28 +595,6 @@ export function ListSettingsScreen({
                       >
                         {names[category.id] ?? categoryName(category, store)}
                       </button>
-                      {custom && (
-                        <div className="reorder-buttons">
-                          <button
-                            type="button"
-                            className="qty-button"
-                            disabled={index === 0}
-                            aria-label="Выше"
-                            onClick={() => onMove(category.id, -1)}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            className="qty-button"
-                            disabled={index === categories.length - 1}
-                            aria-label="Ниже"
-                            onClick={() => onMove(category.id, 1)}
-                          >
-                            ↓
-                          </button>
-                        </div>
-                      )}
                       <button
                         type="button"
                         className="qty-button"

@@ -53,7 +53,7 @@ function App() {
     removeCategoryFromStore,
     setCategoryScope,
     setCategorySort,
-    moveCategory,
+    reorderCategories,
     updateItem,
     markBought,
     markItemsBought,
@@ -402,7 +402,7 @@ function App() {
             onSetScope={(categoryId, name, global) =>
               setCategoryScope(store.id, categoryId, name, global)
             }
-            onMove={(categoryId, direction) => moveCategory(store.id, categoryId, direction)}
+            onReorderCategories={(orderedIds) => reorderCategories(store.id, orderedIds)}
             onAddCategory={(name, color, icon, global) =>
               global
                 ? addGlobalCategory(name, color, icon, store.id)
