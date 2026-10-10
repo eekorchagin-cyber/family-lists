@@ -20,6 +20,7 @@ import { parseItem } from '../data/parseItem'
 import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
 import { includesRu } from '../data/text'
 import { resolveLoyaltyCard } from '../data/loyalty'
+import { openLoyaltyApp } from '../data/loyaltyApps'
 import {
   classifyTemplateItems,
   findTemplateNameConflict,
@@ -256,6 +257,17 @@ export function StoreScreen({
     leaveToHome()
   }
 
+  /** Сразу штрихкод / QR или запуск приложения — без лишнего шага «Открыть». */
+  function openLoyaltyNow(afterClear = false) {
+    if (!loyalty) return
+    if (loyalty.card.kind === 'app') {
+      openLoyaltyApp(loyalty.card.value)
+      if (afterClear) leaveToHome()
+      return
+    }
+    setShowingCard(true)
+  }
+
   const { grouped, unmatched } = useMemo(() => {
     const enabled = new Set(categories.map((category) => category.id))
     const known = new Map(knownCategories.map((category) => [category.id, category]))
@@ -362,7 +374,7 @@ export function StoreScreen({
                 type="button"
                 className="icon-button"
                 aria-label="Бонусная карта"
-                onClick={() => setShowingCard(true)}
+                onClick={() => openLoyaltyNow()}
               >
                 <CardIcon />
               </button>
@@ -444,7 +456,7 @@ export function StoreScreen({
           <button
             type="button"
             className="button-secondary loyalty-checkout"
-            onClick={() => setShowingCard(true)}
+            onClick={() => openLoyaltyNow()}
           >
             Карта
           </button>
@@ -751,7 +763,7 @@ export function StoreScreen({
               <button
                 type="button"
                 className="button-primary"
-                onClick={() => setShowingCard(true)}
+                onClick={() => openLoyaltyNow(true)}
               >
                 Бонусная карта
               </button>
