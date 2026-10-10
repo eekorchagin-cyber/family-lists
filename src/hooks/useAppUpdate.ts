@@ -41,8 +41,27 @@ export function useAppUpdate() {
       if (!response.ok) return
       const data = (await response.json()) as RemoteVersion
       if (!data?.version) return
+
+      let reloadFor = ''
+      try {
+        reloadFor = sessionStorage.getItem(RELOAD_KEY) ?? ''
+      } catch {
+        /* ignore */
+      }
+
       if (data.version === APP_VERSION) {
-        setStuck(false)
+        // Удачное обновление: одно окно с описанием и «Понятно», без мигания.
+        if (reloadFor === data.version) {
+          try {
+            sessionStorage.removeItem(RELOAD_KEY)
+          } catch {
+            /* ignore */
+          }
+          setStuck(false)
+          setAlreadyCurrent(true)
+          setRemote(data)
+          return
+        }
         let seen = ''
         try {
           seen = localStorage.getItem(SEEN_KEY) ?? ''
@@ -52,23 +71,24 @@ export function useAppUpdate() {
         if (seen === APP_VERSION) {
           setRemote(null)
           setAlreadyCurrent(false)
+          setStuck(false)
           return
         }
+        setStuck(false)
         setAlreadyCurrent(true)
         setRemote(data)
         return
       }
+
       setAlreadyCurrent(false)
       try {
         if (sessionStorage.getItem(DISMISS_KEY) === data.version) return
       } catch {
         /* ignore */
       }
-      try {
-        if (sessionStorage.getItem(RELOAD_KEY) === data.version) setStuck(true)
-      } catch {
-        /* ignore */
-      }
+      // Перезагрузка была, а номер версии не сменился — застревание.
+      const isStuck = reloadFor === data.version
+      setStuck(isStuck)
       setRemote(data)
     } catch {
       /* сеть недоступна — проверим позже */
@@ -85,9 +105,7 @@ export function useAppUpdate() {
     if (!remote) return
     try {
       sessionStorage.setItem(RELOAD_KEY, remote.version)
-      // Описание уже показали до обновления — после удачной перезагрузки
-      // не открываем второе окно с теми же notes и «Понятно».
-      localStorage.setItem(SEEN_KEY, remote.version)
+      // SEEN ставим только после «Понятно», чтобы описание не проскакивало.
     } catch {
       /* ignore */
     }
@@ -98,6 +116,7 @@ export function useAppUpdate() {
     if (alreadyCurrent) {
       try {
         localStorage.setItem(SEEN_KEY, APP_VERSION)
+        sessionStorage.removeItem(RELOAD_KEY)
       } catch {
         /* ignore */
       }

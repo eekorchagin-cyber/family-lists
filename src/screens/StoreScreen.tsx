@@ -243,7 +243,7 @@ export function StoreScreen({
     onBack()
   }
 
-  /** Стереть купленное; если есть карта — показать кнопку бонуса, иначе сразу на главный. */
+  /** Стереть купленное; если есть карта — сразу штрихкод/приложение, иначе на главный. */
   function clearBoughtAndOfferCard() {
     rememberDismiss()
     playConfirmSound('clear')
@@ -251,13 +251,13 @@ export function StoreScreen({
     setShowCompletion(false)
     setCompletionArmed(false)
     if (loyalty) {
-      setAfterClearOffer(true)
+      openLoyaltyNow(true)
       return
     }
     leaveToHome()
   }
 
-  /** Сразу штрихкод / QR или запуск приложения — без лишнего шага «Открыть». */
+  /** Сразу штрихкод / QR или запуск приложения — без промежуточной кнопки. */
   function openLoyaltyNow(afterClear = false) {
     if (!loyalty) return
     if (loyalty.card.kind === 'app') {
@@ -265,6 +265,7 @@ export function StoreScreen({
       if (afterClear) leaveToHome()
       return
     }
+    if (afterClear) setAfterClearOffer(true)
     setShowingCard(true)
   }
 
@@ -753,27 +754,6 @@ export function StoreScreen({
           </div>
         </div>
       )}
-
-      {afterClearOffer && loyalty && !showingCard ? (
-        <div className="overlay overlay--capture" role="presentation">
-          <div className="dialog" onClick={(event) => event.stopPropagation()}>
-            <DialogHeading title="Исполненное стёрто" onClose={leaveToHome} />
-            <p className="hint">Можно открыть бонусную карту.</p>
-            <div className="choice-row">
-              <button
-                type="button"
-                className="button-primary"
-                onClick={() => openLoyaltyNow(true)}
-              >
-                Бонусная карта
-              </button>
-              <button type="button" className="button-secondary" onClick={leaveToHome}>
-                К спискам
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {namingTemplate && (
         <NameDialog
