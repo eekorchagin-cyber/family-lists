@@ -76,6 +76,42 @@ async function dropServiceWorkers() {
 
 void dropServiceWorkers()
 
+/** iOS на ярлыке сам сдвигает документ (после клавиатуры, при смене высоты списка) — шапка уходит за край. */
+function pinPage() {
+  const typing = () => {
+    const el = document.activeElement
+    return (
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement ||
+      (el instanceof HTMLElement && el.isContentEditable)
+    )
+  }
+  const reset = () => {
+    if (typing()) return
+    if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0)
+    for (const el of [
+      document.documentElement,
+      document.body,
+      document.getElementById('root'),
+      ...document.querySelectorAll<HTMLElement>('.screen'),
+    ]) {
+      if (el && (el.scrollTop !== 0 || el.scrollLeft !== 0)) {
+        el.scrollTop = 0
+        el.scrollLeft = 0
+      }
+    }
+  }
+  window.addEventListener('scroll', reset, { passive: true })
+  document.addEventListener('scroll', reset, { capture: true, passive: true })
+  document.addEventListener('focusout', () => window.setTimeout(reset, 60))
+  window.visualViewport?.addEventListener('resize', () => window.setTimeout(reset, 60))
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') reset()
+  })
+}
+
+pinPage()
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

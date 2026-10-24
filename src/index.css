@@ -56,6 +56,8 @@ body {
 }
 
 body {
+  position: fixed;
+  inset: 0;
   margin: 0;
   font-family: var(--sans);
   font-size: var(--font-size);
@@ -96,6 +98,7 @@ ul {
 .screen {
   height: 100%;
   overflow: hidden;
+  overflow: clip;
   display: flex;
   flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
