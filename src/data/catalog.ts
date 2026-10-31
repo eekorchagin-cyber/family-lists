@@ -144,6 +144,22 @@ export function catalogCategoryId(
   return ids.has(entry.categoryId) ? entry.categoryId : undefined
 }
 
+export function catalogUnit(catalog: CatalogEntry[], name: string): string | undefined {
+  return findCatalogEntry(catalog, name)?.unit?.trim() || undefined
+}
+
+/** Единица для нового товара: из справочника, иначе как в прошлый раз в списках. */
+export function suggestedUnit(
+  catalog: CatalogEntry[],
+  items: Item[],
+  name: string,
+): string | undefined {
+  const fromCatalog = catalogUnit(catalog, name)
+  if (fromCatalog) return fromCatalog
+  const previous = [...items].reverse().find((item) => sameRuText(item.name, name))
+  return previous?.unit?.trim() || undefined
+}
+
 function newCatalogId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `item-${Date.now()}`
 }
@@ -152,17 +168,27 @@ export function upsertCatalog(
   catalog: CatalogEntry[],
   name: string,
   categoryId: string,
+  unit?: string,
 ): CatalogEntry[] {
   const trimmed = name.trim()
   if (!trimmed || !categoryId) return catalog
+  const nextUnit = unit?.trim() || undefined
   const existing = findCatalogEntry(catalog, trimmed)
   if (existing) {
-    if (existing.name === trimmed && existing.categoryId === categoryId) return catalog
+    const keepUnit = !nextUnit || existing.unit === nextUnit
+    if (existing.name === trimmed && existing.categoryId === categoryId && keepUnit) {
+      return catalog
+    }
     return catalog.map((entry) =>
-      entry.id === existing.id ? { ...entry, name: trimmed, categoryId } : entry,
+      entry.id === existing.id
+        ? { ...entry, name: trimmed, categoryId, ...(nextUnit ? { unit: nextUnit } : {}) }
+        : entry,
     )
   }
-  return [...catalog, { id: newCatalogId(), name: trimmed, categoryId }]
+  return [
+    ...catalog,
+    { id: newCatalogId(), name: trimmed, categoryId, ...(nextUnit ? { unit: nextUnit } : {}) },
+  ]
 }
 
 export function mergeCatalogFromItems(
@@ -186,12 +212,15 @@ export function catalogFromItems(
 export type CatalogImportRow = {
   name: string
   category: string
+  unit?: string
 }
 
 export type CatalogImportSummary = {
   addedItems: number
   skippedItems: number
   addedCategories: number
+  /** Уже известным товарам проставили единицу из файла. */
+  updatedUnits: number
   catalog: CatalogEntry[]
   categories: Category[]
 }
@@ -234,6 +263,7 @@ export function catalogExportRows(
     .map((entry) => ({
       name: entry.name,
       category: byId.get(entry.categoryId)?.name ?? '',
+      unit: entry.unit ?? '',
     }))
 }
 
@@ -248,12 +278,25 @@ export function applyCatalogImport(
   let addedItems = 0
   let skippedItems = 0
   let addedCategories = 0
+  let updatedUnits = 0
 
   for (const row of rows) {
     const name = row.name.trim()
     const categoryName = row.category.trim()
+    const unit = row.unit?.trim() ?? ''
     if (!name) continue
-    if (!categoryName || findCatalogEntry(nextCatalog, name)) {
+    const existing = findCatalogEntry(nextCatalog, name)
+    if (existing) {
+      if (unit && existing.unit !== unit) {
+        const index = nextCatalog.indexOf(existing)
+        nextCatalog[index] = { ...existing, unit, updatedAt: now }
+        updatedUnits += 1
+      } else {
+        skippedItems += 1
+      }
+      continue
+    }
+    if (!categoryName) {
       skippedItems += 1
       continue
     }
@@ -273,6 +316,7 @@ export function applyCatalogImport(
       id: newCatalogId(),
       name,
       categoryId: category.id,
+      ...(unit ? { unit } : {}),
       updatedAt: now,
     })
     addedItems += 1
@@ -282,6 +326,7 @@ export function applyCatalogImport(
     addedItems,
     skippedItems,
     addedCategories,
+    updatedUnits,
     catalog: nextCatalog,
     categories: nextCategories,
   }

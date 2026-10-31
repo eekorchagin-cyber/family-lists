@@ -6,7 +6,7 @@ import { groupVisibleTo, nestStoresInPrivateGroups } from '../homeLayout'
 import { mergeTemplateFolders } from '../myTemplates'
 import { mergeTemplates } from '../templates'
 import { loadClearedAt, loadClearedStoreIds } from '../storage'
-import { peekDeletes, queueDeleted, storeCategoryKey } from './deletes'
+import { peekDeletes, queueDeleted, recentlyDeletedIds, storeCategoryKey } from './deletes'
 
 function stamp(): string {
   return new Date().toISOString()
@@ -269,7 +269,11 @@ export function mergePulledData(
     deletedGroupIds?: string[]
   },
 ): { next: AppData; changed: boolean; changedStoreIds: string[] } {
-  const deletedItems = new Set(options.deletedItemIds ?? [])
+  const deletedItems = new Set([
+    ...(options.deletedItemIds ?? []),
+    ...recentlyDeletedIds('items'),
+    ...recentlyDeletedIds('clearedItems'),
+  ])
   const deletedStores = new Set(options.deletedStoreIds ?? [])
   const deletedGroups = new Set(options.deletedGroupIds ?? [])
   const stores = new Map(local.stores.map((store) => [store.id, store]))
@@ -342,8 +346,10 @@ export function mergePulledData(
     }
   }
 
+  const deletedCatalog = new Set([...peekDeletes().catalog, ...recentlyDeletedIds('catalog')])
   const catalog = new Map((local.catalog ?? []).map((entry) => [entry.id, entry]))
   for (const entry of remote.catalog ?? []) {
+    if (deletedCatalog.has(entry.id)) continue
     const current = catalog.get(entry.id)
     if (!current) {
       catalog.set(entry.id, entry)

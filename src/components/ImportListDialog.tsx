@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CatalogEntry, Category, Item, Store } from '../types'
+import { suggestedUnit } from '../data/catalog'
 import {
   findSimilarItem,
   parseImportText,
@@ -128,7 +129,14 @@ export function ImportListDialog({
       return
     }
     setError(null)
-    continueWith(lines, [])
+    continueWith(
+      lines.map((line) =>
+        line.unitGiven
+          ? line
+          : { ...line, unit: suggestedUnit(catalog, items, line.name) ?? line.unit },
+      ),
+      [],
+    )
   }
 
   function openPaste() {

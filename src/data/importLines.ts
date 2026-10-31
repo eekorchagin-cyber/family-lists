@@ -7,6 +7,8 @@ export type ImportedLine = {
   name: string
   qty: number
   unit: string
+  /** Единица была в строке, а не подставлена «шт». */
+  unitGiven?: boolean
   bought: boolean
   raw: string
 }
@@ -63,7 +65,9 @@ export function similarImportName(left: string, right: string): boolean {
   return a.includes(b) || b.includes(a)
 }
 
-function parseQtyTail(text: string): { name: string; qty: number; unit: string } | null {
+function parseQtyTail(
+  text: string,
+): { name: string; qty: number; unit: string; unitGiven: boolean } | null {
   const trimmed = text.trim()
   if (!trimmed || KEEP_IN_NAME.test(trimmed)) return null
 
@@ -73,7 +77,8 @@ function parseQtyTail(text: string): { name: string; qty: number; unit: string }
     if (!name) return null
     const qty = Number(colon[2].replace(',', '.'))
     if (!Number.isFinite(qty) || qty <= 0) return null
-    return { name, qty, unit: colon[3].trim() || 'шт' }
+    const typed = colon[3].trim()
+    return { name, qty, unit: typed || 'шт', unitGiven: Boolean(typed) }
   }
 
   const trail = TRAILING_QTY.exec(trimmed)
@@ -87,7 +92,7 @@ function parseQtyTail(text: string): { name: string; qty: number; unit: string }
   if (unitRaw === 'пары' || unitRaw === 'пар') unit = 'пар'
   else if (unitRaw === 'шт' || unitRaw === 'штуки' || unitRaw === 'штук') unit = 'шт'
   else if (unitRaw) unit = unitRaw
-  return { name, qty, unit }
+  return { name, qty, unit, unitGiven: Boolean(unitRaw) }
 }
 
 export function parseImportLine(rawLine: string): ImportedLine | null {
@@ -101,7 +106,14 @@ export function parseImportLine(rawLine: string): ImportedLine | null {
 
   const qtyPart = parseQtyTail(body)
   if (qtyPart) {
-    return { name: qtyPart.name, qty: qtyPart.qty, unit: qtyPart.unit, bought, raw }
+    return {
+      name: qtyPart.name,
+      qty: qtyPart.qty,
+      unit: qtyPart.unit,
+      unitGiven: qtyPart.unitGiven,
+      bought,
+      raw,
+    }
   }
   return { name: body, qty: 1, unit: 'шт', bought, raw }
 }

@@ -79,6 +79,7 @@ type CatalogRow = {
   home_id: string
   name: string
   category_id: string
+  unit?: string | null
   updated_at: string
 }
 
@@ -623,11 +624,18 @@ export async function pushLocal(
       home_id: homeId,
       name: entry.name,
       category_id: entry.categoryId,
+      unit: entry.unit?.trim() || null,
       updated_at: entry.updatedAt ?? at,
     }))
 
   if (catalogRows.length > 0) {
-    const { error } = await client.from('catalog').upsert(catalogRows)
+    let { error } = await client
+      .from('catalog')
+      .upsert(catalogUnitColumn ? catalogRows : catalogRows.map(withoutUnit))
+    if (error && catalogUnitColumn && isMissingUnitColumn(error)) {
+      catalogUnitColumn = false
+      ;({ error } = await client.from('catalog').upsert(catalogRows.map(withoutUnit)))
+    }
     if (error) {
       console.warn('catalog sync failed', error)
     }
@@ -850,11 +858,29 @@ function itemFromRow(row: ItemRow): Item {
   }
 }
 
+/** Колонку unit добавляет supabase/migrate-catalog-unit.sql; до неё пишем справочник без единиц. */
+let catalogUnitColumn = true
+
+function withoutUnit<T extends { unit?: unknown }>(row: T): Omit<T, 'unit'> {
+  const { unit: _unit, ...rest } = row
+  return rest
+}
+
+function isMissingUnitColumn(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === 'PGRST204' ||
+    error.code === '42703' ||
+    /\bunit\b/i.test(error.message ?? '')
+  )
+}
+
 function catalogFromRow(row: CatalogRow): CatalogEntry {
+  const unit = row.unit?.trim()
   return {
     id: row.id,
     name: row.name,
     categoryId: row.category_id,
+    ...(unit ? { unit } : {}),
     updatedAt: row.updated_at,
   }
 }

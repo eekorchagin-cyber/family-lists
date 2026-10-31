@@ -81,9 +81,12 @@ create table if not exists public.catalog (
   home_id uuid not null references public.homes (id) on delete cascade,
   name text not null,
   category_id text not null,
+  unit text,
   updated_at timestamptz not null default now(),
   primary key (home_id, id)
 );
+
+alter table public.catalog add column if not exists unit text;
 
 alter table public.categories drop constraint if exists categories_pkey;
 alter table public.categories add primary key (home_id, id);

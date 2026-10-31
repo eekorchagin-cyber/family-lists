@@ -6,7 +6,7 @@ import { BackIcon } from '../components/NavIcons'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
 import { categoryName, defaultCategoryId, isLocalToStore } from '../data/categories'
-import { catalogCategoryId } from '../data/catalog'
+import { catalogCategoryId, suggestedUnit } from '../data/catalog'
 import { foldRu, includesRu, sameRuText } from '../data/text'
 import { playConfirmSound } from '../data/sounds'
 import { formatQty, lastUnit, parseQty, rememberUnit } from '../data/qty'
@@ -55,7 +55,9 @@ export function AddItemScreen({
   const [pickingCategory, setPickingCategory] = useState(!suggestion.known)
   const [categoryQuery, setCategoryQuery] = useState('')
   const [qtyText, setQtyText] = useState(formatQty(draft.qty))
-  const [unit, setUnit] = useState(draft.unit)
+  const [unit, setUnit] = useState(() =>
+    draft.unitGiven ? draft.unit : (suggestedUnit(catalog, items, draft.name) ?? draft.unit),
+  )
   const [addingCategory, setAddingCategory] = useState(false)
 
   const selectedCategory = useMemo(

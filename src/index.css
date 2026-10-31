@@ -1710,6 +1710,11 @@ button.template-pick-name {
   gap: 6px;
 }
 
+.catalog-unit {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
 .catalog-row {
   display: flex;
   align-items: center;

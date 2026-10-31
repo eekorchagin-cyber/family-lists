@@ -57,7 +57,45 @@ function save(next: PendingDeletes): void {
   localStorage.setItem(DELETES_KEY, JSON.stringify(next))
 }
 
+const RECENT_KEY = 'pokupki-sync-recent-deletes'
+/** Пока облако не подтвердило удаление, запись не должна возвращаться при pull. */
+const RECENT_MS = 10 * 60 * 1000
+
+function loadRecent(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY)
+    const value = raw ? (JSON.parse(raw) as unknown) : null
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+    const now = Date.now()
+    const next: Record<string, number> = {}
+    for (const [key, at] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof at === 'number' && now - at < RECENT_MS) next[key] = at
+    }
+    return next
+  } catch {
+    return {}
+  }
+}
+
+function rememberRecent(kind: keyof PendingDeletes, id: string): void {
+  try {
+    const next = loadRecent()
+    next[`${kind}\t${id}`] = Date.now()
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next))
+  } catch {
+    // приватный режим
+  }
+}
+
+export function recentlyDeletedIds(kind: keyof PendingDeletes): string[] {
+  const prefix = `${kind}\t`
+  return Object.keys(loadRecent())
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => key.slice(prefix.length))
+}
+
 export function queueDeleted(kind: keyof PendingDeletes, id: string): void {
+  rememberRecent(kind, id)
   const current = load()
   if (current[kind].includes(id)) return
   save({ ...current, [kind]: [...current[kind], id] })

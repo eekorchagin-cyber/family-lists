@@ -11,7 +11,7 @@ type CatalogDialogProps = {
   categories: Category[]
   stores?: Store[]
   onClose: () => void
-  onSave: (name: string, categoryId: string) => boolean
+  onSave: (name: string, categoryId: string, unit: string) => boolean
   onAddCategory: (name: string, color: string, icon?: string) => string
 }
 
@@ -25,6 +25,7 @@ export function CatalogDialog({
 }: CatalogDialogProps) {
   const knownCategory = Boolean(entry?.categoryId)
   const [name, setName] = useState(entry?.name ?? '')
+  const [unit, setUnit] = useState(entry?.unit ?? '')
   const [categoryId, setCategoryId] = useState(
     entry?.categoryId ?? categories[0]?.id ?? '',
   )
@@ -37,7 +38,7 @@ export function CatalogDialog({
   function submit() {
     const trimmed = name.trim()
     if (!trimmed || !categoryId) return
-    const saved = onSave(trimmed, categoryId)
+    const saved = onSave(trimmed, categoryId, unit.trim())
     if (!saved) {
       setError('Такое название уже есть')
       return
@@ -88,6 +89,21 @@ export function CatalogDialog({
           autoFocus={canAutofocus()}
         />
         {error ? <p className="hint">{error}</p> : null}
+        <label className="field-label" htmlFor="catalog-unit">
+          Ед. измерения
+        </label>
+        <input
+          id="catalog-unit"
+          className="input"
+          value={unit}
+          onChange={(event) => setUnit(event.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Например, бут, кг, уп"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          autoComplete="off"
+        />
         <p className="field-label">Категория</p>
         {!pickingCategory && selectedCategory ? (
           <div className="category-chosen">

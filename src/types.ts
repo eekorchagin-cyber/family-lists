@@ -103,6 +103,8 @@ export type CatalogEntry = {
   id: string
   name: string
   categoryId: string
+  /** Единица по умолчанию для товара: бут, кг, уп… */
+  unit?: string
   updatedAt?: string
 }
 
@@ -133,6 +135,8 @@ export type ParsedItem = {
   name: string
   qty: number
   unit: string
+  /** Единицу написали сами («Мука: 2 кг»), а не подставили по умолчанию. */
+  unitGiven?: boolean
 }
 
 export type Screen =

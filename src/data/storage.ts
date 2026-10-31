@@ -247,10 +247,12 @@ function normalizeCatalog(
       const key = entry.name.trim().toLowerCase()
       if (seen.has(key)) continue
       seen.add(key)
+      const unit = typeof entry.unit === 'string' ? entry.unit.trim() : ''
       catalog.push({
         id: entry.id,
         name: entry.name.trim(),
         categoryId: entry.categoryId,
+        ...(unit ? { unit } : {}),
         ...(entry.updatedAt ? { updatedAt: entry.updatedAt } : {}),
       })
     }

@@ -103,7 +103,7 @@ type SettingsScreenProps = {
   onRenameCategory: (categoryId: string, name: string) => void
   onStyleCategory: (categoryId: string, color: string, icon: string) => void
   onDeleteCategory: (categoryId: string) => void
-  onSaveCatalog: (name: string, categoryId: string, entryId?: string) => boolean
+  onSaveCatalog: (name: string, categoryId: string, entryId?: string, unit?: string) => boolean
   onDeleteCatalog: (entryId: string) => void
   onImportCatalog: (rows: { name: string; category: string }[]) => {
     addedItems: number
@@ -893,11 +893,12 @@ export function SettingsScreen({
           categories={catalogCategories}
           stores={stores}
           onClose={() => setEditing(null)}
-          onSave={(name, categoryId) =>
+          onSave={(name, categoryId, unit) =>
             onSaveCatalog(
               name,
               categoryId,
               editing === 'new' ? undefined : editing.id,
+              unit,
             )
           }
           onAddCategory={(name, color, icon) => {
@@ -943,7 +944,10 @@ function CatalogRow({
   return (
     <li className="catalog-row">
       <button type="button" className="catalog-main" onClick={onEdit}>
-        <span className="catalog-name">{entry.name}</span>
+        <span className="catalog-name">
+          {entry.name}
+          {entry.unit ? <span className="catalog-unit"> · {entry.unit}</span> : null}
+        </span>
         {category ? (
           <span
             className={[

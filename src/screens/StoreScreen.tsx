@@ -476,6 +476,7 @@ export function StoreScreen({
                       name,
                       qty: draft?.qty ?? 1,
                       unit: draft?.unit ?? lastUnit(),
+                      unitGiven: draft?.unitGiven,
                     })
                     setQuery('')
                   }}

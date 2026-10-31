@@ -15,14 +15,13 @@ export function parseItem(input: string): ParsedItem | null {
   const name = match[1].trim()
   if (!name) return null
 
+  const typedUnit = match[3].trim()
+  const unit = typedUnit || lastUnit()
+  const unitGiven = Boolean(typedUnit)
   const qty = Number(match[2].replace(',', '.'))
   if (!Number.isFinite(qty) || qty <= 0) {
-    return { name, qty: 1, unit: match[3].trim() || lastUnit() }
+    return { name, qty: 1, unit, unitGiven }
   }
 
-  return {
-    name,
-    qty,
-    unit: match[3].trim() || lastUnit(),
-  }
+  return { name, qty, unit, unitGiven }
 }

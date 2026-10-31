@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { catalogCategoryId } from '../data/catalog'
+import { catalogCategoryId, catalogUnit } from '../data/catalog'
 import { defaultCategoryId } from '../data/categories'
 import { includesRu } from '../data/text'
 import { foldersForUser } from '../data/myTemplates'
@@ -307,8 +307,14 @@ export function MyTemplatesPanel({
     onEditingChange(true)
   }
 
-  function startAdd(parsed: { name: string; qty: number; unit: string }) {
-    setPending(parsed)
+  function startAdd(parsed: { name: string; qty: number; unit: string; unitGiven?: boolean }) {
+    setPending({
+      name: parsed.name,
+      qty: parsed.qty,
+      unit: parsed.unitGiven
+        ? parsed.unit
+        : (catalogUnit(catalog, parsed.name) ?? parsed.unit),
+    })
     setQuery('')
   }
 
@@ -381,7 +387,12 @@ export function MyTemplatesPanel({
                   className="suggestion"
                   onClick={() => {
                     const parsed = parseItem(query)
-                    startAdd({ name, qty: parsed?.qty ?? 1, unit: parsed?.unit ?? lastUnit() })
+                    startAdd({
+                      name,
+                      qty: parsed?.qty ?? 1,
+                      unit: parsed?.unit ?? lastUnit(),
+                      unitGiven: parsed?.unitGiven,
+                    })
                   }}
                 >
                   {name}

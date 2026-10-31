@@ -95,8 +95,9 @@ function rememberCatalog(
   catalog: CatalogEntry[],
   name: string,
   categoryId: string,
+  unit?: string,
 ): CatalogEntry[] {
-  const next = upsertCatalog(catalog, name, categoryId)
+  const next = upsertCatalog(catalog, name, categoryId, unit)
   if (next === catalog) return catalog
   const needle = name.trim().toLowerCase()
   return next.map((entry) =>
@@ -613,6 +614,7 @@ export function useAppState() {
           current.catalog ?? [],
           trimmedName,
           categoryId,
+          unit,
         )
         const stores = rememberCategoryInStore(
           current.stores.map((store) => {
@@ -764,7 +766,7 @@ export function useAppState() {
         const catalogName = nextName || prev.name
         const catalog =
           categoryId && current.categories.some((category) => category.id === categoryId)
-            ? rememberCatalog(current.catalog ?? [], catalogName, categoryId)
+            ? rememberCatalog(current.catalog ?? [], catalogName, categoryId, patch.unit)
             : current.catalog
         let stores = patch.categoryId
           ? current.stores.map((store) =>
@@ -1401,8 +1403,14 @@ export function useAppState() {
     return moved
   }, [])
 
-  const saveCatalogEntry = useCallback((name: string, categoryId: string, entryId?: string) => {
+  const saveCatalogEntry = useCallback((
+    name: string,
+    categoryId: string,
+    entryId?: string,
+    unit?: string,
+  ) => {
     const trimmed = name.trim()
+    const nextUnit = unit?.trim() || undefined
     if (!trimmed || !categoryId) return false
     const catalog = data.catalog ?? []
     const category = data.categories.find((item) => item.id === categoryId)
@@ -1428,16 +1436,27 @@ export function useAppState() {
         if (!live.some((entry) => entry.id === entryId)) return current
         return persist({
           ...current,
-          catalog: live.map((entry) =>
-            entry.id === entryId
-              ? withUpdatedAt({ ...entry, name: trimmed, categoryId })
-              : entry,
-          ),
+          catalog: live.map((entry) => {
+            if (entry.id !== entryId) return entry
+            const next: CatalogEntry = { ...entry, name: trimmed, categoryId }
+            if (nextUnit) next.unit = nextUnit
+            else delete next.unit
+            return withUpdatedAt(next)
+          }),
         })
       }
       return persist({
         ...current,
-        catalog: [...live, { id: newId(), name: trimmed, categoryId, updatedAt: nowIso() }],
+        catalog: [
+          ...live,
+          {
+            id: newId(),
+            name: trimmed,
+            categoryId,
+            ...(nextUnit ? { unit: nextUnit } : {}),
+            updatedAt: nowIso(),
+          },
+        ],
       })
     })
     return true
@@ -1454,9 +1473,9 @@ export function useAppState() {
   }, [])
 
   const importCatalogRows = useCallback((
-    rows: { name: string; category: string }[],
+    rows: { name: string; category: string; unit?: string }[],
   ) => {
-    let summary = { addedItems: 0, skippedItems: 0, addedCategories: 0 }
+    let summary = { addedItems: 0, skippedItems: 0, addedCategories: 0, updatedUnits: 0 }
     setData((current) => {
       const imported = applyCatalogImport(
         current.catalog ?? [],
@@ -1468,8 +1487,15 @@ export function useAppState() {
         addedItems: imported.addedItems,
         skippedItems: imported.skippedItems,
         addedCategories: imported.addedCategories,
+        updatedUnits: imported.updatedUnits,
       }
-      if (imported.addedItems === 0 && imported.addedCategories === 0) return current
+      if (
+        imported.addedItems === 0 &&
+        imported.addedCategories === 0 &&
+        imported.updatedUnits === 0
+      ) {
+        return current
+      }
       return persist({
         ...current,
         catalog: imported.catalog,

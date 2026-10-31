@@ -23,8 +23,12 @@ export function downloadCatalogXlsx(
   categories: Category[],
 ): Promise<void> {
   const rows = [
-    ['Товар', 'Категория'],
-    ...catalogExportRows(catalog, categories).map((row) => [row.name, row.category]),
+    ['Товар', 'Категория', 'Ед. измерения'],
+    ...catalogExportRows(catalog, categories).map((row) => [
+      row.name,
+      row.category,
+      row.unit ?? '',
+    ]),
   ]
   return loadXlsxTable().then(({ xlsxBlob }) => {
     const blob = xlsxBlob(rows)
@@ -58,7 +62,8 @@ export function rowsToCatalogImport(rows: string[][]): CatalogImportRow[] {
     .map((row) => {
       const a = (row[0] ?? '').trim()
       const b = (row[1] ?? '').trim()
-      return productFirst ? { name: a, category: b } : { name: b, category: a }
+      const unit = (row[2] ?? '').trim()
+      return productFirst ? { name: a, category: b, unit } : { name: b, category: a, unit }
     })
     .filter((row) => row.name || row.category)
 }
@@ -71,14 +76,20 @@ export async function readCatalogXlsx(file: File): Promise<CatalogImportRow[]> {
 
 export function importSummaryText(summary: Pick<
   CatalogImportSummary,
-  'addedItems' | 'skippedItems' | 'addedCategories'
+  'addedItems' | 'skippedItems' | 'addedCategories' | 'updatedUnits'
 >): string {
-  if (summary.addedItems === 0 && summary.addedCategories === 0 && summary.skippedItems === 0) {
+  if (
+    summary.addedItems === 0 &&
+    summary.addedCategories === 0 &&
+    summary.skippedItems === 0 &&
+    summary.updatedUnits === 0
+  ) {
     return 'В файле нет строк с товарами.'
   }
   const parts = [
     `Добавлено товаров: ${summary.addedItems}.`,
     `Новых категорий: ${summary.addedCategories}.`,
+    ...(summary.updatedUnits > 0 ? [`Проставлено единиц: ${summary.updatedUnits}.`] : []),
     `Пропущено (уже есть): ${summary.skippedItems}.`,
   ]
   return parts.join(' ')
