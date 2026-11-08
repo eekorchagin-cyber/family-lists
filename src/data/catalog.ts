@@ -110,14 +110,21 @@ export function groupCatalog(
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
     .flatMap((category) => {
       const items = groups.get(category.id)
-      return items && items.length > 0 ? [{ category, items }] : []
+      return items && items.length > 0 ? [{ category, items: sortCatalog(items) }] : []
     })
-  if (unknown.length > 0) ordered.push({ category: null, items: unknown })
+  if (unknown.length > 0) ordered.push({ category: null, items: sortCatalog(unknown) })
   return ordered
 }
 
 export function sortCatalog(catalog: CatalogEntry[]): CatalogEntry[] {
-  return [...catalog].sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  return [...catalog].sort((a, b) => {
+    if (Boolean(a.favorite) !== Boolean(b.favorite)) return a.favorite ? -1 : 1
+    return a.name.localeCompare(b.name, 'ru')
+  })
+}
+
+export function isCatalogFavorite(catalog: CatalogEntry[], name: string): boolean {
+  return Boolean(findCatalogEntry(catalog, name)?.favorite)
 }
 
 export function findCatalogEntry(

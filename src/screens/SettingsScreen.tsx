@@ -5,7 +5,7 @@ import { CategoryMark } from '../components/CategoryMark'
 import { CategoryStyleDialog } from '../components/CategoryStyleDialog'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Header } from '../components/Header'
-import { BackIcon } from '../components/NavIcons'
+import { BackIcon, StarIcon } from '../components/NavIcons'
 import { MyTemplatesPanel } from '../components/MyTemplatesPanel'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { SyncPanel } from '../components/SyncPanel'
@@ -105,6 +105,7 @@ type SettingsScreenProps = {
   onDeleteCategory: (categoryId: string) => void
   onSaveCatalog: (name: string, categoryId: string, entryId?: string, unit?: string) => boolean
   onDeleteCatalog: (entryId: string) => void
+  onToggleCatalogFavorite: (name: string, categoryId?: string) => void
   onImportCatalog: (rows: { name: string; category: string }[]) => {
     addedItems: number
     skippedItems: number
@@ -173,6 +174,7 @@ export function SettingsScreen({
   onDeleteCategory,
   onSaveCatalog,
   onDeleteCatalog,
+  onToggleCatalogFavorite,
   onImportCatalog,
   sync,
   people,
@@ -528,6 +530,12 @@ export function SettingsScreen({
                 >
                   Тёмная
                 </ChoiceButton>
+                <ChoiceButton
+                  active={settings.theme === 'system'}
+                  onClick={() => onTheme('system')}
+                >
+                  Как в системе
+                </ChoiceButton>
               </div>
             </section>
 
@@ -739,6 +747,7 @@ export function SettingsScreen({
                             category={category ?? undefined}
                             stores={stores}
                             onEdit={() => setEditing(entry)}
+                            onFavorite={() => onToggleCatalogFavorite(entry.name, entry.categoryId)}
                             onDelete={() => onDeleteCatalog(entry.id)}
                           />
                         ))}
@@ -765,6 +774,7 @@ export function SettingsScreen({
                       }
                       stores={stores}
                       onEdit={() => setEditing(entry)}
+                      onFavorite={() => onToggleCatalogFavorite(entry.name, entry.categoryId)}
                       onDelete={() => onDeleteCatalog(entry.id)}
                     />
                   )
@@ -929,12 +939,14 @@ function CatalogRow({
   category,
   stores,
   onEdit,
+  onFavorite,
   onDelete,
 }: {
   entry: CatalogEntry
   category?: Category
   stores: Store[]
   onEdit: () => void
+  onFavorite: () => void
   onDelete: () => void
 }) {
   const ownerStore = category?.storeId
@@ -964,6 +976,19 @@ function CatalogRow({
             ) : null}
           </span>
         ) : null}
+      </button>
+      <button
+        type="button"
+        className={entry.favorite ? 'icon-button icon-button--accent' : 'icon-button'}
+        aria-label={
+          entry.favorite
+            ? `Убрать звезду у ${entry.name}`
+            : `Поставить звезду ${entry.name}`
+        }
+        aria-pressed={Boolean(entry.favorite)}
+        onClick={onFavorite}
+      >
+        <StarIcon filled={Boolean(entry.favorite)} />
       </button>
       <button
         type="button"

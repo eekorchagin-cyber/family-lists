@@ -47,6 +47,7 @@ function App() {
     deleteGlobalCategory,
     saveCatalogEntry,
     deleteCatalogEntry,
+    toggleCatalogFavorite,
     importCatalogRows,
     addCategory,
     enableCategoriesInStore,
@@ -136,7 +137,17 @@ function App() {
     const names = new Set<string>()
     for (const item of data.items) names.add(item.name)
     for (const entry of data.catalog ?? []) names.add(entry.name)
-    return [...names].sort((a, b) => a.localeCompare(b, 'ru'))
+    const favorites = new Set(
+      (data.catalog ?? [])
+        .filter((entry) => entry.favorite)
+        .map((entry) => entry.name.trim().toLowerCase()),
+    )
+    return [...names].sort((a, b) => {
+      const fa = favorites.has(a.trim().toLowerCase())
+      const fb = favorites.has(b.trim().toLowerCase())
+      if (fa !== fb) return fa ? -1 : 1
+      return a.localeCompare(b, 'ru')
+    })
   }, [data.catalog, data.items])
 
   const syncEnabled = Boolean(sync.configured && sync.session && !sync.session.frozen)
@@ -306,6 +317,7 @@ function App() {
           onDeleteCategory={deleteGlobalCategory}
           onSaveCatalog={saveCatalogEntry}
           onDeleteCatalog={deleteCatalogEntry}
+          onToggleCatalogFavorite={toggleCatalogFavorite}
           onImportCatalog={importCatalogRows}
           sync={{
             configured: sync.configured,
@@ -477,6 +489,7 @@ function App() {
           }
           onUpdateItem={updateItem}
           onClearBought={() => clearBought(store.id)}
+          onToggleFavorite={toggleCatalogFavorite}
           completedEmpty={clearedStoreIds.includes(store.id)}
           onSaveTemplate={(name, snapshot, visibility, target) =>
             saveTemplate(store.id, name, snapshot, visibility, target)

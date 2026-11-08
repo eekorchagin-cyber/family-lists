@@ -355,7 +355,11 @@ export function mergePulledData(
       catalog.set(entry.id, entry)
       changed = true
     } else if ((entry.updatedAt ?? '') > (current.updatedAt ?? '')) {
-      catalog.set(entry.id, entry)
+      // Звезда только на телефоне — при загрузке из облака не сбрасываем.
+      catalog.set(
+        entry.id,
+        current.favorite ? { ...entry, favorite: true } : entry,
+      )
       changed = true
     }
   }

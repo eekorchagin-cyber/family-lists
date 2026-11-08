@@ -10,7 +10,15 @@ import { LoyaltyCardSheet } from '../components/LoyaltyCardView'
 import { NameDialog } from '../components/NameDialog'
 import { NewCategoryDialog } from '../components/NewCategoryDialog'
 import { QtyRow } from '../components/QtyRow'
-import { BackIcon, CardIcon, ClearBoughtIcon, SettingsIcon, TransferIcon } from '../components/NavIcons'
+import {
+  BackIcon,
+  CardIcon,
+  ClearBoughtIcon,
+  SettingsIcon,
+  StarIcon,
+  TransferIcon,
+} from '../components/NavIcons'
+import { isCatalogFavorite } from '../data/catalog'
 import { ImportListDialog, type ImportAction } from '../components/ImportListDialog'
 import { TransferDialog } from '../components/TransferDialog'
 import { categoryName, isLocalToStore } from '../data/categories'
@@ -88,6 +96,7 @@ type StoreScreenProps = {
   ) => void
   onMarkItemsBought?: (itemIds: string[]) => void
   onImportLines?: (actions: ImportAction[]) => void
+  onToggleFavorite?: (name: string, categoryId?: string) => void
 }
 
 export function StoreScreen({
@@ -107,6 +116,7 @@ export function StoreScreen({
   onStartAdd,
   onUpdateItem,
   onClearBought,
+  onToggleFavorite,
   completedEmpty = false,
   onSaveTemplate,
   syncEnabled = false,
@@ -481,6 +491,11 @@ export function StoreScreen({
                     setQuery('')
                   }}
                 >
+                  {isCatalogFavorite(catalog, name) ? (
+                    <span className="suggestion-star" aria-hidden="true">
+                      <StarIcon filled />
+                    </span>
+                  ) : null}
                   {name}
                 </button>
               </li>
@@ -602,9 +617,35 @@ export function StoreScreen({
               onClose={closeEdit}
               right={<DoneButton onClick={closeEdit} disabled={!editName.trim()} />}
             />
-            <label className="field-label" htmlFor="edit-item-name">
-              Название
-            </label>
+            <div className="product-head">
+              <label className="field-label" htmlFor="edit-item-name" style={{ margin: 0, flex: 1 }}>
+                Название
+              </label>
+              {onToggleFavorite ? (
+                <button
+                  type="button"
+                  className={
+                    isCatalogFavorite(catalog, editName)
+                      ? 'icon-button icon-button--accent'
+                      : 'icon-button'
+                  }
+                  aria-label={
+                    isCatalogFavorite(catalog, editName)
+                      ? 'Убрать звезду'
+                      : 'Поставить звезду'
+                  }
+                  aria-pressed={isCatalogFavorite(catalog, editName)}
+                  onClick={() =>
+                    onToggleFavorite(
+                      editName.trim() || editItem.name,
+                      editItem.categoryId,
+                    )
+                  }
+                >
+                  <StarIcon filled={isCatalogFavorite(catalog, editName)} />
+                </button>
+              ) : null}
+            </div>
             <input
               id="edit-item-name"
               className="input"

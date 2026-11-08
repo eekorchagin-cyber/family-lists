@@ -200,7 +200,8 @@ function normalizeSettings(value: unknown): Settings {
     ? [...new Set(value.badgeExcludedStoreIds.filter((id): id is string => typeof id === 'string' && id.trim() !== ''))]
     : []
   return {
-    theme: value.theme === 'dark' ? 'dark' : 'light',
+    theme:
+      value.theme === 'dark' || value.theme === 'system' ? value.theme : 'light',
     fontSize:
       value.fontSize === 's' || value.fontSize === 'l' ? value.fontSize : 'm',
     ...(value.iconStyle === 'contour' || value.iconStyle === 'color' ? { iconStyle: value.iconStyle } : {}),
@@ -253,6 +254,7 @@ function normalizeCatalog(
         name: entry.name.trim(),
         categoryId: entry.categoryId,
         ...(unit ? { unit } : {}),
+        ...(entry.favorite ? { favorite: true } : {}),
         ...(entry.updatedAt ? { updatedAt: entry.updatedAt } : {}),
       })
     }
@@ -517,8 +519,29 @@ export function saveClearedAt(storeId: string, at: string): void {
   localStorage.setItem(CLEARED_AT_KEY, JSON.stringify(next))
 }
 
+export function resolvedTheme(theme: Settings['theme']): 'light' | 'dark' {
+  if (theme === 'system') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  return theme
+}
+
+let systemThemeListener: (() => void) | null = null
+
 export function applyAppearance(settings: Settings): void {
   const root = document.documentElement
-  root.dataset.theme = settings.theme
+  root.dataset.theme = resolvedTheme(settings.theme)
   root.dataset.font = settings.fontSize
+
+  const media = window.matchMedia('(prefers-color-scheme: dark)')
+  if (systemThemeListener) {
+    media.removeEventListener('change', systemThemeListener)
+    systemThemeListener = null
+  }
+  if (settings.theme === 'system') {
+    systemThemeListener = () => {
+      root.dataset.theme = resolvedTheme('system')
+    }
+    media.addEventListener('change', systemThemeListener)
+  }
 }

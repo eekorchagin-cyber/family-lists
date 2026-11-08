@@ -12,6 +12,7 @@ import {
 } from '../data/categories'
 import {
   applyCatalogImport,
+  findCatalogEntry,
   mergeCatalogFromItems,
   rememberStoreCategory,
   upsertCatalog,
@@ -1472,6 +1473,52 @@ export function useAppState() {
     })
   }, [])
 
+  /** Звезда только на этом телефоне — в облако не отправляем. */
+  const toggleCatalogFavorite = useCallback((name: string, categoryId?: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setData((current) => {
+      const catalog = current.catalog ?? []
+      const existing = findCatalogEntry(catalog, trimmed)
+      if (existing) {
+        return persist(
+          {
+            ...current,
+            catalog: catalog.map((entry) => {
+              if (entry.id !== existing.id) return entry
+              if (!entry.favorite) return { ...entry, favorite: true }
+              const { favorite: _favorite, ...rest } = entry
+              return rest
+            }),
+          },
+          'local',
+        )
+      }
+      const fallback =
+        (categoryId && current.categories.some((category) => category.id === categoryId)
+          ? categoryId
+          : undefined) ??
+        current.categories.find((category) => !category.storeId)?.id
+      if (!fallback) return current
+      return persist(
+        {
+          ...current,
+          catalog: [
+            ...catalog,
+            {
+              id: newId(),
+              name: trimmed,
+              categoryId: fallback,
+              favorite: true,
+              updatedAt: nowIso(),
+            },
+          ],
+        },
+        'local',
+      )
+    })
+  }, [])
+
   const importCatalogRows = useCallback((
     rows: { name: string; category: string; unit?: string }[],
   ) => {
@@ -2013,6 +2060,7 @@ export function useAppState() {
     deleteGlobalCategory,
     saveCatalogEntry,
     deleteCatalogEntry,
+    toggleCatalogFavorite,
     importCatalogRows,
     renameCategory,
     setCategoryScope,

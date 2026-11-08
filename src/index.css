@@ -490,6 +490,9 @@ ul {
 }
 
 .suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   min-height: 43px;
   padding: 6px 14px;
@@ -1713,6 +1716,17 @@ button.template-pick-name {
 .catalog-unit {
   color: var(--muted);
   font-size: 0.85em;
+}
+
+.suggestion-star {
+  display: inline-flex;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.suggestion-star svg {
+  width: 18px;
+  height: 18px;
 }
 
 .catalog-row {

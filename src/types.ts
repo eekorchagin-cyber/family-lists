@@ -1,4 +1,4 @@
-export type Theme = 'light' | 'dark'
+export type Theme = 'light' | 'dark' | 'system'
 export type FontSize = 's' | 'm' | 'l'
 export type IconStyle = 'contour' | 'color'
 
@@ -105,6 +105,8 @@ export type CatalogEntry = {
   categoryId: string
   /** Единица по умолчанию для товара: бут, кг, уп… */
   unit?: string
+  /** Понравившийся товар — звезда; на этом телефоне, в подсказках выше. */
+  favorite?: boolean
   updatedAt?: string
 }
 

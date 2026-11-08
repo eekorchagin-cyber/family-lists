@@ -72,6 +72,18 @@ export function HelpIcon() {
   )
 }
 
+/** Звезда «понравившийся товар» */
+export function StarIcon({ filled = false }: { filled?: boolean }) {
+  return (
+    <svg {...icon}>
+      <path
+        d="M12 3.6 14.5 9.1l6 .5-4.6 4 1.4 5.8L12 16.6 6.7 19.4l1.4-5.8-4.6-4 6-.5Z"
+        fill={filled ? 'currentColor' : 'none'}
+      />
+    </svg>
+  )
+}
+
 /** Режим «только списки с некупленными» на главном экране */
 export function EyeIcon() {
   return (
