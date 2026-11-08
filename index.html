@@ -51,7 +51,15 @@
       try {
         const data = JSON.parse(localStorage.getItem('pokupki-data') || 'null')
         if (data && data.settings && data.settings.theme) {
-          document.documentElement.dataset.theme = data.settings.theme
+          var theme = data.settings.theme
+          if (theme === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+          } else if (theme !== 'dark') {
+            theme = 'light'
+          }
+          document.documentElement.dataset.theme = theme
         }
         if (data && data.settings && data.settings.fontSize) {
           document.documentElement.dataset.font = data.settings.fontSize
@@ -107,8 +115,8 @@
         display: block;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-d0ygxcP-.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-5WlqwQRD.css">
+    <script type="module" crossorigin src="./assets/index-CO7Ey9ZS.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-C_wCysWH.css">
   </head>
   <body>
     <div id="root"></div>
